@@ -5,7 +5,7 @@ Repository for User and RefreshToken database operations.
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.user import RefreshToken, User
@@ -91,6 +91,32 @@ class UserRepository:
         """
         await self.db.delete(user)
         await self.db.flush()
+
+    async def get_all(self, skip: int = 0, limit: int = 100) -> list[User]:
+        """
+        Get all users with pagination.
+
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+
+        Returns:
+            List of users
+        """
+        result = await self.db.execute(
+            select(User).offset(skip).limit(limit).order_by(User.created.desc())
+        )
+        return list(result.scalars().all())
+
+    async def count(self) -> int:
+        """
+        Count total users.
+
+        Returns:
+            Total number of users
+        """
+        result = await self.db.execute(select(func.count(User.id)))
+        return result.scalar_one()
 
 
 class RefreshTokenRepository:
