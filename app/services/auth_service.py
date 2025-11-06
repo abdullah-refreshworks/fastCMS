@@ -24,7 +24,12 @@ from app.core.security import (
     verify_token_type,
 )
 from app.db.models.user import RefreshToken, User
+from app.db.models.verification import PasswordResetToken, VerificationToken
 from app.db.repositories.user import RefreshTokenRepository, UserRepository
+from app.db.repositories.verification import (
+    PasswordResetTokenRepository,
+    VerificationTokenRepository,
+)
 from app.schemas.auth import (
     AuthResponse,
     PasswordChange,
@@ -34,6 +39,7 @@ from app.schemas.auth import (
     UserResponse,
     UserUpdate,
 )
+from app.services.email_service import EmailService
 
 logger = get_logger(__name__)
 
@@ -51,6 +57,8 @@ class AuthService:
         self.db = db
         self.user_repo = UserRepository(db)
         self.token_repo = RefreshTokenRepository(db)
+        self.verification_repo = VerificationTokenRepository(db)
+        self.reset_repo = PasswordResetTokenRepository(db)
 
     async def register(
         self,
@@ -100,8 +108,9 @@ class AuthService:
         # Generate tokens
         tokens = await self._create_tokens(user, user_agent, ip_address)
 
-        # TODO: Send verification email
-        # await self._send_verification_email(user)
+        # Send verification email
+        if settings.SMTP_ENABLED:
+            await self._send_verification_email(user)
 
         return AuthResponse(
             user=self._to_user_response(user),
@@ -392,6 +401,165 @@ class AuthService:
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
 
+    async def verify_email(self, token: str) -> None:
+        """
+        Verify user email with token.
+
+        Args:
+            token: Verification token
+
+        Raises:
+            BadRequestException: If token is invalid or expired
+        """
+        token_record = await self.verification_repo.get_by_token(token)
+
+        if not token_record:
+            raise BadRequestException("Invalid verification token")
+
+        if not await self.verification_repo.is_valid(token_record):
+            raise BadRequestException("Verification token expired or already used")
+
+        # Get user
+        user = await self.user_repo.get_by_id(token_record.user_id)
+        if not user:
+            raise BadRequestException("User not found")
+
+        # Mark user as verified
+        user.verified = True
+        await self.user_repo.update(user)
+
+        # Mark token as used
+        await self.verification_repo.mark_used(token_record)
+        await self.db.commit()
+
+        logger.info(f"Email verified for user: {user.email}")
+
+    async def resend_verification(self, user_id: str) -> None:
+        """
+        Resend verification email to user.
+
+        Args:
+            user_id: User ID
+
+        Raises:
+            BadRequestException: If user already verified or SMTP not enabled
+        """
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise BadRequestException("User not found")
+
+        if user.verified:
+            raise BadRequestException("Email already verified")
+
+        if not settings.SMTP_ENABLED:
+            raise BadRequestException("Email service not configured")
+
+        await self._send_verification_email(user)
+        logger.info(f"Verification email resent to: {user.email}")
+
+    async def request_password_reset(self, email: str) -> None:
+        """
+        Request password reset for user.
+
+        Args:
+            email: User email address
+
+        Note:
+            Always returns success to prevent email enumeration
+        """
+        user = await self.user_repo.get_by_email(email)
+
+        # Don't reveal if email exists (prevent enumeration)
+        if not user or not settings.SMTP_ENABLED:
+            logger.info(f"Password reset requested for non-existent or unconfigured email: {email}")
+            return
+
+        # Generate reset token
+        token = EmailService.generate_token()
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token=token,
+            expires_at=expires_at.isoformat(),
+        )
+
+        await self.reset_repo.create(reset_token)
+        await self.db.commit()
+
+        # Send reset email
+        await EmailService.send_password_reset_email(
+            user.email, token, settings.BASE_URL
+        )
+
+        logger.info(f"Password reset email sent to: {user.email}")
+
+    async def reset_password(self, token: str, new_password: str) -> None:
+        """
+        Reset user password with token.
+
+        Args:
+            token: Password reset token
+            new_password: New password
+
+        Raises:
+            BadRequestException: If token is invalid or expired
+        """
+        token_record = await self.reset_repo.get_by_token(token)
+
+        if not token_record:
+            raise BadRequestException("Invalid reset token")
+
+        if not await self.reset_repo.is_valid(token_record):
+            raise BadRequestException("Reset token expired or already used")
+
+        # Get user
+        user = await self.user_repo.get_by_id(token_record.user_id)
+        if not user:
+            raise BadRequestException("User not found")
+
+        # Update password
+        user.password_hash = hash_password(new_password)
+
+        # Generate new token key to invalidate all sessions
+        user.token_key = secrets.token_hex(32)
+
+        await self.user_repo.update(user)
+
+        # Mark token as used
+        await self.reset_repo.mark_used(token_record)
+
+        # Revoke all refresh tokens
+        await self.token_repo.revoke_all_for_user(user.id)
+        await self.db.commit()
+
+        logger.info(f"Password reset for user: {user.email}")
+
+    async def _send_verification_email(self, user: User) -> None:
+        """
+        Send verification email to user.
+
+        Args:
+            user: User instance
+        """
+        # Generate verification token
+        token = EmailService.generate_token()
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+        verification_token = VerificationToken(
+            user_id=user.id,
+            token=token,
+            expires_at=expires_at.isoformat(),
+        )
+
+        await self.verification_repo.create(verification_token)
+        await self.db.commit()
+
+        # Send email
+        await EmailService.send_verification_email(
+            user.email, token, settings.BASE_URL
+        )
+
     def _to_user_response(self, user: User) -> UserResponse:
         """
         Convert user model to response schema.
@@ -408,6 +576,7 @@ class AuthService:
             verified=user.verified,
             name=user.name,
             avatar=user.avatar,
+            role=user.role,
             created=user.created,
             updated=user.updated,
         )

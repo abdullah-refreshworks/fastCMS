@@ -7,9 +7,15 @@ Self-hosted Backend-as-a-Service built with FastAPI. Create dynamic collections,
 ### Core Features
 - [x] Dynamic Collections - Create database tables via API
 - [x] Authentication - JWT-based auth with register/login
+- [x] Email Verification - Secure email verification flow
+- [x] Password Reset - Token-based password recovery
 - [x] CRUD API - Create, read, update, delete records
+- [x] Advanced Filtering - PocketBase-like query syntax
+- [x] Relation Expansion - Fetch related records automatically
 - [x] File Storage - Upload and serve files
 - [x] Real-time Updates - Server-Sent Events
+- [x] Webhooks - HTTP callbacks for record events
+- [x] Rate Limiting - Per-IP request limiting
 - [x] Access Control - Permission rules per collection with role-based access
 - [x] Admin Dashboard - Complete web UI for management
 
@@ -124,6 +130,85 @@ curl -X POST "http://localhost:8000/api/v1/collections" \
   }'
 ```
 
+### Advanced Filtering
+Query records using PocketBase-like filter syntax:
+
+```bash
+# Greater than or equal
+curl "http://localhost:8000/api/v1/users/records?filter=age>=18"
+
+# Multiple conditions with AND
+curl "http://localhost:8000/api/v1/users/records?filter=age>=18&&status=active"
+
+# Text search (like)
+curl "http://localhost:8000/api/v1/users/records?filter=email~gmail.com"
+
+# Sorting (prefix with - for descending)
+curl "http://localhost:8000/api/v1/posts/records?sort=-created"
+```
+
+Supported operators:
+- `=` - Equal
+- `!=` - Not equal
+- `>` - Greater than
+- `<` - Less than
+- `>=` - Greater than or equal
+- `<=` - Less than or equal
+- `~` - Contains (like)
+- `&&` - AND condition
+
+### Relation Expansion
+Automatically fetch related records:
+
+```bash
+# Expand single relation
+curl "http://localhost:8000/api/v1/posts/records/{id}?expand=author"
+
+# Expand multiple relations
+curl "http://localhost:8000/api/v1/posts/records/{id}?expand=author,category"
+```
+
+### Webhooks
+Subscribe to record events:
+
+```bash
+# Create webhook
+curl -X POST "http://localhost:8000/api/v1/webhooks" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-server.com/webhook",
+    "collection_name": "posts",
+    "events": ["record.created", "record.updated", "record.deleted"],
+    "secret": "your_webhook_secret"
+  }'
+```
+
+Webhook payload includes HMAC signature (X-Webhook-Signature header) for verification.
+
+### Email Verification & Password Reset
+
+```bash
+# Request password reset
+curl -X POST "http://localhost:8000/api/v1/auth/request-password-reset" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com"}'
+
+# Verify email with token
+curl -X POST "http://localhost:8000/api/v1/auth/verify-email" \
+  -H "Content-Type: application/json" \
+  -d '{"token": "TOKEN_FROM_EMAIL"}'
+
+# Reset password with token
+curl -X POST "http://localhost:8000/api/v1/auth/reset-password" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "TOKEN_FROM_EMAIL",
+    "password": "NewPass123!",
+    "password_confirm": "NewPass123!"
+  }'
+```
+
 ### Access Control Rules
 Define fine-grained permissions per collection:
 - `list_rule` - Who can list records (empty = public)
@@ -210,10 +295,13 @@ pytest --cov=app --cov-report=html
 ### Security Features
 - JWT-based authentication with access and refresh tokens
 - Password hashing with bcrypt
+- Email verification for new accounts
+- Secure password reset with time-limited tokens
 - Role-based access control (user, admin)
 - Fine-grained permission rules per collection
+- Webhook signature verification with HMAC
 - CORS protection
-- Rate limiting ready (configured in .env)
+- Rate limiting (100 req/min, 1000 req/hour per IP)
 
 ### Performance Optimizations
 - Async/await throughout for non-blocking I/O
@@ -236,7 +324,13 @@ pytest --cov=app --cov-report=html
 ### Completed ✅
 - [x] Core CMS functionality
 - [x] Authentication & authorization
+- [x] Email verification
+- [x] Password reset functionality
 - [x] Access control system
+- [x] Advanced querying & filtering
+- [x] Relation expansion
+- [x] Webhooks system
+- [x] API rate limiting
 - [x] Admin dashboard
 - [x] File storage
 - [x] Real-time updates
@@ -245,13 +339,11 @@ pytest --cov=app --cov-report=html
 ### Next Steps 🚀
 - [ ] AI integration (LangChain/LangGraph)
 - [ ] Semantic search with vector database
-- [ ] Email verification
-- [ ] Password reset functionality
 - [ ] OAuth2 providers (Google, GitHub, etc.)
-- [ ] Advanced querying & filtering
-- [ ] Webhooks
-- [ ] API rate limiting enforcement
 - [ ] Multi-tenancy support
+- [ ] S3-compatible storage
+- [ ] Database backups
+- [ ] Audit logging
 
 ## Contributing
 

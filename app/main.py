@@ -68,6 +68,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Add rate limiting middleware
+if settings.RATE_LIMIT_ENABLED:
+    from app.core.rate_limit import RateLimitMiddleware
+
+    app.add_middleware(
+        RateLimitMiddleware,
+        requests_per_minute=settings.RATE_LIMIT_PER_MINUTE,
+        requests_per_hour=settings.RATE_LIMIT_PER_HOUR,
+    )
+
 
 # Exception handlers
 @app.exception_handler(FastCMSException)
@@ -168,13 +178,14 @@ async def root() -> dict[str, str]:
 
 # Include API routers
 from app.admin import routes as admin_routes
-from app.api.v1 import admin, auth, collections, files, realtime, records
+from app.api.v1 import admin, auth, collections, files, realtime, records, webhooks
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
 app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
+app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(admin_routes.router, prefix="/admin", tags=["Admin UI"])
 

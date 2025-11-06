@@ -5,6 +5,10 @@ from typing import Dict, Set, Optional, Any
 from datetime import datetime
 from enum import Enum
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class EventType(str, Enum):
     """Types of events that can be broadcast."""
@@ -95,7 +99,7 @@ class EventManager:
 
     async def broadcast(self, event: Event):
         """
-        Broadcast an event to all relevant subscribers.
+        Broadcast an event to all relevant subscribers and trigger webhooks.
 
         Args:
             event: Event to broadcast
@@ -117,11 +121,32 @@ class EventManager:
                 # Remove dead subscriber
                 self._global_subscribers.discard(queue)
 
+        # Trigger webhooks asynchronously (fire and forget)
+        asyncio.create_task(self._trigger_webhooks(event))
+
     def get_subscriber_count(self, collection_name: Optional[str] = None) -> int:
         """Get number of active subscribers."""
         if collection_name:
             return len(self._subscribers.get(collection_name, set()))
         return len(self._global_subscribers)
+
+    async def _trigger_webhooks(self, event: Event):
+        """Trigger webhook deliveries for an event (internal)."""
+        try:
+            from app.db.session import async_session_maker
+            from app.services.webhook_service import WebhookService
+
+            # Create a new database session for webhook delivery
+            async with async_session_maker() as db:
+                service = WebhookService(db)
+                await service.deliver_event(
+                    collection_name=event.collection_name,
+                    event_type=event.event_type,
+                    record_id=event.record_id or "",
+                    data=event.data,
+                )
+        except Exception as e:
+            logger.error(f"Error triggering webhooks: {str(e)}")
 
 
 # Global event manager instance
