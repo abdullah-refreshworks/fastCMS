@@ -21,7 +21,7 @@ Self-hosted Backend-as-a-Service built with FastAPI. Create dynamic collections,
 - [ ] Auto-Documentation
 - [ ] Smart Test Data Generation
 
-## Installation
+## Quick Start
 
 ```bash
 # Clone the repository
@@ -35,20 +35,22 @@ python -m venv .venv
 # Windows:
 .venv\Scripts\activate
 # Linux/Mac:
-# source .venv/bin/activate
+source .venv/bin/activate
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -e ".[dev]"  # Installs all dependencies including dev tools
+# Or use: pip install -r requirements.txt
 
 # Setup environment
 cp .env.example .env
 # Edit .env and set SECRET_KEY (generate: openssl rand -hex 32)
 
-# Run database migrations
+# Run database migrations (if using existing database)
 alembic upgrade head
 
 # Start the server
 python app/main.py
+# Or with uvicorn: uvicorn app.main:app --reload
 ```
 
 ### Access
@@ -71,15 +73,18 @@ python app/main.py
 ```
 fastCMS/
 ├── app/
-│   ├── api/v1/          # API endpoints
-│   ├── core/            # Configuration, security
-│   ├── db/              # Database models
+│   ├── admin/           # Admin dashboard (UI routes & templates)
+│   ├── api/v1/          # API endpoints (auth, collections, records, files, admin)
+│   ├── core/            # Configuration, security, access control
+│   ├── db/              # Database models & repositories
 │   ├── schemas/         # Pydantic models
 │   ├── services/        # Business logic
-│   └── main.py          # App entry
-├── migrations/          # Alembic migrations
-├── tests/               # Tests
-└── data/                # Database & files
+│   ├── utils/           # Utility functions
+│   └── main.py          # App entry point
+├── migrations/          # Alembic database migrations
+├── tests/               # Test suites (unit, integration, e2e)
+├── data/                # Database & uploaded files
+└── pyproject.toml       # Project dependencies & configuration
 ```
 
 ## API Examples
@@ -200,6 +205,58 @@ pytest --cov=app --cov-report=html
 - **Integration Tests**: Admin API endpoints, authentication flows
 - **E2E Tests**: Complete workflows including access control and admin operations
 
+## Architecture & Design
+
+### Security Features
+- JWT-based authentication with access and refresh tokens
+- Password hashing with bcrypt
+- Role-based access control (user, admin)
+- Fine-grained permission rules per collection
+- CORS protection
+- Rate limiting ready (configured in .env)
+
+### Performance Optimizations
+- Async/await throughout for non-blocking I/O
+- orjson for fast JSON serialization
+- SQLAlchemy 2.0 with async support
+- Connection pooling
+- Efficient database queries with pagination
+
+### Best Practices
+- Type hints throughout the codebase
+- Pydantic v2 for data validation
+- Clean architecture with separation of concerns
+- Repository pattern for data access
+- Service layer for business logic
+- Comprehensive error handling
+- Structured logging
+
+## Roadmap
+
+### Completed ✅
+- [x] Core CMS functionality
+- [x] Authentication & authorization
+- [x] Access control system
+- [x] Admin dashboard
+- [x] File storage
+- [x] Real-time updates
+- [x] Comprehensive test coverage
+
+### Next Steps 🚀
+- [ ] AI integration (LangChain/LangGraph)
+- [ ] Semantic search with vector database
+- [ ] Email verification
+- [ ] Password reset functionality
+- [ ] OAuth2 providers (Google, GitHub, etc.)
+- [ ] Advanced querying & filtering
+- [ ] Webhooks
+- [ ] API rate limiting enforcement
+- [ ] Multi-tenancy support
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
 ## License
 
-MIT License
+MIT License - see LICENSE file for details
