@@ -71,6 +71,7 @@ class UserResponse(BaseModel):
     verified: bool
     name: Optional[str]
     avatar: Optional[str]
+    role: str
     created: datetime
     updated: datetime
 

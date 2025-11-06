@@ -20,14 +20,19 @@ from app.core.exceptions import (
     BadRequestException,
 )
 from app.core.events import event_manager, Event, EventType
+from app.core.access_control import access_control, AccessContext
+from app.core.dependencies import UserContext
 
 
 class RecordService:
     """Service for managing records in dynamic collections."""
 
-    def __init__(self, db: AsyncSession, collection_name: str):
+    def __init__(
+        self, db: AsyncSession, collection_name: str, user_context: Optional[UserContext] = None
+    ):
         self.db = db
         self.collection_name = collection_name
+        self.user_context = user_context
         self.repo = RecordRepository(db, collection_name)
         self.collection_repo = CollectionRepository(db)
 
@@ -37,6 +42,10 @@ class RecordService:
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if not collection:
             raise NotFoundException(f"Collection '{self.collection_name}' not found")
+
+        # Check create permission
+        context = self._create_access_context()
+        access_control.check(collection.create_rule, context, "create")
 
         # Extract fields from schema
         fields = collection.schema.get("fields", [])
@@ -68,6 +77,13 @@ class RecordService:
         if not record:
             raise NotFoundException(f"Record '{record_id}' not found")
 
+        # Check view permission
+        collection = await self.collection_repo.get_by_name(self.collection_name)
+        if collection:
+            record_data = self._record_to_dict(record)
+            context = self._create_access_context(record_data)
+            access_control.check(collection.view_rule, context, "view")
+
         return self._to_response(record)
 
     async def list_records(
@@ -83,6 +99,10 @@ class RecordService:
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if not collection:
             raise NotFoundException(f"Collection '{self.collection_name}' not found")
+
+        # Check list permission
+        context = self._create_access_context()
+        access_control.check(collection.list_rule, context, "list")
 
         skip = (page - 1) * per_page
 
@@ -119,6 +139,11 @@ class RecordService:
         if not collection:
             raise NotFoundException(f"Collection '{self.collection_name}' not found")
 
+        # Check update permission
+        record_data = self._record_to_dict(existing)
+        context = self._create_access_context(record_data)
+        access_control.check(collection.update_rule, context, "update")
+
         # Extract fields from schema
         fields = collection.schema.get("fields", [])
         field_schemas = [FieldSchema(**field) for field in fields]
@@ -149,6 +174,13 @@ class RecordService:
         record = await self.repo.get_by_id(record_id)
         if not record:
             raise NotFoundException(f"Record '{record_id}' not found")
+
+        # Get collection and check delete permission
+        collection = await self.collection_repo.get_by_name(self.collection_name)
+        if collection:
+            record_data = self._record_to_dict(record)
+            context = self._create_access_context(record_data)
+            access_control.check(collection.delete_rule, context, "delete")
 
         # Delete record
         success = await self.repo.delete(record_id)
@@ -284,7 +316,16 @@ class RecordService:
 
     def _to_response(self, record) -> RecordResponse:
         """Convert record model to response schema."""
-        # Extract data fields (exclude system fields)
+        data = self._record_to_dict(record)
+        return RecordResponse(
+            id=record.id,
+            data=data,
+            created=record.created,
+            updated=record.updated,
+        )
+
+    def _record_to_dict(self, record) -> Dict[str, Any]:
+        """Extract record data as dictionary."""
         data = {}
         for key in dir(record):
             if not key.startswith("_") and key not in ["id", "created", "updated", "metadata", "registry"]:
@@ -292,10 +333,12 @@ class RecordService:
                 # Skip SQLAlchemy internal attributes
                 if not callable(value) and not key.startswith("_sa_"):
                     data[key] = value
+        return data
 
-        return RecordResponse(
-            id=record.id,
-            data=data,
-            created=record.created,
-            updated=record.updated,
+    def _create_access_context(self, record_data: Optional[Dict[str, Any]] = None) -> AccessContext:
+        """Create access context for permission evaluation."""
+        return AccessContext(
+            user_id=self.user_context.user_id if self.user_context else None,
+            user_role=self.user_context.role if self.user_context else "user",
+            record_data=record_data,
         )
