@@ -11,7 +11,7 @@ Self-hosted Backend-as-a-Service built with FastAPI. Create dynamic collections,
 - [x] File Storage - Upload and serve files
 - [x] Real-time Updates - Server-Sent Events
 - [x] Access Control - Permission rules per collection with role-based access
-- [ ] Admin Dashboard - Web UI for management
+- [x] Admin Dashboard - Complete web UI for management
 
 ### AI Features (Planned)
 - [ ] Natural Language API Interface
@@ -53,6 +53,7 @@ python app/main.py
 
 ### Access
 - API Documentation: http://localhost:8000/docs
+- Admin Dashboard: http://localhost:8000/admin/ (requires admin role)
 - Health Check: http://localhost:8000/health
 
 ## Tech Stack
@@ -132,6 +133,72 @@ Examples:
 - Owner only: `"@request.auth.id = @record.user_id"`
 - Admin only: `"@request.auth.role = 'admin'"`
 - Owner or Admin: `"@request.auth.id = @record.user_id || @request.auth.role = 'admin'"`
+
+## Admin Dashboard
+
+FastCMS includes a complete admin dashboard for managing your backend.
+
+### Access
+- URL: http://localhost:8000/admin/
+- Requires admin role (set `role` field to `"admin"` in users table)
+
+### Features
+- **Dashboard Overview**: System statistics and quick actions
+- **User Management**: View, promote/demote, and delete users
+- **Collection Management**: Browse collections, view schemas, and manage access rules
+- **Access Control**: View and manage permission rules per collection
+- **API Documentation**: Direct link to interactive API docs
+
+### Creating an Admin User
+
+First register a user, then update their role:
+```bash
+# 1. Register a user
+curl -X POST "http://localhost:8000/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@example.com",
+    "password": "SecureAdmin123!",
+    "password_confirm": "SecureAdmin123!",
+    "name": "Admin User"
+  }'
+
+# 2. Update role in database (requires database access)
+# SQLite:
+# sqlite3 data/fastcms.db "UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';"
+```
+
+### Admin API Endpoints
+- `GET /api/v1/admin/stats` - System statistics
+- `GET /api/v1/admin/users` - List all users
+- `PATCH /api/v1/admin/users/{id}/role` - Update user role
+- `DELETE /api/v1/admin/users/{id}` - Delete user
+- `GET /api/v1/admin/collections` - List all collections
+- `DELETE /api/v1/admin/collections/{id}` - Delete collection
+
+## Testing
+
+Run tests with pytest:
+```bash
+# Install dev dependencies
+pip install -r requirements.txt ".[dev]"
+
+# Run all tests
+pytest
+
+# Run specific test suites
+pytest tests/unit/          # Unit tests
+pytest tests/integration/   # Integration tests
+pytest tests/e2e/           # End-to-end tests
+
+# Run with coverage
+pytest --cov=app --cov-report=html
+```
+
+### Test Coverage
+- **Unit Tests**: Access control engine, field validation
+- **Integration Tests**: Admin API endpoints, authentication flows
+- **E2E Tests**: Complete workflows including access control and admin operations
 
 ## License
 
