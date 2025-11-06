@@ -12,7 +12,7 @@ from app.schemas.record import (
     RecordListResponse,
     RecordFilter,
 )
-from app.core.dependencies import require_auth, get_optional_user_id
+from app.core.dependencies import require_auth, get_optional_user, UserContext
 
 
 router = APIRouter()
@@ -28,10 +28,10 @@ async def create_record(
     collection_name: str = Path(..., description="Collection name"),
     data: RecordCreate = ...,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth),
 ):
     """Create a new record in the specified collection."""
-    service = RecordService(db, collection_name)
+    service = RecordService(db, collection_name, user_context)
     return await service.create_record(data)
 
 
@@ -47,10 +47,10 @@ async def list_records(
     sort: Optional[str] = Query(None, description="Field to sort by"),
     order: str = Query("asc", description="Sort order (asc or desc)"),
     db: AsyncSession = Depends(get_db),
-    user_id: Optional[str] = Depends(get_optional_user_id),
+    user_context: Optional[UserContext] = Depends(get_optional_user),
 ):
     """List all records in the specified collection with pagination."""
-    service = RecordService(db, collection_name)
+    service = RecordService(db, collection_name, user_context)
     return await service.list_records(
         page=page,
         per_page=per_page,
@@ -68,10 +68,10 @@ async def get_record(
     collection_name: str = Path(..., description="Collection name"),
     record_id: str = Path(..., description="Record ID"),
     db: AsyncSession = Depends(get_db),
-    user_id: Optional[str] = Depends(get_optional_user_id),
+    user_context: Optional[UserContext] = Depends(get_optional_user),
 ):
     """Get a specific record by ID."""
-    service = RecordService(db, collection_name)
+    service = RecordService(db, collection_name, user_context)
     return await service.get_record(record_id)
 
 
@@ -85,10 +85,10 @@ async def update_record(
     record_id: str = Path(..., description="Record ID"),
     data: RecordUpdate = ...,
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth),
 ):
     """Update a specific record."""
-    service = RecordService(db, collection_name)
+    service = RecordService(db, collection_name, user_context)
     return await service.update_record(record_id, data)
 
 
@@ -101,9 +101,9 @@ async def delete_record(
     collection_name: str = Path(..., description="Collection name"),
     record_id: str = Path(..., description="Record ID"),
     db: AsyncSession = Depends(get_db),
-    user_id: str = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth),
 ):
     """Delete a specific record."""
-    service = RecordService(db, collection_name)
+    service = RecordService(db, collection_name, user_context)
     await service.delete_record(record_id)
     return None

@@ -10,8 +10,8 @@ Self-hosted Backend-as-a-Service built with FastAPI. Create dynamic collections,
 - [x] CRUD API - Create, read, update, delete records
 - [x] File Storage - Upload and serve files
 - [x] Real-time Updates - Server-Sent Events
+- [x] Access Control - Permission rules per collection with role-based access
 - [ ] Admin Dashboard - Web UI for management
-- [ ] Access Control - Permission rules per collection
 
 ### AI Features (Planned)
 - [ ] Natural Language API Interface
@@ -109,9 +109,29 @@ curl -X POST "http://localhost:8000/api/v1/collections" \
       {"name": "title", "type": "text", "validation": {"required": true}},
       {"name": "content", "type": "editor"},
       {"name": "published", "type": "bool"}
-    ]
+    ],
+    "list_rule": "",
+    "view_rule": "",
+    "create_rule": "@request.auth.id != '\'''\''",
+    "update_rule": "@request.auth.id = @record.user_id || @request.auth.role = '\''admin'\''",
+    "delete_rule": "@request.auth.id = @record.user_id || @request.auth.role = '\''admin'\''"
   }'
 ```
+
+### Access Control Rules
+Define fine-grained permissions per collection:
+- `list_rule` - Who can list records (empty = public)
+- `view_rule` - Who can view a record (empty = public)
+- `create_rule` - Who can create records (`@request.auth.id != ''` = authenticated)
+- `update_rule` - Who can update records (`@request.auth.id = @record.user_id` = owner only)
+- `delete_rule` - Who can delete records (`@request.auth.role = 'admin'` = admin only)
+
+Examples:
+- Public: `""` or `null`
+- Authenticated only: `"@request.auth.id != ''"`
+- Owner only: `"@request.auth.id = @record.user_id"`
+- Admin only: `"@request.auth.role = 'admin'"`
+- Owner or Admin: `"@request.auth.id = @record.user_id || @request.auth.role = 'admin'"`
 
 ## License
 
