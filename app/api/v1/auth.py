@@ -11,7 +11,10 @@ from app.core.dependencies import require_auth
 from app.db.session import get_db
 from app.schemas.auth import (
     AuthResponse,
+    EmailVerification,
     PasswordChange,
+    PasswordReset,
+    PasswordResetRequest,
     RefreshTokenRequest,
     TokenResponse,
     UserLogin,
@@ -239,3 +242,87 @@ async def change_password(
     """
     service = AuthService(db)
     await service.change_password(user_id, data)
+
+
+@router.post(
+    "/verify-email",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Verify email",
+    description="Verify user email with token received via email.",
+)
+async def verify_email(
+    data: EmailVerification,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Verify user email.
+
+    Args:
+        data: Email verification data with token
+        db: Database session
+    """
+    service = AuthService(db)
+    await service.verify_email(data.token)
+
+
+@router.post(
+    "/resend-verification",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Resend verification email",
+    description="Resend verification email to authenticated user. Requires authentication.",
+)
+async def resend_verification(
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Resend verification email.
+
+    Args:
+        user_id: Authenticated user ID
+        db: Database session
+    """
+    service = AuthService(db)
+    await service.resend_verification(user_id)
+
+
+@router.post(
+    "/request-password-reset",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Request password reset",
+    description="Request a password reset email. Always returns success to prevent email enumeration.",
+)
+async def request_password_reset(
+    data: PasswordResetRequest,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Request password reset.
+
+    Args:
+        data: Password reset request with email
+        db: Database session
+    """
+    service = AuthService(db)
+    await service.request_password_reset(data.email)
+
+
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Reset password",
+    description="Reset password using token received via email.",
+)
+async def reset_password(
+    data: PasswordReset,
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Reset password with token.
+
+    Args:
+        data: Password reset data with token and new password
+        db: Database session
+    """
+    service = AuthService(db)
+    await service.reset_password(data.token, data.password)

@@ -71,8 +71,10 @@ class RecordService:
 
         return response
 
-    async def get_record(self, record_id: str) -> RecordResponse:
-        """Get a record by ID."""
+    async def get_record(
+        self, record_id: str, expand: Optional[List[str]] = None
+    ) -> RecordResponse:
+        """Get a record by ID with optional relation expansion."""
         record = await self.repo.get_by_id(record_id)
         if not record:
             raise NotFoundException(f"Record '{record_id}' not found")
@@ -84,7 +86,13 @@ class RecordService:
             context = self._create_access_context(record_data)
             access_control.check(collection.view_rule, context, "view")
 
-        return self._to_response(record)
+        response = self._to_response(record)
+
+        # Expand relations if requested
+        if expand and collection:
+            response = await self._expand_relations(response, collection, expand)
+
+        return response
 
     async def list_records(
         self,
@@ -93,8 +101,9 @@ class RecordService:
         filters: Optional[List[RecordFilter]] = None,
         sort: Optional[str] = None,
         order: str = "asc",
+        expand: Optional[List[str]] = None,
     ) -> RecordListResponse:
-        """List records with pagination, filtering, and sorting."""
+        """List records with pagination, filtering, sorting, and relation expansion."""
         # Validate collection exists
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if not collection:
@@ -117,6 +126,13 @@ class RecordService:
         total = await self.repo.count(filters=filters)
 
         items = [self._to_response(record) for record in records]
+
+        # Expand relations if requested
+        if expand:
+            items = [
+                await self._expand_relations(item, collection, expand) for item in items
+            ]
+
         total_pages = math.ceil(total / per_page) if total > 0 else 0
 
         return RecordListResponse(
@@ -334,6 +350,56 @@ class RecordService:
                 if not callable(value) and not key.startswith("_sa_"):
                     data[key] = value
         return data
+
+    async def _expand_relations(
+        self, response: RecordResponse, collection: Any, expand_fields: List[str]
+    ) -> RecordResponse:
+        """Expand relation fields in a record response."""
+        # Get relation fields from collection schema
+        fields = collection.schema.get("fields", [])
+        relation_fields = {
+            f["name"]: f for f in fields if f.get("type") == "relation"
+        }
+
+        # Expand requested fields
+        for field_name in expand_fields:
+            if field_name not in relation_fields:
+                continue
+
+            field_value = response.data.get(field_name)
+            if not field_value:
+                continue
+
+            field_config = relation_fields[field_name]
+            target_collection = field_config.get("validation", {}).get("collection_name")
+
+            if not target_collection:
+                continue
+
+            # Fetch related record(s)
+            try:
+                target_repo = RecordRepository(self.db, target_collection)
+
+                if isinstance(field_value, list):
+                    # Multiple relations
+                    expanded = []
+                    for record_id in field_value:
+                        related = await target_repo.get_by_id(record_id)
+                        if related:
+                            expanded.append(self._to_response(related).model_dump())
+                    response.data[field_name] = expanded
+                else:
+                    # Single relation
+                    related = await target_repo.get_by_id(field_value)
+                    if related:
+                        response.data[field_name] = self._to_response(
+                            related
+                        ).model_dump()
+            except Exception:
+                # If expansion fails, keep original value
+                pass
+
+        return response
 
     def _create_access_context(self, record_data: Optional[Dict[str, Any]] = None) -> AccessContext:
         """Create access context for permission evaluation."""
