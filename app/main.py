@@ -189,7 +189,9 @@ async def root() -> dict[str, str]:
 
 # Include API routers
 from app.admin import routes as admin_routes
-from app.api.v1 import admin, ai, auth, collections, files, oauth, realtime, records, webhooks
+from app.api.v1 import admin, auth, collections, files, oauth, realtime, records, webhooks
+# Temporarily disable AI until langchain dependencies are installed
+# from app.api.v1 import ai
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
@@ -198,7 +200,7 @@ app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
-app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
+# app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(admin_routes.router, prefix="/admin", tags=["Admin UI"])
 
