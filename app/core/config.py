@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
+    BASE_URL: str = "http://localhost:8000"
     DEBUG: bool = False
     ENVIRONMENT: Literal["development", "staging", "production"] = "development"
 
@@ -138,6 +139,11 @@ class Settings(BaseSettings):
     def database_is_sqlite(self) -> bool:
         """Check if using SQLite database."""
         return "sqlite" in self.DATABASE_URL.lower()
+
+    @property
+    def SMTP_ENABLED(self) -> bool:
+        """Check if SMTP is configured."""
+        return bool(self.SMTP_USER and self.SMTP_PASSWORD)
 
 
 # Create global settings instance

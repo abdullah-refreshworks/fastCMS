@@ -67,9 +67,15 @@ class User(BaseModel):
         default=None,
     )
 
+    role: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="user",
+    )
+
     def __repr__(self) -> str:
         """String representation."""
-        return f"<User(email={self.email}, verified={self.verified})>"
+        return f"<User(email={self.email}, role={self.role}, verified={self.verified})>"
 
 
 class RefreshToken(BaseModel):

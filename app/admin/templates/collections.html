@@ -1,44 +1,311 @@
-{% extends "base.html" %}
+{% extends "base.html" %} {% block title %}Collections{% endblock %} {% block
+content %}
+<div x-data="collectionsData()" x-init="loadCollections()">
+  <div class="px-4 sm:px-0">
+    <h1 class="text-3xl font-bold text-gray-900">Collections</h1>
+    <p class="mt-2 text-sm text-gray-700">
+      Manage database collections and schemas
+    </p>
+  </div>
 
-{% block title %}Collections - FastCMS Admin{% endblock %}
+  <!-- Collections Grid -->
+  <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <template x-for="collection in collections" :key="collection.id">
+      <div
+        class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow"
+      >
+        <div class="p-5">
+          <div class="flex items-center justify-between">
+            <div class="flex-1">
+              <h3
+                class="text-lg font-medium text-gray-900"
+                x-text="collection.name"
+              ></h3>
+              <p
+                class="mt-1 text-sm text-gray-500"
+                x-text="collection.type"
+              ></p>
+            </div>
+            <div>
+              <span
+                x-show="collection.system"
+                class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+              >
+                System
+              </span>
+            </div>
+          </div>
 
-{% block content %}
-<div class="page-header">
-    <h1>Collections</h1>
-    <a href="/admin/collections/new" class="btn btn-primary">Create Collection</a>
+          <div class="mt-4">
+            <dt class="text-sm font-medium text-gray-500">Fields</dt>
+            <dd
+              class="mt-1 text-2xl font-semibold text-gray-900"
+              x-text="collection.schema.length"
+            ></dd>
+          </div>
+
+          <!-- Access Rules Summary -->
+          <div class="mt-4 space-y-1">
+            <div class="flex items-center text-xs text-gray-600">
+              <i class="fas fa-list w-4 mr-2"></i>
+              <span>List: </span>
+              <span
+                class="ml-1 font-mono"
+                x-text="collection.list_rule || 'Public'"
+              ></span>
+            </div>
+            <div class="flex items-center text-xs text-gray-600">
+              <i class="fas fa-eye w-4 mr-2"></i>
+              <span>View: </span>
+              <span
+                class="ml-1 font-mono"
+                x-text="collection.view_rule || 'Public'"
+              ></span>
+            </div>
+            <div class="flex items-center text-xs text-gray-600">
+              <i class="fas fa-plus w-4 mr-2"></i>
+              <span>Create: </span>
+              <span
+                class="ml-1 font-mono"
+                x-text="collection.create_rule || 'Public'"
+              ></span>
+            </div>
+          </div>
+
+          <div class="mt-4 text-xs text-gray-500">
+            Created:
+            <span
+              x-text="new Date(collection.created).toLocaleDateString()"
+            ></span>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 px-5 py-3 flex justify-between">
+          <button
+            @click="viewCollection(collection)"
+            class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          >
+            View Details
+          </button>
+          <button
+            x-show="!collection.system"
+            @click="deleteCollection(collection)"
+            class="text-sm font-medium text-red-600 hover:text-red-500"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <div x-show="collections.length === 0" class="col-span-full">
+      <div class="text-center py-12">
+        <i class="fas fa-database text-gray-400 text-5xl mb-4"></i>
+        <p class="text-gray-500">No collections found</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div
+    x-show="pagination.total_pages > 1"
+    class="mt-6 flex justify-center items-center space-x-4"
+  >
+    <button
+      @click="prevPage"
+      :disabled="pagination.page === 1"
+      class="px-4 py-2 text-sm bg-white border rounded-md hover:bg-gray-50 disabled:opacity-50"
+    >
+      Previous
+    </button>
+    <span class="text-sm text-gray-600">
+      Page <span x-text="pagination.page"></span> of
+      <span x-text="pagination.total_pages"></span>
+    </span>
+    <button
+      @click="nextPage"
+      :disabled="pagination.page >= pagination.total_pages"
+      class="px-4 py-2 text-sm bg-white border rounded-md hover:bg-gray-50 disabled:opacity-50"
+    >
+      Next
+    </button>
+  </div>
+
+  <!-- Collection Details Modal -->
+  <div
+    x-show="selectedCollection"
+    x-cloak
+    class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+    @click.self="selectedCollection = null"
+  >
+    <div
+      class="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+    >
+      <div class="p-6">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3
+              class="text-2xl font-bold text-gray-900"
+              x-text="selectedCollection?.name"
+            ></h3>
+            <p
+              class="text-sm text-gray-500"
+              x-text="selectedCollection?.type"
+            ></p>
+          </div>
+          <button
+            @click="selectedCollection = null"
+            class="text-gray-400 hover:text-gray-500"
+          >
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+
+        <!-- Schema Fields -->
+        <div class="mt-6">
+          <h4 class="text-lg font-medium text-gray-900 mb-3">Schema Fields</h4>
+          <div class="bg-gray-50 rounded-lg p-4">
+            <template
+              x-for="field in selectedCollection?.schema"
+              :key="field.name"
+            >
+              <div class="mb-3 p-3 bg-white rounded border">
+                <div class="flex justify-between items-start">
+                  <div>
+                    <span
+                      class="font-medium text-gray-900"
+                      x-text="field.name"
+                    ></span>
+                    <span
+                      class="ml-2 text-sm text-gray-500"
+                      x-text="field.type"
+                    ></span>
+                  </div>
+                  <span
+                    x-show="field.validation?.required"
+                    class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded"
+                  >
+                    Required
+                  </span>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Access Rules -->
+        <div class="mt-6">
+          <h4 class="text-lg font-medium text-gray-900 mb-3">
+            Access Control Rules
+          </h4>
+          <div class="space-y-2 bg-gray-50 rounded-lg p-4">
+            <div>
+              <span class="font-medium text-sm">List:</span>
+              <code
+                class="ml-2 text-xs bg-white px-2 py-1 rounded"
+                x-text="selectedCollection?.list_rule || 'null (public)'"
+              ></code>
+            </div>
+            <div>
+              <span class="font-medium text-sm">View:</span>
+              <code
+                class="ml-2 text-xs bg-white px-2 py-1 rounded"
+                x-text="selectedCollection?.view_rule || 'null (public)'"
+              ></code>
+            </div>
+            <div>
+              <span class="font-medium text-sm">Create:</span>
+              <code
+                class="ml-2 text-xs bg-white px-2 py-1 rounded"
+                x-text="selectedCollection?.create_rule || 'null (public)'"
+              ></code>
+            </div>
+            <div>
+              <span class="font-medium text-sm">Update:</span>
+              <code
+                class="ml-2 text-xs bg-white px-2 py-1 rounded"
+                x-text="selectedCollection?.update_rule || 'null (public)'"
+              ></code>
+            </div>
+            <div>
+              <span class="font-medium text-sm">Delete:</span>
+              <code
+                class="ml-2 text-xs bg-white px-2 py-1 rounded"
+                x-text="selectedCollection?.delete_rule || 'null (public)'"
+              ></code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
+{% endblock %} {% block scripts %}
+<script>
+  function collectionsData() {
+    return {
+      collections: [],
+      selectedCollection: null,
+      pagination: {
+        page: 1,
+        per_page: 12,
+        total: 0,
+        total_pages: 0,
+      },
 
-<div class="table-container">
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>Fields</th>
-                <th>Created</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for collection in collections %}
-            <tr>
-                <td><strong>{{ collection.name }}</strong></td>
-                <td><span class="badge">{{ collection.type }}</span></td>
-                <td>{{ collection.schema | length }} fields</td>
-                <td>{{ collection.created.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td class="actions">
-                    <a href="/admin/collections/{{ collection.id }}">View</a>
-                    <a href="/admin/collections/{{ collection.id }}/edit">Edit</a>
-                    <a href="/admin/collections/{{ collection.name }}/records">Records</a>
-                    <a href="/admin/collections/{{ collection.id }}/delete" class="text-danger" onclick="return confirm('Are you sure you want to delete this collection?')">Delete</a>
-                </td>
-            </tr>
-            {% else %}
-            <tr>
-                <td colspan="5" class="text-center">No collections yet. <a href="/admin/collections/new">Create your first collection</a></td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+      async loadCollections() {
+        try {
+          const data = await apiRequest(
+            `/admin/collections?page=${this.pagination.page}&per_page=${this.pagination.per_page}`
+          );
+          this.collections = data.items;
+          this.pagination = {
+            page: data.page,
+            per_page: data.per_page,
+            total: data.total,
+            total_pages: data.total_pages,
+          };
+        } catch (error) {
+          console.error("Failed to load collections:", error);
+        }
+      },
+
+      viewCollection(collection) {
+        this.selectedCollection = collection;
+      },
+
+      async deleteCollection(collection) {
+        const confirmed = confirm(
+          `Delete collection "${collection.name}"? This will delete all records and cannot be undone.`
+        );
+
+        if (!confirmed) return;
+
+        try {
+          await apiRequest(`/admin/collections/${collection.id}`, {
+            method: "DELETE",
+          });
+          showToast("Collection deleted successfully", "success");
+          await this.loadCollections();
+        } catch (error) {
+          console.error("Failed to delete collection:", error);
+        }
+      },
+
+      async nextPage() {
+        if (this.pagination.page < this.pagination.total_pages) {
+          this.pagination.page++;
+          await this.loadCollections();
+        }
+      },
+
+      async prevPage() {
+        if (this.pagination.page > 1) {
+          this.pagination.page--;
+          await this.loadCollections();
+        }
+      },
+    };
+  }
+</script>
 {% endblock %}

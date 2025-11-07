@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
-from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import settings
 from app.core.exceptions import FastCMSException
@@ -60,6 +60,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Add Session middleware (required for OAuth)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    session_cookie="fastcms_session",
+    max_age=3600,  # 1 hour
+    same_site="lax",
+    https_only=settings.is_production,
+)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -68,6 +78,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add rate limiting middleware
+if settings.RATE_LIMIT_ENABLED:
+    from app.core.rate_limit import RateLimitMiddleware
+
+    app.add_middleware(
+        RateLimitMiddleware,
+        requests_per_minute=settings.RATE_LIMIT_PER_MINUTE,
+        requests_per_hour=settings.RATE_LIMIT_PER_HOUR,
+    )
 
 
 # Exception handlers
@@ -171,19 +191,23 @@ async def root() -> dict[str, str]:
 app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")
 
 # Include API routers
-from app.api.v1 import auth, collections, records, files, realtime
 from app.admin import routes as admin_routes
+from app.api.v1 import admin, auth, collections, files, oauth, realtime, records, webhooks
+# Temporarily disable AI until langchain dependencies are installed
+# from app.api.v1 import ai
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
 app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
-app.include_router(admin_routes.router, prefix="/admin", tags=["Admin"], include_in_schema=False)
-
-# TODO: Include remaining routers
-# from app.api.v1 import ai
+app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 # app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(admin_routes.router, prefix="/admin", tags=["Admin UI"])
+
+# Note: AI features require AI_ENABLED=true and valid API keys in .env
 
 if __name__ == "__main__":
     import uvicorn

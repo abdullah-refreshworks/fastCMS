@@ -20,14 +20,19 @@ from app.core.exceptions import (
     BadRequestException,
 )
 from app.core.events import event_manager, Event, EventType
+from app.core.access_control import access_control, AccessContext
+from app.core.dependencies import UserContext
 
 
 class RecordService:
     """Service for managing records in dynamic collections."""
 
-    def __init__(self, db: AsyncSession, collection_name: str):
+    def __init__(
+        self, db: AsyncSession, collection_name: str, user_context: Optional[UserContext] = None
+    ):
         self.db = db
         self.collection_name = collection_name
+        self.user_context = user_context
         self.repo = RecordRepository(db, collection_name)
         self.collection_repo = CollectionRepository(db)
 
@@ -37,6 +42,10 @@ class RecordService:
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if not collection:
             raise NotFoundException(f"Collection '{self.collection_name}' not found")
+
+        # Check create permission
+        context = self._create_access_context()
+        access_control.check(collection.create_rule, context, "create")
 
         # Extract fields from schema
         fields = collection.schema.get("fields", [])
@@ -62,13 +71,28 @@ class RecordService:
 
         return response
 
-    async def get_record(self, record_id: str) -> RecordResponse:
-        """Get a record by ID."""
+    async def get_record(
+        self, record_id: str, expand: Optional[List[str]] = None
+    ) -> RecordResponse:
+        """Get a record by ID with optional relation expansion."""
         record = await self.repo.get_by_id(record_id)
         if not record:
             raise NotFoundException(f"Record '{record_id}' not found")
 
-        return self._to_response(record)
+        # Check view permission
+        collection = await self.collection_repo.get_by_name(self.collection_name)
+        if collection:
+            record_data = self._record_to_dict(record)
+            context = self._create_access_context(record_data)
+            access_control.check(collection.view_rule, context, "view")
+
+        response = self._to_response(record)
+
+        # Expand relations if requested
+        if expand and collection:
+            response = await self._expand_relations(response, collection, expand)
+
+        return response
 
     async def list_records(
         self,
@@ -77,12 +101,17 @@ class RecordService:
         filters: Optional[List[RecordFilter]] = None,
         sort: Optional[str] = None,
         order: str = "asc",
+        expand: Optional[List[str]] = None,
     ) -> RecordListResponse:
-        """List records with pagination, filtering, and sorting."""
+        """List records with pagination, filtering, sorting, and relation expansion."""
         # Validate collection exists
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if not collection:
             raise NotFoundException(f"Collection '{self.collection_name}' not found")
+
+        # Check list permission
+        context = self._create_access_context()
+        access_control.check(collection.list_rule, context, "list")
 
         skip = (page - 1) * per_page
 
@@ -97,6 +126,13 @@ class RecordService:
         total = await self.repo.count(filters=filters)
 
         items = [self._to_response(record) for record in records]
+
+        # Expand relations if requested
+        if expand:
+            items = [
+                await self._expand_relations(item, collection, expand) for item in items
+            ]
+
         total_pages = math.ceil(total / per_page) if total > 0 else 0
 
         return RecordListResponse(
@@ -118,6 +154,11 @@ class RecordService:
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if not collection:
             raise NotFoundException(f"Collection '{self.collection_name}' not found")
+
+        # Check update permission
+        record_data = self._record_to_dict(existing)
+        context = self._create_access_context(record_data)
+        access_control.check(collection.update_rule, context, "update")
 
         # Extract fields from schema
         fields = collection.schema.get("fields", [])
@@ -149,6 +190,13 @@ class RecordService:
         record = await self.repo.get_by_id(record_id)
         if not record:
             raise NotFoundException(f"Record '{record_id}' not found")
+
+        # Get collection and check delete permission
+        collection = await self.collection_repo.get_by_name(self.collection_name)
+        if collection:
+            record_data = self._record_to_dict(record)
+            context = self._create_access_context(record_data)
+            access_control.check(collection.delete_rule, context, "delete")
 
         # Delete record
         success = await self.repo.delete(record_id)
@@ -284,7 +332,16 @@ class RecordService:
 
     def _to_response(self, record) -> RecordResponse:
         """Convert record model to response schema."""
-        # Extract data fields (exclude system fields)
+        data = self._record_to_dict(record)
+        return RecordResponse(
+            id=record.id,
+            data=data,
+            created=record.created,
+            updated=record.updated,
+        )
+
+    def _record_to_dict(self, record) -> Dict[str, Any]:
+        """Extract record data as dictionary."""
         data = {}
         for key in dir(record):
             if not key.startswith("_") and key not in ["id", "created", "updated", "metadata", "registry"]:
@@ -292,10 +349,62 @@ class RecordService:
                 # Skip SQLAlchemy internal attributes
                 if not callable(value) and not key.startswith("_sa_"):
                     data[key] = value
+        return data
 
-        return RecordResponse(
-            id=record.id,
-            data=data,
-            created=record.created,
-            updated=record.updated,
+    async def _expand_relations(
+        self, response: RecordResponse, collection: Any, expand_fields: List[str]
+    ) -> RecordResponse:
+        """Expand relation fields in a record response."""
+        # Get relation fields from collection schema
+        fields = collection.schema.get("fields", [])
+        relation_fields = {
+            f["name"]: f for f in fields if f.get("type") == "relation"
+        }
+
+        # Expand requested fields
+        for field_name in expand_fields:
+            if field_name not in relation_fields:
+                continue
+
+            field_value = response.data.get(field_name)
+            if not field_value:
+                continue
+
+            field_config = relation_fields[field_name]
+            target_collection = field_config.get("validation", {}).get("collection_name")
+
+            if not target_collection:
+                continue
+
+            # Fetch related record(s)
+            try:
+                target_repo = RecordRepository(self.db, target_collection)
+
+                if isinstance(field_value, list):
+                    # Multiple relations
+                    expanded = []
+                    for record_id in field_value:
+                        related = await target_repo.get_by_id(record_id)
+                        if related:
+                            expanded.append(self._to_response(related).model_dump())
+                    response.data[field_name] = expanded
+                else:
+                    # Single relation
+                    related = await target_repo.get_by_id(field_value)
+                    if related:
+                        response.data[field_name] = self._to_response(
+                            related
+                        ).model_dump()
+            except Exception:
+                # If expansion fails, keep original value
+                pass
+
+        return response
+
+    def _create_access_context(self, record_data: Optional[Dict[str, Any]] = None) -> AccessContext:
+        """Create access context for permission evaluation."""
+        return AccessContext(
+            user_id=self.user_context.user_id if self.user_context else None,
+            user_role=self.user_context.role if self.user_context else "user",
+            record_data=record_data,
         )
