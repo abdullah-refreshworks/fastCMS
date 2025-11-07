@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.exceptions import FastCMSException
@@ -166,14 +167,19 @@ async def root() -> dict[str, str]:
     }
 
 
+# Mount static files
+app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")
+
 # Include API routers
 from app.api.v1 import auth, collections, records, files, realtime
+from app.admin import routes as admin_routes
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
 app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
+app.include_router(admin_routes.router, prefix="/admin", tags=["Admin"], include_in_schema=False)
 
 # TODO: Include remaining routers
 # from app.api.v1 import ai

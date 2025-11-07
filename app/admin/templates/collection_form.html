@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if collection else 'Create' }} Collection - FastCMS Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'Edit' if collection else 'Create' }} Collection</h1>
+    <a href="/admin/collections" class="btn">Back to Collections</a>
+</div>
+
+<div class="card">
+    <form method="POST" action="{{ '/admin/collections/' + collection.id + '/edit' if collection else '/admin/collections/new' }}">
+        <div class="form-group">
+            <label for="name">Collection Name *</label>
+            <input
+                type="text"
+                id="name"
+                name="name"
+                value="{{ collection.name if collection else '' }}"
+                required
+                pattern="[a-z0-9_]+"
+                title="Only lowercase letters, numbers, and underscores"
+                {{ 'readonly' if collection else '' }}
+            >
+            <small>Only lowercase letters, numbers, and underscores. Cannot be changed after creation.</small>
+        </div>
+
+        <div class="form-group">
+            <label for="type">Collection Type *</label>
+            <select id="type" name="type" required {{ 'disabled' if collection else '' }}>
+                <option value="base" {{ 'selected' if collection and collection.type == 'base' else '' }}>Base</option>
+                <option value="auth" {{ 'selected' if collection and collection.type == 'auth' else '' }}>Auth (Users)</option>
+            </select>
+            <small>Type cannot be changed after creation.</small>
+        </div>
+
+        <div class="form-section">
+            <h3>Schema Fields</h3>
+            <div id="fields-container">
+                {% if collection %}
+                    {% for field in collection.schema %}
+                    <div class="field-item" data-index="{{ loop.index0 }}">
+                        <div class="field-row">
+                            <div class="form-group">
+                                <label>Field Name</label>
+                                <input type="text" name="fields[{{ loop.index0 }}][name]" value="{{ field.name }}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Type</label>
+                                <select name="fields[{{ loop.index0 }}][type]" required>
+                                    <option value="text" {{ 'selected' if field.type == 'text' else '' }}>Text</option>
+                                    <option value="number" {{ 'selected' if field.type == 'number' else '' }}>Number</option>
+                                    <option value="bool" {{ 'selected' if field.type == 'bool' else '' }}>Boolean</option>
+                                    <option value="email" {{ 'selected' if field.type == 'email' else '' }}>Email</option>
+                                    <option value="url" {{ 'selected' if field.type == 'url' else '' }}>URL</option>
+                                    <option value="date" {{ 'selected' if field.type == 'date' else '' }}>Date</option>
+                                    <option value="select" {{ 'selected' if field.type == 'select' else '' }}>Select</option>
+                                    <option value="relation" {{ 'selected' if field.type == 'relation' else '' }}>Relation</option>
+                                    <option value="file" {{ 'selected' if field.type == 'file' else '' }}>File</option>
+                                    <option value="json" {{ 'selected' if field.type == 'json' else '' }}>JSON</option>
+                                    <option value="editor" {{ 'selected' if field.type == 'editor' else '' }}>Editor</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" name="fields[{{ loop.index0 }}][required]" {{ 'checked' if field.required else '' }}>
+                                    Required
+                                </label>
+                            </div>
+                            <div class="form-group">
+                                <label>
+                                    <input type="checkbox" name="fields[{{ loop.index0 }}][unique]" {{ 'checked' if field.unique else '' }}>
+                                    Unique
+                                </label>
+                            </div>
+                            <button type="button" class="btn btn-danger btn-sm" onclick="removeField(this)">Remove</button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="addField()">Add Field</button>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ 'Update' if collection else 'Create' }} Collection</button>
+            <a href="/admin/collections" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+let fieldIndex = {{ collection.schema | length if collection else 0 }};
+
+function addField() {
+    const container = document.getElementById('fields-container');
+    const fieldHtml = `
+        <div class="field-item" data-index="${fieldIndex}">
+            <div class="field-row">
+                <div class="form-group">
+                    <label>Field Name</label>
+                    <input type="text" name="fields[${fieldIndex}][name]" required>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select name="fields[${fieldIndex}][type]" required>
+                        <option value="text">Text</option>
+                        <option value="number">Number</option>
+                        <option value="bool">Boolean</option>
+                        <option value="email">Email</option>
+                        <option value="url">URL</option>
+                        <option value="date">Date</option>
+                        <option value="select">Select</option>
+                        <option value="relation">Relation</option>
+                        <option value="file">File</option>
+                        <option value="json">JSON</option>
+                        <option value="editor">Editor</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="fields[${fieldIndex}][required]">
+                        Required
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" name="fields[${fieldIndex}][unique]">
+                        Unique
+                    </label>
+                </div>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeField(this)">Remove</button>
+            </div>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', fieldHtml);
+    fieldIndex++;
+}
+
+function removeField(button) {
+    button.closest('.field-item').remove();
+}
+</script>
+{% endblock %}

@@ -18,7 +18,7 @@ class RecordRepository:
     async def _get_model(self) -> Type[BaseModel]:
         """Get or cache the dynamic model for this collection."""
         if self.model is None:
-            self.model = await DynamicModelGenerator.get_model(self.collection_name)
+            self.model = DynamicModelGenerator.get_model(self.collection_name)
             if self.model is None:
                 raise ValueError(f"Collection '{self.collection_name}' does not exist")
         return self.model

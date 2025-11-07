@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - FastCMS Admin{% endblock %}
+
+{% block content %}
+<h1>Dashboard</h1>
+
+<div class="dashboard-grid">
+    <div class="card">
+        <h3>Collections</h3>
+        <div class="number">{{ stats.collections }}</div>
+    </div>
+    <div class="card">
+        <h3>Users</h3>
+        <div class="number">{{ stats.users }}</div>
+    </div>
+    <div class="card">
+        <h3>Files</h3>
+        <div class="number">{{ stats.files }}</div>
+    </div>
+</div>
+
+<div class="table-container">
+    <h2>Recent Collections</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for collection in collections %}
+            <tr>
+                <td>{{ collection.name }}</td>
+                <td>{{ collection.type }}</td>
+                <td>{{ collection.created.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td class="actions">
+                    <a href="/admin/collections/{{ collection.id }}">View</a>
+                    <a href="/admin/collections/{{ collection.id }}/records">Records</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

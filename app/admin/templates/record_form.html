@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit' if record else 'Create' }} Record - {{ collection.name }} - FastCMS Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ 'Edit' if record else 'Create' }} {{ collection.name }} Record</h1>
+    <a href="/admin/collections/{{ collection.name }}/records" class="btn">Back to Records</a>
+</div>
+
+<div class="card">
+    <form method="POST" action="{{ '/admin/collections/' + collection.name + '/records/' + record.id + '/edit' if record else '/admin/collections/' + collection.name + '/records/new' }}">
+        {% for field in collection.schema %}
+        <div class="form-group">
+            <label for="{{ field.name }}">
+                {{ field.name }}
+                {% if field.required %}<span class="text-danger">*</span>{% endif %}
+                <span class="badge badge-secondary">{{ field.type }}</span>
+            </label>
+
+            {% if field.type == 'text' %}
+            <input
+                type="text"
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                value="{{ record.data.get(field.name) if record else '' }}"
+                {{ 'required' if field.required else '' }}
+            >
+
+            {% elif field.type == 'number' %}
+            <input
+                type="number"
+                step="any"
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                value="{{ record.data.get(field.name) if record else '' }}"
+                {{ 'required' if field.required else '' }}
+            >
+
+            {% elif field.type == 'bool' %}
+            <label class="checkbox-label">
+                <input
+                    type="checkbox"
+                    id="{{ field.name }}"
+                    name="{{ field.name }}"
+                    {{ 'checked' if record and record.data.get(field.name) else '' }}
+                >
+                Enable
+            </label>
+
+            {% elif field.type == 'email' %}
+            <input
+                type="email"
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                value="{{ record.data.get(field.name) if record else '' }}"
+                {{ 'required' if field.required else '' }}
+            >
+
+            {% elif field.type == 'url' %}
+            <input
+                type="url"
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                value="{{ record.data.get(field.name) if record else '' }}"
+                {{ 'required' if field.required else '' }}
+            >
+
+            {% elif field.type == 'date' %}
+            <input
+                type="date"
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                value="{{ record.data.get(field.name) if record else '' }}"
+                {{ 'required' if field.required else '' }}
+            >
+
+            {% elif field.type == 'editor' %}
+            <textarea
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                rows="10"
+                {{ 'required' if field.required else '' }}
+            >{{ record.data.get(field.name) if record else '' }}</textarea>
+
+            {% elif field.type == 'json' %}
+            <textarea
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                rows="6"
+                placeholder='{"key": "value"}'
+                {{ 'required' if field.required else '' }}
+            >{{ record.data.get(field.name) | tojson if record and record.data.get(field.name) else '' }}</textarea>
+            <small>Enter valid JSON</small>
+
+            {% elif field.type == 'select' %}
+            <select
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                {{ 'required' if field.required else '' }}
+            >
+                <option value="">-- Select --</option>
+                {% if field.options and field.options.values %}
+                {% for option in field.options.values %}
+                <option value="{{ option }}" {{ 'selected' if record and record.data.get(field.name) == option else '' }}>
+                    {{ option }}
+                </option>
+                {% endfor %}
+                {% endif %}
+            </select>
+
+            {% else %}
+            <input
+                type="text"
+                id="{{ field.name }}"
+                name="{{ field.name }}"
+                value="{{ record.data.get(field.name) if record else '' }}"
+                {{ 'required' if field.required else '' }}
+                placeholder="{{ field.type }}"
+            >
+            <small>Field type: {{ field.type }}</small>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ 'Update' if record else 'Create' }} Record</button>
+            <a href="/admin/collections/{{ collection.name }}/records" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

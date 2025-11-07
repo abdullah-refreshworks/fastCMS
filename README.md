@@ -10,7 +10,7 @@ Self-hosted Backend-as-a-Service built with FastAPI. Create dynamic collections,
 - [x] CRUD API - Create, read, update, delete records
 - [x] File Storage - Upload and serve files
 - [x] Real-time Updates - Server-Sent Events
-- [ ] Admin Dashboard - Web UI for management
+- [x] Admin Dashboard - Web UI for management
 - [ ] Access Control - Permission rules per collection
 
 ### AI Features (Planned)
@@ -53,6 +53,7 @@ python app/main.py
 
 ### Access
 - API Documentation: http://localhost:8000/docs
+- Admin Dashboard: http://localhost:8000/admin
 - Health Check: http://localhost:8000/health
 
 ## Tech Stack

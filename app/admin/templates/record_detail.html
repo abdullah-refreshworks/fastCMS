@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Record {{ record.id[:8] }} - {{ collection.name }} - FastCMS Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ collection.name }} Record</h1>
+    <div>
+        <a href="/admin/collections/{{ collection.name }}/records/{{ record.id }}/edit" class="btn btn-primary">Edit</a>
+        <a href="/admin/collections/{{ collection.name }}/records" class="btn">Back to Records</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Record Information</h2>
+    <div class="info-grid">
+        <div class="info-item">
+            <label>ID:</label>
+            <code>{{ record.id }}</code>
+        </div>
+        <div class="info-item">
+            <label>Created:</label>
+            <span>{{ record.created.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+        </div>
+        <div class="info-item">
+            <label>Updated:</label>
+            <span>{{ record.updated.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Record Data</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Field</th>
+                <th>Type</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for field in collection.schema %}
+            <tr>
+                <td><strong>{{ field.name }}</strong></td>
+                <td><span class="badge badge-secondary">{{ field.type }}</span></td>
+                <td>
+                    {% set value = record.data.get(field.name) %}
+                    {% if value is none %}
+                    <span class="text-muted">null</span>
+                    {% elif field.type == 'bool' %}
+                    {{ '✓ true' if value else '✗ false' }}
+                    {% elif field.type == 'json' %}
+                    <pre>{{ value | tojson(indent=2) }}</pre>
+                    {% elif field.type == 'date' %}
+                    {{ value }}
+                    {% elif field.type in ['text', 'editor'] %}
+                    <div class="text-content">{{ value }}</div>
+                    {% else %}
+                    {{ value }}
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

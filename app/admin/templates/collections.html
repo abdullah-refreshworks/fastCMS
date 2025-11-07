@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Collections - FastCMS Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Collections</h1>
+    <a href="/admin/collections/new" class="btn btn-primary">Create Collection</a>
+</div>
+
+<div class="table-container">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Fields</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for collection in collections %}
+            <tr>
+                <td><strong>{{ collection.name }}</strong></td>
+                <td><span class="badge">{{ collection.type }}</span></td>
+                <td>{{ collection.schema | length }} fields</td>
+                <td>{{ collection.created.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td class="actions">
+                    <a href="/admin/collections/{{ collection.id }}">View</a>
+                    <a href="/admin/collections/{{ collection.id }}/edit">Edit</a>
+                    <a href="/admin/collections/{{ collection.name }}/records">Records</a>
+                    <a href="/admin/collections/{{ collection.id }}/delete" class="text-danger" onclick="return confirm('Are you sure you want to delete this collection?')">Delete</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" class="text-center">No collections yet. <a href="/admin/collections/new">Create your first collection</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

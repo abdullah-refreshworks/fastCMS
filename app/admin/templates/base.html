@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FastCMS Admin{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/admin.css">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    {% if user %}
+    <nav class="navbar">
+        <div class="navbar-brand">
+            <a href="/admin">FastCMS</a>
+        </div>
+        <ul class="navbar-menu">
+            <li><a href="/admin">Dashboard</a></li>
+            <li><a href="/admin/collections">Collections</a></li>
+            <li><a href="/admin/users">Users</a></li>
+            <li><a href="/admin/files">Files</a></li>
+        </ul>
+        <div class="navbar-user">
+            <span>{{ user.email }}</span>
+            <a href="/admin/logout" class="btn-logout">Logout</a>
+        </div>
+    </nav>
+    {% endif %}
+
+    <main class="container">
+        {% if request.query_params.get('success') %}
+        <div class="messages">
+            <div class="message message-success">
+                {{ request.query_params.get('success') }}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if request.query_params.get('error') %}
+        <div class="messages">
+            <div class="message message-error">
+                {{ request.query_params.get('error') }}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="messages">
+            <div class="message message-error">
+                {{ error }}
+            </div>
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="/static/js/admin.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

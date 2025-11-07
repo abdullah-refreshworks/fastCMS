@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{{ collection.name }} - FastCMS Admin{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ collection.name }}</h1>
+    <div>
+        <a href="/admin/collections/{{ collection.id }}/edit" class="btn btn-primary">Edit</a>
+        <a href="/admin/collections/{{ collection.name }}/records" class="btn">View Records</a>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Collection Information</h2>
+    <div class="info-grid">
+        <div class="info-item">
+            <label>ID:</label>
+            <span>{{ collection.id }}</span>
+        </div>
+        <div class="info-item">
+            <label>Name:</label>
+            <span>{{ collection.name }}</span>
+        </div>
+        <div class="info-item">
+            <label>Type:</label>
+            <span class="badge">{{ collection.type }}</span>
+        </div>
+        <div class="info-item">
+            <label>Created:</label>
+            <span>{{ collection.created.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+        </div>
+        <div class="info-item">
+            <label>Updated:</label>
+            <span>{{ collection.updated.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h2>Schema Fields ({{ collection.schema | length }})</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Field Name</th>
+                <th>Type</th>
+                <th>Required</th>
+                <th>Unique</th>
+                <th>Options</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for field in collection.schema %}
+            <tr>
+                <td><strong>{{ field.name }}</strong></td>
+                <td><span class="badge badge-secondary">{{ field.type }}</span></td>
+                <td>{{ '✓' if field.required else '—' }}</td>
+                <td>{{ '✓' if field.unique else '—' }}</td>
+                <td>
+                    {% if field.options %}
+                    <details>
+                        <summary>View options</summary>
+                        <pre>{{ field.options | tojson(indent=2) }}</pre>
+                    </details>
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
