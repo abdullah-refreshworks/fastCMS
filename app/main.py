@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, ORJSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import settings
 from app.core.exceptions import FastCMSException
@@ -57,6 +58,16 @@ app = FastAPI(
     redoc_url="/redoc" if settings.DEBUG else None,
     default_response_class=ORJSONResponse,  # Use orjson for performance
     lifespan=lifespan,
+)
+
+# Add Session middleware (required for OAuth)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.SECRET_KEY,
+    session_cookie="fastcms_session",
+    max_age=3600,  # 1 hour
+    same_site="lax",
+    https_only=settings.is_production,
 )
 
 # Add CORS middleware
@@ -178,9 +189,10 @@ async def root() -> dict[str, str]:
 
 # Include API routers
 from app.admin import routes as admin_routes
-from app.api.v1 import admin, ai, auth, collections, files, realtime, records, webhooks
+from app.api.v1 import admin, ai, auth, collections, files, oauth, realtime, records, webhooks
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
 app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])

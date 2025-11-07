@@ -7,6 +7,7 @@
 ### Core Features
 - [x] Dynamic Collections - Create database tables via API
 - [x] Authentication - JWT-based auth with register/login
+- [x] OAuth2 Social Auth - Google, GitHub, Microsoft authentication
 - [x] Email Verification - Secure email verification flow
 - [x] Password Reset - Token-based password recovery
 - [x] CRUD API - Create, read, update, delete records
@@ -209,6 +210,79 @@ curl -X POST "http://localhost:8000/api/v1/auth/reset-password" \
     "password_confirm": "NewPass123!"
   }'
 ```
+
+### OAuth2 Social Authentication
+
+FastCMS supports OAuth2 authentication with Google, GitHub, and Microsoft. Users can sign in with their existing accounts, and FastCMS automatically links OAuth accounts to users by email.
+
+#### Configuration
+
+Add OAuth provider credentials to your `.env` file:
+
+```bash
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# GitHub OAuth
+GITHUB_CLIENT_ID=your_github_client_id
+GITHUB_CLIENT_SECRET=your_github_client_secret
+
+# Microsoft OAuth
+MICROSOFT_CLIENT_ID=your_microsoft_client_id
+MICROSOFT_CLIENT_SECRET=your_microsoft_client_secret
+```
+
+#### Setup OAuth Apps
+
+**Google:**
+1. Go to [Google Cloud Console](https://console.cloud.google.com)
+2. Create a new project or select existing
+3. Enable Google+ API
+4. Create OAuth 2.0 credentials
+5. Add authorized redirect URI: `http://localhost:8000/api/v1/oauth/callback/google`
+
+**GitHub:**
+1. Go to Settings > Developer settings > OAuth Apps
+2. Create new OAuth App
+3. Set callback URL: `http://localhost:8000/api/v1/oauth/callback/github`
+
+**Microsoft:**
+1. Go to [Azure Portal](https://portal.azure.com)
+2. Register a new application
+3. Add redirect URI: `http://localhost:8000/api/v1/oauth/callback/microsoft`
+
+#### Usage
+
+Users can authenticate by visiting the OAuth login endpoints in their browser:
+
+```
+http://localhost:8000/api/v1/oauth/login/google
+http://localhost:8000/api/v1/oauth/login/github
+http://localhost:8000/api/v1/oauth/login/microsoft
+```
+
+The OAuth flow will redirect to the provider, then back to your callback URL with tokens.
+
+#### Manage OAuth Accounts
+
+```bash
+# List linked OAuth accounts
+curl -X GET "http://localhost:8000/api/v1/oauth/accounts" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+
+# Unlink OAuth provider
+curl -X DELETE "http://localhost:8000/api/v1/oauth/accounts/google" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### Features
+- Automatic user creation on first OAuth login
+- Link multiple OAuth providers to one account
+- Auto-link OAuth accounts by verified email
+- Secure token storage and refresh
+- Prevents unlinking the only authentication method
+- Users created via OAuth are marked as verified
 
 ### Access Control Rules
 Define fine-grained permissions per collection:
@@ -436,12 +510,14 @@ pytest --cov=app --cov-report=html
 
 ### Security Features
 - JWT-based authentication with access and refresh tokens
+- OAuth2 social authentication (Google, GitHub, Microsoft)
 - Password hashing with bcrypt
 - Email verification for new accounts
 - Secure password reset with time-limited tokens
 - Role-based access control (user, admin)
 - Fine-grained permission rules per collection
 - Webhook signature verification with HMAC
+- Session middleware for OAuth state management
 - CORS protection
 - Rate limiting (100 req/min, 1000 req/hour per IP)
 
@@ -466,6 +542,7 @@ pytest --cov=app --cov-report=html
 ### Completed ✅
 - [x] Core CMS functionality
 - [x] Authentication & authorization
+- [x] OAuth2 social authentication (Google, GitHub, Microsoft)
 - [x] Email verification
 - [x] Password reset functionality
 - [x] Access control system
@@ -484,11 +561,11 @@ pytest --cov=app --cov-report=html
 - [x] Comprehensive test coverage
 
 ### Next Steps 🚀
-- [ ] OAuth2 providers (Google, GitHub, etc.)
 - [ ] Multi-tenancy support
 - [ ] S3-compatible storage
 - [ ] Database backups
 - [ ] Audit logging
+- [ ] WebSocket support for real-time collaboration
 
 ## Contributing
 
