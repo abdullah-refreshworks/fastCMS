@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Files{% endblock %}
+
+{% block content %}
+<div x-data="filesData()" x-init="loadFiles()">
+    <div class="px-4 sm:px-0 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Files</h1>
+            <p class="mt-2 text-sm text-gray-700">Manage uploaded files and media</p>
+        </div>
+        <button @click="showUploadModal = true"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700">
+            <i class="fas fa-upload mr-2"></i>
+            Upload File
+        </button>
+    </div>
+
+    <!-- Files Grid -->
+    <div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    Total: <span class="font-medium text-gray-900" x-text="pagination.total"></span> files
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button @click="prevPage" :disabled="pagination.page === 1"
+                        class="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">
+                        Previous
+                    </button>
+                    <span class="text-sm text-gray-600">
+                        Page <span x-text="pagination.page"></span> of <span x-text="pagination.total_pages"></span>
+                    </span>
+                    <button @click="nextPage" :disabled="pagination.page >= pagination.total_pages"
+                        class="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">
+                        Next
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 p-4">
+            <template x-for="file in files" :key="file.id">
+                <div class="relative group">
+                    <div class="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                        <template x-if="file.type.startsWith('image/')">
+                            <img :src="`/api/v1/files/${file.id}`" :alt="file.filename"
+                                class="w-full h-full object-cover">
+                        </template>
+                        <template x-if="!file.type.startsWith('image/')">
+                            <div class="w-full h-full flex flex-col items-center justify-center p-4">
+                                <i class="fas fa-file text-4xl text-gray-400 mb-2"></i>
+                                <span class="text-xs text-gray-600 text-center truncate w-full" x-text="file.filename"></span>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="mt-2">
+                        <p class="text-xs text-gray-900 truncate" x-text="file.filename"></p>
+                        <p class="text-xs text-gray-500" x-text="formatFileSize(file.size)"></p>
+                    </div>
+                    <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button @click="deleteFile(file)"
+                            class="bg-red-600 text-white p-2 rounded-full hover:bg-red-700 shadow-lg">
+                            <i class="fas fa-trash text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+            </template>
+
+            <div x-show="files.length === 0" class="col-span-full">
+                <div class="text-center py-12">
+                    <i class="fas fa-folder-open text-gray-400 text-5xl mb-4"></i>
+                    <p class="text-gray-500">No files uploaded yet</p>
+                    <button @click="showUploadModal = true"
+                        class="mt-4 text-indigo-600 hover:text-indigo-500">
+                        Upload your first file
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Modal -->
+    <div x-show="showUploadModal" x-cloak
+        class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+        @click.self="showUploadModal = false">
+        <div class="bg-white rounded-lg max-w-md w-full mx-4 p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Upload File</h3>
+                <button @click="showUploadModal = false" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="mt-4">
+                <input type="file" @change="handleFileSelect" id="fileInput"
+                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+
+                <div x-show="selectedFile" class="mt-4 p-4 bg-gray-50 rounded">
+                    <p class="text-sm text-gray-700">
+                        Selected: <span class="font-medium" x-text="selectedFile?.name"></span>
+                    </p>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Size: <span x-text="selectedFile && formatFileSize(selectedFile.size)"></span>
+                    </p>
+                </div>
+
+                <div x-show="uploadProgress > 0 && uploadProgress < 100" class="mt-4">
+                    <div class="w-full bg-gray-200 rounded-full h-2">
+                        <div class="bg-indigo-600 h-2 rounded-full transition-all duration-300"
+                            :style="`width: ${uploadProgress}%`"></div>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-1">Uploading: <span x-text="uploadProgress"></span>%</p>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <button @click="showUploadModal = false; selectedFile = null"
+                    class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button @click="uploadFile" :disabled="!selectedFile || uploadProgress > 0"
+                    class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50">
+                    Upload
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function filesData() {
+        return {
+            files: [],
+            pagination: {
+                page: 1,
+                per_page: 24,
+                total: 0,
+                total_pages: 0
+            },
+            showUploadModal: false,
+            selectedFile: null,
+            uploadProgress: 0,
+
+            async loadFiles() {
+                try {
+                    const data = await apiRequest(`/files?page=${this.pagination.page}&per_page=${this.pagination.per_page}`);
+                    this.files = data.items;
+                    this.pagination = {
+                        page: data.page,
+                        per_page: data.per_page,
+                        total: data.total,
+                        total_pages: data.total_pages
+                    };
+                } catch (error) {
+                    console.error('Failed to load files:', error);
+                }
+            },
+
+            handleFileSelect(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    this.selectedFile = file;
+                }
+            },
+
+            async uploadFile() {
+                if (!this.selectedFile) return;
+
+                const formData = new FormData();
+                formData.append('file', this.selectedFile);
+
+                try {
+                    this.uploadProgress = 1;
+
+                    const token = localStorage.getItem('access_token');
+                    const response = await fetch('/api/v1/files', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Upload failed');
+                    }
+
+                    this.uploadProgress = 100;
+                    showToast('File uploaded successfully', 'success');
+
+                    // Reset and reload
+                    setTimeout(() => {
+                        this.showUploadModal = false;
+                        this.selectedFile = null;
+                        this.uploadProgress = 0;
+                        document.getElementById('fileInput').value = '';
+                        this.loadFiles();
+                    }, 500);
+
+                } catch (error) {
+                    this.uploadProgress = 0;
+                    showToast(error.message, 'error');
+                }
+            },
+
+            async deleteFile(file) {
+                const confirmed = confirm(`Delete file "${file.filename}"? This action cannot be undone.`);
+                if (!confirmed) return;
+
+                try {
+                    await apiRequest(`/files/${file.id}`, {
+                        method: 'DELETE'
+                    });
+                    showToast('File deleted successfully', 'success');
+                    await this.loadFiles();
+                } catch (error) {
+                    console.error('Failed to delete file:', error);
+                }
+            },
+
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+            },
+
+            async nextPage() {
+                if (this.pagination.page < this.pagination.total_pages) {
+                    this.pagination.page++;
+                    await this.loadFiles();
+                }
+            },
+
+            async prevPage() {
+                if (this.pagination.page > 1) {
+                    this.pagination.page--;
+                    await this.loadFiles();
+                }
+            }
+        };
+    }
+</script>
+{% endblock %}
