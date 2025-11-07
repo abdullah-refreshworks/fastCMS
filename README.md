@@ -1,6 +1,6 @@
 # FastCMS
 
-Self-hosted Backend-as-a-Service built with FastAPI. Create dynamic collections, REST APIs, and authentication without writing SQL.
+**AI-Native** Backend-as-a-Service built with FastAPI. Create dynamic collections, REST APIs, and authentication without writing SQL - powered by LangChain and AI.
 
 ## Features Status
 
@@ -19,13 +19,14 @@ Self-hosted Backend-as-a-Service built with FastAPI. Create dynamic collections,
 - [x] Access Control - Permission rules per collection with role-based access
 - [x] Admin Dashboard - Complete web UI for management
 
-### AI Features (Planned)
-- [ ] Natural Language API Interface
-- [ ] Semantic Search - Vector-based search
-- [ ] Content Moderation
-- [ ] Data Quality Monitoring
-- [ ] Auto-Documentation
-- [ ] Smart Test Data Generation
+### AI Features
+- [x] Natural Language to API Query - Convert plain English to filter syntax
+- [x] Semantic Search - Vector embeddings with FAISS/Qdrant
+- [x] AI Content Generation - GPT-4/Claude powered content creation
+- [x] Schema Generation - Auto-generate collection schemas from descriptions
+- [x] Data Enrichment - AI-powered data validation and enhancement
+- [x] AI Chat Assistant - Help with API usage and data modeling
+- [x] Streaming Responses - Real-time AI generation via SSE
 
 ## Quick Start
 
@@ -224,6 +225,147 @@ Examples:
 - Admin only: `"@request.auth.role = 'admin'"`
 - Owner or Admin: `"@request.auth.id = @record.user_id || @request.auth.role = 'admin'"`
 
+## AI Features
+
+FastCMS includes powerful AI features powered by LangChain, supporting OpenAI, Anthropic Claude, and local LLMs via Ollama.
+
+### Configuration
+
+```bash
+# .env configuration
+AI_ENABLED=true
+AI_PROVIDER=openai  # or anthropic, ollama
+
+# OpenAI
+OPENAI_API_KEY=sk-...
+
+# Anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Ollama (local)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.1:8b
+
+# Vector Database
+VECTOR_DB_TYPE=faiss  # or qdrant
+```
+
+### Install AI Dependencies
+
+```bash
+pip install ".[ai]"  # Installs langchain, openai, anthropic, faiss, etc.
+```
+
+### AI Content Generation
+
+Generate content with streaming support:
+
+```bash
+# Generate content
+curl -X POST "http://localhost:8000/api/v1/ai/generate" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Write a blog post about FastCMS",
+    "context": {"tone": "professional", "length": "medium"},
+    "max_tokens": 500
+  }'
+
+# Stream generated content (SSE)
+curl -X POST "http://localhost:8000/api/v1/ai/generate/stream" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "Write an article about AI in CMS"}'
+```
+
+### Natural Language Queries
+
+Convert plain English to API filter syntax:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/ai/query/natural-language" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Find all active users over 18 years old",
+    "collection_name": "users"
+  }'
+
+# Returns: {"filter_expression": "age>=18&&status=active"}
+```
+
+### Semantic Search
+
+Search using natural language and vector embeddings:
+
+```bash
+# Index a collection first (admin only)
+curl -X POST "http://localhost:8000/api/v1/ai/index/collection" \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection_name": "articles",
+    "rebuild": true
+  }'
+
+# Perform semantic search
+curl -X POST "http://localhost:8000/api/v1/ai/search/semantic" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "content about FastAPI performance",
+    "collection_name": "articles",
+    "k": 5,
+    "score_threshold": 0.7
+  }'
+```
+
+### AI Schema Generation
+
+Generate collection schemas from natural language descriptions:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/ai/schema/generate" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "A blog post with title, content, author, tags, and publication date"
+  }'
+
+# Returns suggested schema with field types and validations
+```
+
+### Data Enrichment
+
+Use AI to validate, enhance, or transform data:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/ai/enrich" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "data": {
+      "title": "my blog post",
+      "content": "some content here"
+    },
+    "instructions": "Fix capitalization, add a meta description, and suggest 3 relevant tags"
+  }'
+```
+
+### AI Chat Assistant
+
+Chat with AI about FastCMS usage:
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/ai/chat" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "How do I create a collection with relation fields?",
+    "history": []
+  }'
+```
+
 ## Admin Dashboard
 
 FastCMS includes a complete admin dashboard for managing your backend.
@@ -334,11 +476,14 @@ pytest --cov=app --cov-report=html
 - [x] Admin dashboard
 - [x] File storage
 - [x] Real-time updates
+- [x] **AI Integration** - LangChain/LangGraph with OpenAI, Anthropic, Ollama
+- [x] **Semantic Search** - Vector embeddings with FAISS/Qdrant
+- [x] **Natural Language Queries** - Plain English to API filters
+- [x] **AI Content Generation** - GPT-4/Claude powered generation
+- [x] **AI Chat Assistant** - Help with API usage
 - [x] Comprehensive test coverage
 
 ### Next Steps 🚀
-- [ ] AI integration (LangChain/LangGraph)
-- [ ] Semantic search with vector database
 - [ ] OAuth2 providers (Google, GitHub, etc.)
 - [ ] Multi-tenancy support
 - [ ] S3-compatible storage

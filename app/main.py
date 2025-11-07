@@ -178,7 +178,7 @@ async def root() -> dict[str, str]:
 
 # Include API routers
 from app.admin import routes as admin_routes
-from app.api.v1 import admin, auth, collections, files, realtime, records, webhooks
+from app.api.v1 import admin, ai, auth, collections, files, realtime, records, webhooks
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
@@ -186,12 +186,11 @@ app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
+app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(admin_routes.router, prefix="/admin", tags=["Admin UI"])
 
-# TODO: Include remaining routers
-# from app.api.v1 import ai
-# app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
+# Note: AI features require AI_ENABLED=true and valid API keys in .env
 
 if __name__ == "__main__":
     import uvicorn
