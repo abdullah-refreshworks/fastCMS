@@ -193,7 +193,7 @@ app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")
 
 # Include API routers
 from app.admin import routes as admin_routes
-from app.api.v1 import admin, auth, collections, files, oauth, realtime, records, webhooks
+from app.api.v1 import admin, auth, collections, files, oauth, realtime, records, search, webhooks
 # Temporarily disable AI until langchain dependencies are installed
 # from app.api.v1 import ai
 
@@ -202,6 +202,7 @@ app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
 app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
+app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 # app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
