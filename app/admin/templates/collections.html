@@ -1,18 +1,29 @@
-{% extends "base.html" %} {% block title %}Collections{% endblock %} {% block
-content %}
+{% extends "base.html" %}
+{% block title %}Collections{% endblock %}
+{% block content %}
 <div x-data="collectionsData()" x-init="loadCollections()">
-  <div class="px-4 sm:px-0">
-    <h1 class="text-3xl font-bold text-gray-900">Collections</h1>
-    <p class="mt-2 text-sm text-gray-700">
-      Manage database collections and schemas
-    </p>
+  <div class="px-4 sm:px-0 flex justify-between items-start">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Collections</h1>
+      <p class="mt-2 text-sm text-gray-700">
+        Manage database collections and schemas. API endpoints are auto-generated for each collection.
+      </p>
+    </div>
+    <button
+      @click="showCreateModal = true"
+      class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+    >
+      <i class="fas fa-plus mr-2"></i>
+      Create Collection
+    </button>
   </div>
 
   <!-- Collections Grid -->
   <div class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
     <template x-for="collection in collections" :key="collection.id">
       <div
-        class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow"
+        class="bg-white overflow-hidden shadow rounded-lg hover:shadow-lg transition-shadow cursor-pointer"
+        @click="viewCollection(collection)"
       >
         <div class="p-5">
           <div class="flex items-center justify-between">
@@ -80,12 +91,12 @@ content %}
           </div>
         </div>
 
-        <div class="bg-gray-50 px-5 py-3 flex justify-between">
+        <div class="bg-gray-50 px-5 py-3 flex justify-between" @click.stop>
           <button
             @click="viewCollection(collection)"
             class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
           >
-            View Details
+            View Details & API
           </button>
           <button
             x-show="!collection.system"
@@ -101,7 +112,14 @@ content %}
     <div x-show="collections.length === 0" class="col-span-full">
       <div class="text-center py-12">
         <i class="fas fa-database text-gray-400 text-5xl mb-4"></i>
-        <p class="text-gray-500">No collections found</p>
+        <p class="text-gray-500 mb-4">No collections found</p>
+        <button
+          @click="showCreateModal = true"
+          class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700"
+        >
+          <i class="fas fa-plus mr-2"></i>
+          Create Your First Collection
+        </button>
       </div>
     </div>
   </div>
@@ -131,7 +149,253 @@ content %}
     </button>
   </div>
 
-  <!-- Collection Details Modal -->
+  <!-- Create Collection Modal -->
+  <div
+    x-show="showCreateModal"
+    x-cloak
+    class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+    @click.self="showCreateModal = false"
+  >
+    <div
+      class="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+    >
+      <div class="p-6">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="text-2xl font-bold text-gray-900">Create New Collection</h3>
+            <p class="text-sm text-gray-500 mt-1">Define your collection schema and access rules</p>
+          </div>
+          <button
+            @click="showCreateModal = false"
+            class="text-gray-400 hover:text-gray-500"
+          >
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+
+        <form @submit.prevent="createCollection">
+          <!-- Collection Name -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Collection Name *
+            </label>
+            <input
+              type="text"
+              x-model="newCollection.name"
+              pattern="^[a-zA-Z][a-zA-Z0-9_]*$"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="e.g., posts, products, articles"
+            />
+            <p class="mt-1 text-xs text-gray-500">Must start with a letter, can contain letters, numbers, and underscores</p>
+          </div>
+
+          <!-- Collection Type -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Collection Type *
+            </label>
+            <select
+              x-model="newCollection.type"
+              required
+              class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="base">Base (Standard Collection)</option>
+              <option value="auth">Auth (User Authentication)</option>
+              <option value="view">View (Read-only)</option>
+            </select>
+          </div>
+
+          <!-- Schema Fields -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Schema Fields
+            </label>
+
+            <div class="space-y-3 mb-3">
+              <template x-for="(field, index) in newCollection.schema" :key="index">
+                <div class="border border-gray-300 rounded-md p-3 bg-gray-50">
+                  <div class="grid grid-cols-12 gap-3">
+                    <!-- Field Name -->
+                    <div class="col-span-4">
+                      <input
+                        type="text"
+                        x-model="field.name"
+                        placeholder="Field name"
+                        pattern="^[a-zA-Z][a-zA-Z0-9_]*$"
+                        required
+                        class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      />
+                    </div>
+
+                    <!-- Field Type -->
+                    <div class="col-span-3">
+                      <select
+                        x-model="field.type"
+                        required
+                        class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                      >
+                        <option value="text">Text</option>
+                        <option value="number">Number</option>
+                        <option value="bool">Boolean</option>
+                        <option value="email">Email</option>
+                        <option value="url">URL</option>
+                        <option value="date">Date</option>
+                        <option value="datetime">DateTime</option>
+                        <option value="select">Select</option>
+                        <option value="file">File</option>
+                        <option value="relation">Relation</option>
+                        <option value="json">JSON</option>
+                        <option value="editor">Editor</option>
+                      </select>
+                    </div>
+
+                    <!-- Validation Options -->
+                    <div class="col-span-4 flex items-center space-x-3">
+                      <label class="flex items-center text-xs">
+                        <input
+                          type="checkbox"
+                          x-model="field.validation.required"
+                          class="mr-1"
+                        />
+                        Required
+                      </label>
+                      <label class="flex items-center text-xs">
+                        <input
+                          type="checkbox"
+                          x-model="field.validation.unique"
+                          class="mr-1"
+                        />
+                        Unique
+                      </label>
+                    </div>
+
+                    <!-- Remove Button -->
+                    <div class="col-span-1 flex items-center">
+                      <button
+                        type="button"
+                        @click="newCollection.schema.splice(index, 1)"
+                        class="text-red-600 hover:text-red-800"
+                      >
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Additional Options for Select/Relation -->
+                  <div x-show="field.type === 'select'" class="mt-2">
+                    <input
+                      type="text"
+                      x-model="field.selectOptions"
+                      placeholder="Options (comma-separated): draft,published,archived"
+                      class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                    />
+                  </div>
+
+                  <div x-show="field.type === 'relation'" class="mt-2">
+                    <input
+                      type="text"
+                      x-model="field.relationCollection"
+                      placeholder="Target collection ID"
+                      class="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                    />
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <button
+              type="button"
+              @click="addField"
+              class="text-sm text-indigo-600 hover:text-indigo-700"
+            >
+              <i class="fas fa-plus-circle mr-1"></i>
+              Add Field
+            </button>
+          </div>
+
+          <!-- Access Rules -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Access Control Rules <span class="text-xs text-gray-500">(optional)</span>
+            </label>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">List Rule</label>
+                <input
+                  type="text"
+                  x-model="newCollection.list_rule"
+                  placeholder="null (public)"
+                  class="w-full px-2 py-1 text-sm border border-gray-300 rounded font-mono"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">View Rule</label>
+                <input
+                  type="text"
+                  x-model="newCollection.view_rule"
+                  placeholder="null (public)"
+                  class="w-full px-2 py-1 text-sm border border-gray-300 rounded font-mono"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Create Rule</label>
+                <input
+                  type="text"
+                  x-model="newCollection.create_rule"
+                  placeholder="@request.auth.id != ''"
+                  class="w-full px-2 py-1 text-sm border border-gray-300 rounded font-mono"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Update Rule</label>
+                <input
+                  type="text"
+                  x-model="newCollection.update_rule"
+                  placeholder="@request.auth.id != ''"
+                  class="w-full px-2 py-1 text-sm border border-gray-300 rounded font-mono"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-600 mb-1">Delete Rule</label>
+                <input
+                  type="text"
+                  x-model="newCollection.delete_rule"
+                  placeholder="@request.auth.id != ''"
+                  class="w-full px-2 py-1 text-sm border border-gray-300 rounded font-mono"
+                />
+              </div>
+            </div>
+            <p class="mt-2 text-xs text-gray-500">
+              Examples: <code>null</code> (public), <code>@request.auth.id != ''</code> (authenticated),
+              <code>@request.auth.role == 'admin'</code> (admin only)
+            </p>
+          </div>
+
+          <!-- Submit Buttons -->
+          <div class="flex justify-end space-x-3 mt-6 pt-4 border-t">
+            <button
+              type="button"
+              @click="showCreateModal = false"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              :disabled="isCreating"
+              class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            >
+              <span x-show="!isCreating">Create Collection</span>
+              <span x-show="isCreating">Creating...</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Collection Details Modal with API Documentation -->
   <div
     x-show="selectedCollection"
     x-cloak
@@ -139,7 +403,7 @@ content %}
     @click.self="selectedCollection = null"
   >
     <div
-      class="bg-white rounded-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+      class="bg-white rounded-lg max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto"
     >
       <div class="p-6">
         <div class="flex justify-between items-start mb-4">
@@ -161,8 +425,38 @@ content %}
           </button>
         </div>
 
-        <!-- Schema Fields -->
-        <div class="mt-6">
+        <!-- Tabs -->
+        <div class="border-b border-gray-200 mb-4">
+          <nav class="-mb-px flex space-x-8">
+            <button
+              @click="activeTab = 'schema'"
+              :class="activeTab === 'schema' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+              class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+            >
+              <i class="fas fa-table mr-2"></i>
+              Schema
+            </button>
+            <button
+              @click="activeTab = 'api'"
+              :class="activeTab === 'api' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+              class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+            >
+              <i class="fas fa-code mr-2"></i>
+              API Endpoints
+            </button>
+            <button
+              @click="activeTab = 'examples'"
+              :class="activeTab === 'examples' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+              class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+            >
+              <i class="fas fa-book mr-2"></i>
+              Code Examples
+            </button>
+          </nav>
+        </div>
+
+        <!-- Schema Tab -->
+        <div x-show="activeTab === 'schema'">
           <h4 class="text-lg font-medium text-gray-900 mb-3">Schema Fields</h4>
           <div class="bg-gray-50 rounded-lg p-4">
             <template
@@ -177,25 +471,34 @@ content %}
                       x-text="field.name"
                     ></span>
                     <span
-                      class="ml-2 text-sm text-gray-500"
+                      class="ml-2 px-2 py-0.5 text-xs bg-gray-100 text-gray-700 rounded"
                       x-text="field.type"
                     ></span>
                   </div>
-                  <span
-                    x-show="field.validation?.required"
-                    class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded"
-                  >
-                    Required
-                  </span>
+                  <div class="flex space-x-2">
+                    <span
+                      x-show="field.validation?.required"
+                      class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded"
+                    >
+                      Required
+                    </span>
+                    <span
+                      x-show="field.validation?.unique"
+                      class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
+                    >
+                      Unique
+                    </span>
+                  </div>
+                </div>
+                <div x-show="field.label" class="mt-1 text-sm text-gray-600">
+                  <span class="font-medium">Label:</span>
+                  <span x-text="field.label"></span>
                 </div>
               </div>
             </template>
           </div>
-        </div>
 
-        <!-- Access Rules -->
-        <div class="mt-6">
-          <h4 class="text-lg font-medium text-gray-900 mb-3">
+          <h4 class="text-lg font-medium text-gray-900 mt-6 mb-3">
             Access Control Rules
           </h4>
           <div class="space-y-2 bg-gray-50 rounded-lg p-4">
@@ -236,21 +539,256 @@ content %}
             </div>
           </div>
         </div>
+
+        <!-- API Tab -->
+        <div x-show="activeTab === 'api'">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+            <p class="text-sm text-blue-800">
+              <i class="fas fa-info-circle mr-2"></i>
+              These API endpoints are automatically generated for your collection. Use them in your frontend applications.
+            </p>
+          </div>
+
+          <div class="space-y-4">
+            <!-- List Records -->
+            <div class="border rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                  <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded mr-3">GET</span>
+                  <code class="text-sm" x-text="`/api/v1/collections/${selectedCollection?.name}/records`"></code>
+                </div>
+                <button
+                  @click="copyToClipboard(`/api/v1/collections/${selectedCollection?.name}/records`)"
+                  class="text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <p class="text-sm text-gray-600">List all records from this collection</p>
+              <p class="text-xs text-gray-500 mt-1">Query params: page, per_page, sort, filter</p>
+            </div>
+
+            <!-- Get Single Record -->
+            <div class="border rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                  <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded mr-3">GET</span>
+                  <code class="text-sm" x-text="`/api/v1/collections/${selectedCollection?.name}/records/{id}`"></code>
+                </div>
+                <button
+                  @click="copyToClipboard(`/api/v1/collections/${selectedCollection?.name}/records/{id}`)"
+                  class="text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <p class="text-sm text-gray-600">Get a single record by ID</p>
+            </div>
+
+            <!-- Create Record -->
+            <div class="border rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                  <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded mr-3">POST</span>
+                  <code class="text-sm" x-text="`/api/v1/collections/${selectedCollection?.name}/records`"></code>
+                </div>
+                <button
+                  @click="copyToClipboard(`/api/v1/collections/${selectedCollection?.name}/records`)"
+                  class="text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <p class="text-sm text-gray-600">Create a new record</p>
+              <p class="text-xs text-gray-500 mt-1">Body: JSON object with field values</p>
+            </div>
+
+            <!-- Update Record -->
+            <div class="border rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                  <span class="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded mr-3">PATCH</span>
+                  <code class="text-sm" x-text="`/api/v1/collections/${selectedCollection?.name}/records/{id}`"></code>
+                </div>
+                <button
+                  @click="copyToClipboard(`/api/v1/collections/${selectedCollection?.name}/records/{id}`)"
+                  class="text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <p class="text-sm text-gray-600">Update an existing record</p>
+              <p class="text-xs text-gray-500 mt-1">Body: JSON object with fields to update</p>
+            </div>
+
+            <!-- Delete Record -->
+            <div class="border rounded-lg p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                  <span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded mr-3">DELETE</span>
+                  <code class="text-sm" x-text="`/api/v1/collections/${selectedCollection?.name}/records/{id}`"></code>
+                </div>
+                <button
+                  @click="copyToClipboard(`/api/v1/collections/${selectedCollection?.name}/records/{id}`)"
+                  class="text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <p class="text-sm text-gray-600">Delete a record</p>
+            </div>
+          </div>
+
+          <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+            <h5 class="font-medium text-sm mb-2">Base URL</h5>
+            <code class="text-sm" x-text="window.location.origin"></code>
+          </div>
+        </div>
+
+        <!-- Code Examples Tab -->
+        <div x-show="activeTab === 'examples'">
+          <div class="space-y-6">
+            <!-- JavaScript Fetch Example -->
+            <div>
+              <h4 class="text-lg font-medium text-gray-900 mb-3">JavaScript (Fetch API)</h4>
+
+              <div class="bg-gray-900 rounded-lg p-4 text-white text-sm font-mono overflow-x-auto">
+                <pre><code>// List Records
+async function get<span x-text="capitalize(selectedCollection?.name)"></span>() {
+  const response = await fetch('<span x-text="`${window.location.origin}/api/v1/collections/${selectedCollection?.name}/records`"></span>', {
+    headers: {
+      'Authorization': 'Bearer YOUR_ACCESS_TOKEN'
+    }
+  });
+  return await response.json();
+}
+
+// Create Record
+async function create<span x-text="capitalize(selectedCollection?.name)"></span>(data) {
+  const response = await fetch('<span x-text="`${window.location.origin}/api/v1/collections/${selectedCollection?.name}/records`"></span>', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  });
+  return await response.json();
+}
+
+// Update Record
+async function update<span x-text="capitalize(selectedCollection?.name)"></span>(id, data) {
+  const response = await fetch('<span x-text="`${window.location.origin}/api/v1/collections/${selectedCollection?.name}/records/${id}`"></span>', {
+    method: 'PATCH',
+    headers: {
+      'Authorization': 'Bearer YOUR_ACCESS_TOKEN',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  });
+  return await response.json();
+}
+
+// Delete Record
+async function delete<span x-text="capitalize(selectedCollection?.name)"></span>(id) {
+  await fetch('<span x-text="`${window.location.origin}/api/v1/collections/${selectedCollection?.name}/records/${id}`"></span>', {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'Bearer YOUR_ACCESS_TOKEN'
+    }
+  });
+}</code></pre>
+              </div>
+            </div>
+
+            <!-- React Example -->
+            <div>
+              <h4 class="text-lg font-medium text-gray-900 mb-3">React Hook Example</h4>
+
+              <div class="bg-gray-900 rounded-lg p-4 text-white text-sm font-mono overflow-x-auto">
+                <pre><code>import { useState, useEffect } from 'react';
+
+function <span x-text="capitalize(selectedCollection?.name)"></span>List() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('<span x-text="`${window.location.origin}/api/v1/collections/${selectedCollection?.name}/records`"></span>', {
+      headers: {
+        'Authorization': \`Bearer \${localStorage.getItem('token')}\`
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        setItems(data.items);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return &lt;div&gt;Loading...&lt;/div&gt;;
+
+  return (
+    &lt;div&gt;
+      {items.map(item => (
+        &lt;div key={item.id}&gt;
+          {/* Render your item */}
+        &lt;/div&gt;
+      ))}
+    &lt;/div&gt;
+  );
+}</code></pre>
+              </div>
+            </div>
+
+            <!-- cURL Example -->
+            <div>
+              <h4 class="text-lg font-medium text-gray-900 mb-3">cURL Example</h4>
+
+              <div class="bg-gray-900 rounded-lg p-4 text-white text-sm font-mono overflow-x-auto">
+                <pre><code># List records
+curl -X GET '<span x-text="`${window.location.origin}/api/v1/collections/${selectedCollection?.name}/records`"></span>' \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN'
+
+# Create record
+curl -X POST '<span x-text="`${window.location.origin}/api/v1/collections/${selectedCollection?.name}/records`"></span>' \
+  -H 'Authorization: Bearer YOUR_ACCESS_TOKEN' \
+  -H 'Content-Type: application/json' \
+  -d '{<span x-html="generateExampleData()"></span>}'</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
-{% endblock %} {% block scripts %}
+{% endblock %}
+
+{% block scripts %}
 <script>
   function collectionsData() {
     return {
       collections: [],
       selectedCollection: null,
+      showCreateModal: false,
+      activeTab: 'schema',
+      isCreating: false,
       pagination: {
         page: 1,
         per_page: 12,
         total: 0,
         total_pages: 0,
+      },
+      newCollection: {
+        name: '',
+        type: 'base',
+        schema: [],
+        list_rule: null,
+        view_rule: null,
+        create_rule: null,
+        update_rule: null,
+        delete_rule: null,
+        options: {}
       },
 
       async loadCollections() {
@@ -267,11 +805,13 @@ content %}
           };
         } catch (error) {
           console.error("Failed to load collections:", error);
+          showToast("Failed to load collections", "error");
         }
       },
 
       viewCollection(collection) {
         this.selectedCollection = collection;
+        this.activeTab = 'schema';
       },
 
       async deleteCollection(collection) {
@@ -289,7 +829,95 @@ content %}
           await this.loadCollections();
         } catch (error) {
           console.error("Failed to delete collection:", error);
+          showToast("Failed to delete collection", "error");
         }
+      },
+
+      addField() {
+        this.newCollection.schema.push({
+          name: '',
+          type: 'text',
+          validation: {
+            required: false,
+            unique: false
+          },
+          selectOptions: '',
+          relationCollection: ''
+        });
+      },
+
+      async createCollection() {
+        this.isCreating = true;
+
+        try {
+          // Process schema fields
+          const schema = this.newCollection.schema.map(field => {
+            const fieldSchema = {
+              name: field.name,
+              type: field.type,
+              validation: field.validation
+            };
+
+            // Add type-specific options
+            if (field.type === 'select' && field.selectOptions) {
+              fieldSchema.select = {
+                values: field.selectOptions.split(',').map(v => v.trim()),
+                max_select: 1
+              };
+            }
+
+            if (field.type === 'relation' && field.relationCollection) {
+              fieldSchema.relation = {
+                collection_id: field.relationCollection,
+                cascade_delete: false,
+                display_fields: ['id']
+              };
+            }
+
+            return fieldSchema;
+          });
+
+          const payload = {
+            name: this.newCollection.name,
+            type: this.newCollection.type,
+            schema: schema,
+            options: this.newCollection.options,
+            list_rule: this.newCollection.list_rule || null,
+            view_rule: this.newCollection.view_rule || null,
+            create_rule: this.newCollection.create_rule || null,
+            update_rule: this.newCollection.update_rule || null,
+            delete_rule: this.newCollection.delete_rule || null
+          };
+
+          await apiRequest('/admin/collections', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+
+          showToast(`Collection "${this.newCollection.name}" created successfully!`, "success");
+          this.showCreateModal = false;
+          this.resetNewCollection();
+          await this.loadCollections();
+        } catch (error) {
+          console.error("Failed to create collection:", error);
+          showToast(error.message || "Failed to create collection", "error");
+        } finally {
+          this.isCreating = false;
+        }
+      },
+
+      resetNewCollection() {
+        this.newCollection = {
+          name: '',
+          type: 'base',
+          schema: [],
+          list_rule: null,
+          view_rule: null,
+          create_rule: null,
+          update_rule: null,
+          delete_rule: null,
+          options: {}
+        };
       },
 
       async nextPage() {
@@ -305,6 +933,22 @@ content %}
           await this.loadCollections();
         }
       },
+
+      copyToClipboard(text) {
+        navigator.clipboard.writeText(window.location.origin + text);
+        showToast("Copied to clipboard!", "success");
+      },
+
+      capitalize(str) {
+        if (!str) return '';
+        return str.charAt(0).toUpperCase() + str.slice(1);
+      },
+
+      generateExampleData() {
+        if (!this.selectedCollection) return '';
+        const fields = this.selectedCollection.schema.slice(0, 2);
+        return fields.map(f => `\n    "${f.name}": "example value"`).join(',');
+      }
     };
   }
 </script>
