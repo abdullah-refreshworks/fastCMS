@@ -137,3 +137,59 @@ class PasswordChange(BaseModel):
         if "new_password" in info.data and v != info.data["new_password"]:
             raise ValueError("Passwords do not match")
         return v
+
+
+class UserAdminCreate(BaseModel):
+    """Schema for admin creating a user."""
+
+    email: EmailStr = Field(..., description="User email address")
+    password: str = Field(..., min_length=8, max_length=100, description="Password (min 8 chars)")
+    name: Optional[str] = Field(None, max_length=255, description="Display name")
+    role: str = Field(default="user", pattern="^(user|admin)$", description="User role")
+    verified: bool = Field(default=False, description="Email verified status")
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: str) -> str:
+        """Validate password strength."""
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+
+        # Check for at least one letter and one number
+        has_letter = any(c.isalpha() for c in v)
+        has_number = any(c.isdigit() for c in v)
+
+        if not (has_letter and has_number):
+            raise ValueError("Password must contain at least one letter and one number")
+
+        return v
+
+
+class UserAdminUpdate(BaseModel):
+    """Schema for admin updating a user."""
+
+    email: Optional[EmailStr] = None
+    name: Optional[str] = Field(None, max_length=255)
+    avatar: Optional[str] = None
+    role: Optional[str] = Field(None, pattern="^(user|admin)$")
+    verified: Optional[bool] = None
+    password: Optional[str] = Field(None, min_length=8, max_length=100)
+
+    @field_validator("password")
+    @classmethod
+    def password_strength(cls, v: Optional[str]) -> Optional[str]:
+        """Validate password strength."""
+        if v is None:
+            return v
+
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+
+        # Check for at least one letter and one number
+        has_letter = any(c.isalpha() for c in v)
+        has_number = any(c.isdigit() for c in v)
+
+        if not (has_letter and has_number):
+            raise ValueError("Password must contain at least one letter and one number")
+
+        return v
