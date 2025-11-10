@@ -191,18 +191,33 @@ async def root() -> dict[str, str]:
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")
 
+# Add custom middleware
+from app.core.middleware import LoggingMiddleware, ReadOnlyMiddleware
+
+app.add_middleware(ReadOnlyMiddleware)
+app.add_middleware(LoggingMiddleware)
+
 # Include API routers
 from app.admin import routes as admin_routes
-from app.api.v1 import admin, auth, collections, files, oauth, realtime, records, search, webhooks
+from app.api.v1 import (
+    admin, auth, backups, batch, collections, files,
+    health, logs, oauth, realtime, records, search,
+    settings, webhooks
+)
 # Temporarily disable AI until langchain dependencies are installed
 # from app.api.v1 import ai
 
+app.include_router(health.router, tags=["Health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
 app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
+app.include_router(batch.router, prefix="/api/v1", tags=["Batch"])
+app.include_router(logs.router, prefix="/api/v1", tags=["Logs"])
+app.include_router(settings.router, prefix="/api/v1", tags=["Settings"])
+app.include_router(backups.router, prefix="/api/v1", tags=["Backups"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 # app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
