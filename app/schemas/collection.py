@@ -118,6 +118,7 @@ class CollectionResponse(CollectionBase):
     system: bool
     created: datetime
     updated: datetime
+    message: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -130,6 +131,7 @@ class CollectionListResponse(BaseModel):
     total: int
     page: int
     per_page: int
+    message: Optional[str] = None
 
 
 class CollectionSchemaExport(BaseModel):

@@ -1,493 +1,1107 @@
-# FastCMS User Guide
+# fastCMS User Guide
 
-Welcome to FastCMS! This guide will help you get started with using FastCMS as an end user.
+Welcome to **fastCMS** - a complete, modern Backend-as-a-Service platform! 🚀
+
+This guide will help you get started and make the most of your fastCMS installation.
 
 ## Table of Contents
 
-1. [Getting Started](#getting-started)
-2. [Admin Dashboard](#admin-dashboard)
-3. [User Management](#user-management)
-4. [Collections Management](#collections-management)
-5. [Records Management](#records-management)
-6. [File Management](#file-management)
-7. [API Usage](#api-usage)
-8. [OAuth Authentication](#oauth-authentication)
+- [Getting Started](#getting-started)
+- [First-Time Setup](#first-time-setup)
+- [Core Concepts](#core-concepts)
+- [Working with Collections](#working-with-collections)
+- [Managing Records](#managing-records)
+- [Authentication](#authentication)
+- [File Management](#file-management)
+- [Full-Text Search](#full-text-search)
+- [Real-Time Subscriptions](#real-time-subscriptions)
+- [Advanced Features](#advanced-features)
+- [API Reference](#api-reference)
+- [TypeScript SDK](#typescript-sdk)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Getting Started
 
-### Accessing FastCMS
+### Installation
 
-1. **Start the Server**
+1. **Clone the repository**:
    ```bash
-   python app/main.py
-   ```
-   The server will start at `http://localhost:8000`
-
-2. **Access Points**
-   - API Documentation: `http://localhost:8000/docs`
-   - Admin Dashboard: `http://localhost:8000/admin/`
-   - Health Check: `http://localhost:8000/health`
-
-### First-Time Setup
-
-1. **Create Your First User**
-   ```bash
-   curl -X POST "http://localhost:8000/api/v1/auth/register" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "email": "yourname@example.com",
-       "password": "YourSecurePass123",
-       "password_confirm": "YourSecurePass123",
-       "name": "Your Name"
-     }'
+   git clone <your-repo-url>
+   cd fastCMS
    ```
 
-2. **Make Yourself Admin** (requires database access)
+2. **Install dependencies**:
    ```bash
-   # Using Python
-   python3 << EOF
-   import sqlite3
-   conn = sqlite3.connect('data/app.db')
-   cursor = conn.cursor()
-   cursor.execute("UPDATE users SET role = 'admin' WHERE email = 'yourname@example.com'")
-   conn.commit()
-   conn.close()
-   EOF
+   pip install -e .
    ```
+
+3. **Verify installation**:
+   ```bash
+   fastcms --version
+   ```
+
+### System Requirements
+
+- Python 3.10 or higher
+- SQLite (built-in) or PostgreSQL
+- 100MB free disk space (minimum)
 
 ---
 
-## Admin Dashboard
+## First-Time Setup
 
-The Admin Dashboard provides a visual interface to manage your FastCMS instance.
+Welcome! Let's get your fastCMS instance up and running in just a few steps.
 
-### Accessing the Dashboard
+### Step 1: Initialize Your Project
 
-1. Navigate to `http://localhost:8000/admin/`
-2. Login with your admin credentials
-3. Store your access token in browser localStorage:
-   ```javascript
-   localStorage.setItem('access_token', 'YOUR_TOKEN_HERE');
-   ```
-
-### Dashboard Overview
-
-The main dashboard shows:
-- **Total Users**: Number of registered users
-- **Admin Count**: Number of admin users
-- **New Users (7d)**: Recently registered users
-- **Total Collections**: Number of collections created
-- **Quick Actions**: Links to manage users, collections, and API docs
-
----
-
-## User Management
-
-### Viewing Users
-
-1. Go to **Admin Dashboard** → **Users**
-2. View all registered users with their:
-   - Email address
-   - Name
-   - Role (user/admin)
-   - Verification status
-   - Registration date
-
-### Managing User Roles
-
-**Promote to Admin:**
-1. Find the user in the users list
-2. Click "Promote" button
-3. Confirm the action
-
-**Demote to User:**
-1. Find the admin user
-2. Click "Demote" button
-3. Confirm the action
-
-### Deleting Users
-
-1. Find the user in the users list
-2. Click "Delete" button
-3. Confirm the action (this cannot be undone)
-
----
-
-## Collections Management
-
-Collections are like database tables with dynamic schemas.
-
-### Creating a Collection
-
-**Via Admin Dashboard:**
-1. Go to **Collections** tab
-2. Click "Create Collection" button
-3. Fill in:
-   - **Name**: Unique identifier (letters, numbers, underscore)
-   - **Type**: base, auth, or view
-   - **Schema**: Define your fields
-
-**Via API:**
 ```bash
-curl -X POST "http://localhost:8000/api/v1/collections" \
+fastcms init my-app --database sqlite
+```
+
+This creates a new fastCMS project with:
+- ✅ Database configuration
+- ✅ Default settings
+- ✅ Sample environment file
+- ✅ Initial directory structure
+
+**Output**:
+```
+✨ Initializing fastCMS project: my-app
+✅ Created project structure
+✅ Created .env file
+✅ Database configured (sqlite)
+
+Next steps:
+  1. cd my-app
+  2. fastcms users create admin@example.com --password admin123 --admin
+  3. fastcms dev
+```
+
+### Step 2: Create Your Admin User
+
+This is an important step! Create your first admin user to manage the platform:
+
+```bash
+cd my-app
+fastcms users create admin@example.com --password YourSecurePassword123! --admin
+```
+
+**Success Message**:
+```
+✅ Admin user created successfully!
+
+Email: admin@example.com
+Role: Administrator
+
+You can now:
+  • Access the API at http://localhost:8000
+  • View API docs at http://localhost:8000/docs
+  • Login with your credentials
+
+Ready to start? Run: fastcms dev
+```
+
+**💡 Pro Tip**: Use a strong password! We recommend at least 8 characters with a mix of uppercase, lowercase, numbers, and special characters.
+
+### Step 3: Start the Development Server
+
+```bash
+fastcms dev --port 8000 --reload
+```
+
+**Output**:
+```
+🚀 Starting fastCMS development server...
+✅ Database connected
+✅ Server ready at http://localhost:8000
+✅ API documentation at http://localhost:8000/docs
+✅ Auto-reload enabled
+
+Press CTRL+C to stop
+```
+
+### Step 4: Verify Everything Works
+
+Open your browser and visit:
+- **API Docs**: http://localhost:8000/docs
+- **Health Check**: http://localhost:8000/health
+
+You should see a healthy response like:
+```json
+{
+  "status": "healthy",
+  "service": "fastCMS",
+  "version": "0.2.0",
+  "environment": "development",
+  "readonly": false
+}
+```
+
+**🎉 Congratulations! Your fastCMS is now running!**
+
+---
+
+## Core Concepts
+
+### Collections
+
+Collections are like database tables. They define the structure of your data.
+
+**Types of Collections**:
+- **Base**: Standard data collections (posts, products, etc.)
+- **Auth**: User collections with built-in authentication
+- **View**: Read-only virtual collections (database views)
+
+**Example Collection**:
+```json
+{
+  "name": "posts",
+  "type": "base",
+  "schema": [
+    {"name": "title", "type": "text", "required": true},
+    {"name": "content", "type": "text", "required": false},
+    {"name": "status", "type": "select", "options": ["draft", "published"]},
+    {"name": "author", "type": "relation", "collection": "users"}
+  ]
+}
+```
+
+### Records
+
+Records are individual entries in a collection. Think of them as rows in a database table.
+
+### Authentication
+
+fastCMS supports multiple authentication methods:
+- **Email/Password**: Traditional authentication
+- **OAuth2**: Google, GitHub, Microsoft
+- **JWT Tokens**: Secure API access
+
+### Access Rules
+
+Control who can do what with your data:
+- `list_rule`: Who can list records
+- `view_rule`: Who can view individual records
+- `create_rule`: Who can create records
+- `update_rule`: Who can update records
+- `delete_rule`: Who can delete records
+- `manage_rule`: Who can manage the collection itself
+
+**Example Rules**:
+```
+@request.auth != null  // Only authenticated users
+@request.auth.id = author  // Only the author
+@request.auth.role = "admin"  // Only admins
+```
+
+---
+
+## Working with Collections
+
+### Creating a Collection (CLI)
+
+```bash
+fastcms collections create posts --schema posts.json
+```
+
+**posts.json**:
+```json
+{
+  "name": "posts",
+  "type": "base",
+  "schema": [
+    {"name": "title", "type": "text", "required": true},
+    {"name": "content", "type": "text"},
+    {"name": "published", "type": "bool", "default": false}
+  ],
+  "list_rule": "@request.auth != null",
+  "create_rule": "@request.auth != null"
+}
+```
+
+**Success Message**:
+```
+✅ Collection 'posts' created successfully!
+
+Schema: 3 fields
+Access Rules: Configured
+API Endpoints:
+  • POST   /api/v1/posts/records
+  • GET    /api/v1/posts/records
+  • GET    /api/v1/posts/records/{id}
+  • PATCH  /api/v1/posts/records/{id}
+  • DELETE /api/v1/posts/records/{id}
+
+Next: Create your first record!
+```
+
+### Creating a Collection (API)
+
+**Request**:
+```bash
+curl -X POST http://localhost:8000/api/v1/collections \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "posts",
     "type": "base",
     "schema": [
-      {
-        "name": "title",
-        "type": "text",
-        "validation": {"required": true}
-      },
-      {
-        "name": "content",
-        "type": "editor",
-        "validation": {}
-      },
-      {
-        "name": "published",
-        "type": "bool",
-        "validation": {}
-      }
+      {"name": "title", "type": "text", "required": true},
+      {"name": "content", "type": "text"}
     ]
   }'
 ```
 
-### Field Types
+**Success Response** (201 Created):
+```json
+{
+  "id": "col_abc123",
+  "name": "posts",
+  "type": "base",
+  "schema": [...],
+  "created": "2025-11-10T12:00:00Z",
+  "updated": "2025-11-10T12:00:00Z",
+  "message": "✅ Collection 'posts' created successfully! You can now start adding records."
+}
+```
 
-FastCMS supports these field types:
+### Listing Collections
 
-| Type | Description | Example Use |
-|------|-------------|-------------|
-| `text` | Short text string | Titles, names |
-| `editor` | Rich text HTML | Article content |
-| `number` | Numeric value | Age, price, count |
-| `bool` | True/false | Published, active |
-| `email` | Email address | Contact email |
-| `url` | Web URL | Website links |
-| `date` | Date only | Birth date |
-| `datetime` | Date and time | Created timestamp |
-| `select` | Dropdown | Category, status |
-| `file` | File upload | Images, documents |
-| `relation` | Link to another collection | Author, category |
-| `json` | Structured data | Metadata, settings |
-
-### Viewing Collection Details
-
-1. Go to **Collections** tab
-2. Click "View Details" on any collection
-3. See:
-   - Schema fields
-   - Field types and validation
-   - Access control rules
-
-### Deleting Collections
-
-1. Find the collection
-2. Click "Delete" button
-3. Confirm (this deletes all records too!)
-
-**Note:** System collections cannot be deleted.
-
----
-
-## Records Management
-
-Records are the actual data entries in your collections.
-
-### Creating a Record
-
+**CLI**:
 ```bash
-curl -X POST "http://localhost:8000/api/v1/posts/records" \
+fastcms collections list
+```
+
+**API**:
+```bash
+curl http://localhost:8000/api/v1/collections \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Success Response**:
+```json
+{
+  "items": [
+    {
+      "id": "col_abc123",
+      "name": "posts",
+      "type": "base",
+      "record_count": 42
+    }
+  ],
+  "count": 1,
+  "message": "✅ Retrieved 1 collection(s)"
+}
+```
+
+### Updating a Collection
+
+**Request**:
+```bash
+curl -X PATCH http://localhost:8000/api/v1/collections/col_abc123 \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "data": {
-      "title": "My First Post",
-      "content": "<p>Hello World!</p>",
-      "published": true
-    }
+    "list_rule": "@request.auth != null"
   }'
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "id": "col_abc123",
+  "name": "posts",
+  "list_rule": "@request.auth != null",
+  "message": "✅ Collection updated successfully!"
+}
+```
+
+### Deleting a Collection
+
+**Request**:
+```bash
+curl -X DELETE http://localhost:8000/api/v1/collections/col_abc123 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "message": "✅ Collection 'posts' and all its records have been deleted successfully."
+}
+```
+
+**⚠️ Warning**: Deleting a collection also deletes all its records. This action cannot be undone.
+
+---
+
+## Managing Records
+
+### Creating a Record
+
+**Request**:
+```bash
+curl -X POST http://localhost:8000/api/v1/posts/records \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "My First Post",
+    "content": "Hello, world!",
+    "published": true
+  }'
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "id": "rec_xyz789",
+  "title": "My First Post",
+  "content": "Hello, world!",
+  "published": true,
+  "created": "2025-11-10T12:00:00Z",
+  "updated": "2025-11-10T12:00:00Z",
+  "message": "✅ Record created successfully!"
+}
+```
+
+**Error Examples**:
+
+**Missing Required Field** (400 Bad Request):
+```json
+{
+  "error": "Validation failed",
+  "details": {
+    "title": "This field is required"
+  },
+  "message": "❌ Please provide all required fields and try again."
+}
+```
+
+**Unauthorized** (403 Forbidden):
+```json
+{
+  "error": "Access denied",
+  "message": "❌ You don't have permission to create records in this collection. Please check your access rules or contact an administrator."
+}
 ```
 
 ### Listing Records
 
+**Request**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/posts/records" \
+curl "http://localhost:8000/api/v1/posts/records?page=1&limit=20&sort=-created" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-**With Pagination:**
-```bash
-curl -X GET "http://localhost:8000/api/v1/posts/records?page=1&per_page=20" \
-  -H "Authorization: Bearer YOUR_TOKEN"
+**Success Response** (200 OK):
+```json
+{
+  "items": [
+    {
+      "id": "rec_xyz789",
+      "title": "My First Post",
+      "content": "Hello, world!",
+      "published": true,
+      "created": "2025-11-10T12:00:00Z",
+      "updated": "2025-11-10T12:00:00Z"
+    }
+  ],
+  "page": 1,
+  "limit": 20,
+  "total": 1,
+  "message": "✅ Retrieved 1 record(s)"
+}
 ```
 
-### Filtering Records
-
-FastCMS uses PocketBase-style filter syntax:
-
-**Examples:**
+**Filtering**:
 ```bash
-# Greater than or equal
-curl "http://localhost:8000/api/v1/products/records?filter=price>=100"
+# Filter by field
+curl "http://localhost:8000/api/v1/posts/records?filter=published=true"
 
-# Multiple conditions (AND)
-curl "http://localhost:8000/api/v1/users/records?filter=age>=18&&status=active"
+# Multiple filters
+curl "http://localhost:8000/api/v1/posts/records?filter=published=true&filter=created>2025-01-01"
+```
 
-# Text search (contains)
-curl "http://localhost:8000/api/v1/posts/records?filter=title~FastCMS"
+**Sorting**:
+```bash
+# Sort ascending
+curl "http://localhost:8000/api/v1/posts/records?sort=title"
 
-# Sorting (descending with -)
+# Sort descending (prefix with -)
 curl "http://localhost:8000/api/v1/posts/records?sort=-created"
 ```
 
-**Supported Operators:**
-- `=` Equal
-- `!=` Not equal
-- `>` Greater than
-- `<` Less than
-- `>=` Greater than or equal
-- `<=` Less than or equal
-- `~` Contains (like)
-- `&&` AND condition
+### Getting a Single Record
+
+**Request**:
+```bash
+curl http://localhost:8000/api/v1/posts/records/rec_xyz789 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "id": "rec_xyz789",
+  "title": "My First Post",
+  "content": "Hello, world!",
+  "published": true,
+  "created": "2025-11-10T12:00:00Z",
+  "updated": "2025-11-10T12:00:00Z",
+  "message": "✅ Record retrieved successfully!"
+}
+```
+
+**Error - Not Found** (404):
+```json
+{
+  "error": "Record not found",
+  "message": "❌ The record you're looking for doesn't exist or you don't have permission to view it."
+}
+```
 
 ### Updating a Record
 
+**Request**:
 ```bash
-curl -X PATCH "http://localhost:8000/api/v1/posts/records/RECORD_ID" \
+curl -X PATCH http://localhost:8000/api/v1/posts/records/rec_xyz789 \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "data": {
-      "title": "Updated Title",
-      "published": false
-    }
+    "title": "Updated Title",
+    "published": true
   }'
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "id": "rec_xyz789",
+  "title": "Updated Title",
+  "content": "Hello, world!",
+  "published": true,
+  "updated": "2025-11-10T13:00:00Z",
+  "message": "✅ Record updated successfully!"
+}
+```
+
+**Error - Validation Failed** (400):
+```json
+{
+  "error": "Validation failed",
+  "details": {
+    "email": "Invalid email format"
+  },
+  "message": "❌ Please check your input and try again."
+}
 ```
 
 ### Deleting a Record
 
+**Request**:
 ```bash
-curl -X DELETE "http://localhost:8000/api/v1/posts/records/RECORD_ID" \
+curl -X DELETE http://localhost:8000/api/v1/posts/records/rec_xyz789 \
   -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "message": "✅ Record deleted successfully!"
+}
+```
+
+**Error - Cannot Delete** (403):
+```json
+{
+  "error": "Access denied",
+  "message": "❌ You don't have permission to delete this record."
+}
+```
+
+---
+
+## Authentication
+
+### Registering a New User
+
+**Request**:
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!",
+    "passwordConfirm": "SecurePass123!"
+  }'
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "user": {
+    "id": "user_abc123",
+    "email": "user@example.com",
+    "verified": false,
+    "created": "2025-11-10T12:00:00Z"
+  },
+  "token": "eyJhbGc...",
+  "refreshToken": "ref_xyz...",
+  "message": "✅ Account created successfully! Welcome to fastCMS!"
+}
+```
+
+**Error - Email Already Exists** (400):
+```json
+{
+  "error": "Email already registered",
+  "message": "❌ This email is already in use. Try logging in or use a different email address."
+}
+```
+
+**Error - Weak Password** (400):
+```json
+{
+  "error": "Password too weak",
+  "message": "❌ Password must be at least 8 characters long and include uppercase, lowercase, and numbers."
+}
+```
+
+### Logging In
+
+**Request**:
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "SecurePass123!"
+  }'
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "user": {
+    "id": "user_abc123",
+    "email": "user@example.com",
+    "role": "user"
+  },
+  "token": "eyJhbGc...",
+  "refreshToken": "ref_xyz...",
+  "message": "✅ Login successful! Welcome back!"
+}
+```
+
+**Error - Invalid Credentials** (401):
+```json
+{
+  "error": "Authentication failed",
+  "message": "❌ Invalid email or password. Please check your credentials and try again."
+}
+```
+
+### Getting Current User
+
+**Request**:
+```bash
+curl http://localhost:8000/api/v1/auth/me \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "id": "user_abc123",
+  "email": "user@example.com",
+  "role": "user",
+  "verified": true,
+  "message": "✅ Profile retrieved successfully!"
+}
+```
+
+### Refreshing Token
+
+**Request**:
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refreshToken": "ref_xyz..."
+  }'
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "token": "eyJhbGc...",
+  "refreshToken": "ref_new...",
+  "message": "✅ Token refreshed successfully!"
+}
 ```
 
 ---
 
 ## File Management
 
-### Uploading Files
+### Uploading a File
 
-**Via Admin Dashboard:**
-1. Go to **Files** tab
-2. Click "Upload File" button
-3. Select your file
-4. Click "Upload"
-
-**Via API:**
+**Request**:
 ```bash
-curl -X POST "http://localhost:8000/api/v1/files" \
+curl -X POST http://localhost:8000/api/v1/files \
   -H "Authorization: Bearer YOUR_TOKEN" \
-  -F "file=@/path/to/your/file.jpg"
+  -F "file=@/path/to/image.jpg" \
+  -F "collection=posts" \
+  -F "record=rec_xyz789" \
+  -F "field=cover_image"
 ```
 
-### Viewing Files
-
-1. Go to **Files** tab in Admin Dashboard
-2. Browse uploaded files
-3. Click on images to preview
-4. See file details (name, size, type)
-
-### Downloading Files
-
-Access files via:
-```
-http://localhost:8000/api/v1/files/FILE_ID
-```
-
-### Deleting Files
-
-1. Go to **Files** tab
-2. Hover over the file
-3. Click the trash icon
-4. Confirm deletion
-
----
-
-## API Usage
-
-### Authentication
-
-FastCMS uses JWT tokens for authentication.
-
-**1. Register:**
-```bash
-curl -X POST "http://localhost:8000/api/v1/auth/register" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "SecurePass123",
-    "password_confirm": "SecurePass123",
-    "name": "John Doe"
-  }'
-```
-
-**2. Login:**
-```bash
-curl -X POST "http://localhost:8000/api/v1/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "SecurePass123"
-  }'
-```
-
-Response includes:
-- `access_token`: Use for API requests (expires in 15 min)
-- `refresh_token`: Use to get new access token (expires in 30 days)
-
-**3. Using Tokens:**
-```bash
-curl -X GET "http://localhost:8000/api/v1/collections" \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
-```
-
-**4. Refreshing Tokens:**
-```bash
-curl -X POST "http://localhost:8000/api/v1/auth/refresh" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "refresh_token": "YOUR_REFRESH_TOKEN"
-  }'
-```
-
-### Access Control Rules
-
-Collections can have permission rules:
-
-**Rule Syntax:**
-- `null` or `""`: Public (anyone can access)
-- `@request.auth.id != ''`: Authenticated users only
-- `@request.auth.id = @record.user_id`: Owner only
-- `@request.auth.role = 'admin'`: Admin only
-- Multiple conditions: `@request.auth.id = @record.user_id || @request.auth.role = 'admin'`
-
-**Rule Types:**
-- `list_rule`: Who can list records
-- `view_rule`: Who can view a single record
-- `create_rule`: Who can create records
-- `update_rule`: Who can update records
-- `delete_rule`: Who can delete records
-
-**Example:**
+**Success Response** (201 Created):
 ```json
 {
-  "name": "posts",
-  "list_rule": "",
-  "view_rule": "",
-  "create_rule": "@request.auth.id != ''",
-  "update_rule": "@request.auth.id = @record.user_id || @request.auth.role = 'admin'",
-  "delete_rule": "@request.auth.role = 'admin'"
+  "id": "file_abc123",
+  "filename": "image.jpg",
+  "size": 204800,
+  "mimetype": "image/jpeg",
+  "url": "/api/v1/files/file_abc123/download",
+  "created": "2025-11-10T12:00:00Z",
+  "message": "✅ File uploaded successfully!"
+}
+```
+
+**Error - File Too Large** (413):
+```json
+{
+  "error": "File too large",
+  "message": "❌ File size exceeds the maximum limit of 10MB. Please upload a smaller file."
+}
+```
+
+**Error - Invalid File Type** (400):
+```json
+{
+  "error": "Invalid file type",
+  "message": "❌ File type '.exe' is not allowed. Allowed types: images, documents, videos."
+}
+```
+
+### Downloading a File
+
+**Request**:
+```bash
+curl http://localhost:8000/api/v1/files/file_abc123/download \
+  -o downloaded_file.jpg
+```
+
+### Deleting a File
+
+**Request**:
+```bash
+curl -X DELETE http://localhost:8000/api/v1/files/file_abc123 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "message": "✅ File deleted successfully!"
 }
 ```
 
 ---
 
-## OAuth Authentication
+## Full-Text Search
 
-FastCMS supports social login with Google, GitHub, and Microsoft.
+### Creating a Search Index
 
-### Setup OAuth Providers
-
-**1. Google:**
-- Go to [Google Cloud Console](https://console.cloud.google.com)
-- Create OAuth 2.0 credentials
-- Add redirect URI: `http://localhost:8000/api/v1/oauth/callback/google`
-- Add to `.env`:
-  ```
-  GOOGLE_CLIENT_ID=your_client_id
-  GOOGLE_CLIENT_SECRET=your_client_secret
-  ```
-
-**2. GitHub:**
-- Go to GitHub Settings → Developer settings → OAuth Apps
-- Create new OAuth App
-- Callback URL: `http://localhost:8000/api/v1/oauth/callback/github`
-- Add to `.env`:
-  ```
-  GITHUB_CLIENT_ID=your_client_id
-  GITHUB_CLIENT_SECRET=your_client_secret
-  ```
-
-**3. Microsoft:**
-- Go to [Azure Portal](https://portal.azure.com)
-- Register application
-- Redirect URI: `http://localhost:8000/api/v1/oauth/callback/microsoft`
-- Add to `.env`:
-  ```
-  MICROSOFT_CLIENT_ID=your_client_id
-  MICROSOFT_CLIENT_SECRET=your_client_secret
-  ```
-
-### Using OAuth
-
-**Login with OAuth:**
-Visit in your browser:
-```
-http://localhost:8000/api/v1/oauth/login/google
-http://localhost:8000/api/v1/oauth/login/github
-http://localhost:8000/api/v1/oauth/login/microsoft
-```
-
-The flow will:
-1. Redirect to OAuth provider
-2. You authorize the app
-3. Redirect back with tokens
-4. Returns same JWT tokens as regular login
-
-**List Linked Accounts:**
+**Request**:
 ```bash
-curl -X GET "http://localhost:8000/api/v1/oauth/accounts" \
+curl -X POST http://localhost:8000/api/v1/search/indexes \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "collection": "posts",
+    "fields": ["title", "content"]
+  }'
+```
+
+**Success Response** (201 Created):
+```json
+{
+  "id": "idx_abc123",
+  "collection": "posts",
+  "fields": ["title", "content"],
+  "status": "active",
+  "message": "✅ Search index created successfully! You can now search this collection."
+}
+```
+
+### Searching Records
+
+**Request**:
+```bash
+curl "http://localhost:8000/api/v1/search/posts?q=hello+world&limit=10" \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
-**Unlink OAuth Account:**
+**Success Response** (200 OK):
+```json
+{
+  "items": [
+    {
+      "id": "rec_xyz789",
+      "title": "My First Post",
+      "content": "Hello, world!",
+      "rank": 0.95
+    }
+  ],
+  "total": 1,
+  "query": "hello world",
+  "message": "✅ Found 1 result(s)"
+}
+```
+
+**No Results** (200 OK):
+```json
+{
+  "items": [],
+  "total": 0,
+  "query": "nonexistent",
+  "message": "No results found for your search. Try different keywords."
+}
+```
+
+### Reindexing
+
+**Request**:
 ```bash
-curl -X DELETE "http://localhost:8000/api/v1/oauth/accounts/google" \
+curl -X POST http://localhost:8000/api/v1/search/indexes/posts/reindex \
   -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "indexed": 42,
+  "message": "✅ Successfully reindexed 42 records!"
+}
 ```
 
 ---
 
-## Tips and Best Practices
+## Real-Time Subscriptions
 
-### Security
+Subscribe to real-time updates using Server-Sent Events (SSE).
 
-1. **Use Strong Passwords**: At least 8 characters with letters and numbers
-2. **Keep Tokens Secret**: Never share your access tokens
-3. **Use HTTPS in Production**: Always use SSL/TLS in production
-4. **Regular Backups**: Backup your database regularly
-5. **Update Dependencies**: Keep FastCMS and dependencies updated
+### Subscribing to a Collection
 
-### Performance
+```javascript
+const eventSource = new EventSource(
+  'http://localhost:8000/api/v1/realtime/posts?token=YOUR_TOKEN'
+);
 
-1. **Use Pagination**: Always paginate large result sets
-2. **Filter at Query Time**: Use filters instead of fetching all records
-3. **Index Your Fields**: Add validation.unique for frequently queried fields
-4. **Optimize Images**: Compress images before uploading
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('New event:', data);
+};
 
-### Best Practices
+// Event data structure:
+{
+  "action": "create",  // create, update, delete
+  "record": {
+    "id": "rec_xyz789",
+    "title": "New Post",
+    ...
+  }
+}
+```
 
-1. **Plan Your Schema**: Design your collections before creating them
-2. **Use Relations**: Link collections instead of duplicating data
-3. **Set Access Rules**: Always configure appropriate access control
-4. **Test in Development**: Test changes in development before production
-5. **Document Your API**: Keep track of your custom collections and fields
+**Success Connection**:
+```
+Connected to real-time updates for 'posts'. You'll receive notifications for all changes.
+```
+
+---
+
+## Advanced Features
+
+### Batch Operations
+
+Execute multiple API requests in a single call:
+
+**Request**:
+```bash
+curl -X POST http://localhost:8000/api/v1/batch \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "requests": [
+      {
+        "method": "POST",
+        "url": "/api/v1/posts/records",
+        "body": {"title": "Post 1"}
+      },
+      {
+        "method": "POST",
+        "url": "/api/v1/posts/records",
+        "body": {"title": "Post 2"}
+      }
+    ]
+  }'
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "count": 2,
+  "results": [
+    {
+      "status": 201,
+      "data": {"id": "rec_1", "title": "Post 1"},
+      "success": true
+    },
+    {
+      "status": 201,
+      "data": {"id": "rec_2", "title": "Post 2"},
+      "success": true
+    }
+  ],
+  "message": "✅ Batch operation completed! 2/2 requests succeeded."
+}
+```
+
+### Backups
+
+Create and manage system backups:
+
+**Create Backup**:
+```bash
+curl -X POST http://localhost:8000/api/v1/backups \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "id": "backup_abc123",
+  "filename": "backup_2025-11-10_120000.zip",
+  "size_bytes": 1048576,
+  "status": "completed",
+  "message": "✅ Backup created successfully! Your data is safe."
+}
+```
+
+**List Backups**:
+```bash
+curl http://localhost:8000/api/v1/backups \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+**Restore Backup**:
+```bash
+curl -X POST http://localhost:8000/api/v1/backups/backup_abc123/restore \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+### Settings Management
+
+Manage system settings:
+
+**Get Settings**:
+```bash
+curl http://localhost:8000/api/v1/settings \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+**Update Setting**:
+```bash
+curl -X POST http://localhost:8000/api/v1/settings \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "app_name",
+    "value": "My Awesome App",
+    "category": "app"
+  }'
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "key": "app_name",
+  "value": "My Awesome App",
+  "category": "app",
+  "message": "✅ Setting updated successfully!"
+}
+```
+
+### Request Logs
+
+View API request logs (admin only):
+
+**Get Logs**:
+```bash
+curl "http://localhost:8000/api/v1/logs?limit=50&method=POST" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+**Get Statistics**:
+```bash
+curl http://localhost:8000/api/v1/logs/statistics \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"
+```
+
+**Success Response** (200 OK):
+```json
+{
+  "total_requests": 1234,
+  "avg_duration_ms": 45,
+  "errors": 12,
+  "success_rate": 99.03,
+  "message": "✅ Statistics retrieved successfully!"
+}
+```
+
+---
+
+## API Reference
+
+### Base URL
+
+```
+http://localhost:8000/api/v1
+```
+
+### Authentication Header
+
+All authenticated requests require:
+```
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+### Response Codes
+
+- `200 OK` - Request successful
+- `201 Created` - Resource created successfully
+- `400 Bad Request` - Invalid input or validation error
+- `401 Unauthorized` - Missing or invalid authentication
+- `403 Forbidden` - Insufficient permissions
+- `404 Not Found` - Resource doesn't exist
+- `413 Payload Too Large` - File or request too large
+- `422 Unprocessable Entity` - Semantic error in request
+- `500 Internal Server Error` - Server error
+- `503 Service Unavailable` - Server in read-only mode
+
+### Common Error Response Format
+
+```json
+{
+  "error": "Error type",
+  "message": "❌ User-friendly error message with guidance",
+  "details": {
+    "field": "Specific field error"
+  }
+}
+```
+
+### Pagination
+
+List endpoints support pagination:
+```
+?page=1&limit=20
+```
+
+Response includes:
+```json
+{
+  "items": [...],
+  "page": 1,
+  "limit": 20,
+  "total": 100
+}
+```
+
+### Filtering
+
+Use the `filter` parameter:
+```
+?filter=field=value
+?filter=field>value
+?filter=field<value
+?filter=field!=value
+?filter=field~value (contains)
+```
+
+### Sorting
+
+Use the `sort` parameter:
+```
+?sort=field        (ascending)
+?sort=-field       (descending)
+?sort=field1,-field2 (multiple)
+```
+
+### Expanding Relations
+
+Use the `expand` parameter to load related records:
+```
+?expand=author
+?expand=author,comments
+?expand=author.profile (nested)
+```
+
+---
+
+## TypeScript SDK
+
+### Installation
+
+```bash
+npm install fastcms-sdk
+```
+
+### Basic Usage
+
+```typescript
+import { FastCMS } from 'fastcms-sdk';
+
+const client = new FastCMS('http://localhost:8000');
+
+// Authenticate
+await client.auth.login('user@example.com', 'password');
+
+// Create a record
+const post = await client.collection('posts').create({
+  title: 'My Post',
+  content: 'Hello!'
+});
+
+// List records
+const posts = await client.collection('posts').list({
+  page: 1,
+  limit: 20,
+  filter: 'published=true',
+  sort: '-created'
+});
+
+// Update a record
+await client.collection('posts').update('rec_xyz789', {
+  title: 'Updated Title'
+});
+
+// Delete a record
+await client.collection('posts').delete('rec_xyz789');
+
+// Subscribe to real-time updates
+client.collection('posts').subscribe((event) => {
+  console.log('Change detected:', event);
+});
+
+// Search
+const results = await client.collection('posts').search('hello world');
+```
 
 ---
 
@@ -495,44 +1109,122 @@ curl -X DELETE "http://localhost:8000/api/v1/oauth/accounts/google" \
 
 ### Common Issues
 
-**Cannot Login to Admin Dashboard:**
-- Ensure you're an admin: Check `role` field in database
-- Check you're using correct email/password
-- Verify token is stored in localStorage
+#### 1. "Database connection failed"
 
-**Collection Creation Fails:**
-- Check collection name is unique
-- Ensure name uses only letters, numbers, underscore
-- Verify schema is valid JSON
+**Problem**: Cannot connect to the database.
 
-**Record Creation Fails:**
-- Check required fields are provided
-- Verify data types match schema
-- Ensure you have create permission
+**Solutions**:
+- Check your `DATABASE_URL` in `.env`
+- Ensure the database file exists (SQLite)
+- Verify PostgreSQL is running (if using PostgreSQL)
+- Run migrations: `fastcms migrate up`
 
-**File Upload Fails:**
+#### 2. "Authentication failed"
+
+**Problem**: Cannot login or access authenticated endpoints.
+
+**Solutions**:
+- Verify your credentials are correct
+- Check if your token has expired (tokens expire after 24 hours)
+- Use the refresh token endpoint to get a new token
+- Ensure the `Authorization` header is properly formatted
+
+#### 3. "Access denied"
+
+**Problem**: 403 Forbidden error when accessing resources.
+
+**Solutions**:
+- Check the collection's access rules
+- Verify you're authenticated as the right user
+- Ensure your user has the required role (user/admin)
+- Review the `@request.auth` rules for the collection
+
+#### 4. "Service temporarily read-only"
+
+**Problem**: Cannot perform write operations (POST, PATCH, DELETE).
+
+**Solution**:
+- The system is in read-only mode (usually during backup)
+- Wait a few moments and try again
+- Check `/health` endpoint for readonly status
+
+#### 5. "File upload failed"
+
+**Problem**: Cannot upload files.
+
+**Solutions**:
 - Check file size (default max: 10MB)
 - Verify file type is allowed
-- Ensure you're authenticated
+- Ensure the `data/files` directory exists and is writable
+- Check available disk space
+
+#### 6. "Search not working"
+
+**Problem**: Search returns no results or errors.
+
+**Solutions**:
+- Create a search index first: `POST /api/v1/search/indexes`
+- Reindex the collection: `POST /api/v1/search/indexes/{collection}/reindex`
+- Verify the search fields are included in the index
+- Check that records exist in the collection
 
 ### Getting Help
 
-- **API Documentation**: http://localhost:8000/docs
-- **GitHub Issues**: Report bugs on GitHub
-- **Logs**: Check console output for error details
+1. **Check the logs**: Look at the server console for detailed error messages
+2. **API Documentation**: Visit `/docs` for interactive API documentation
+3. **Health Check**: Visit `/health/detailed` to see system status
+4. **GitHub Issues**: Report bugs or ask questions on GitHub
+
+### Performance Tips
+
+1. **Use pagination**: Don't fetch all records at once
+2. **Create indexes**: Use search indexes for full-text search
+3. **Optimize access rules**: Simple rules perform better
+4. **Use expand wisely**: Only expand relations you need
+5. **Enable caching**: Configure Redis for better performance (optional)
 
 ---
 
-## Summary
+## Next Steps
 
-You now know how to:
-- ✓ Access the admin dashboard
-- ✓ Manage users and roles
-- ✓ Create and manage collections
-- ✓ Perform CRUD operations on records
-- ✓ Upload and manage files
-- ✓ Use the REST API
-- ✓ Set up OAuth authentication
-- ✓ Configure access control rules
+Now that you're familiar with fastCMS, here are some things to try:
 
-Happy building with FastCMS! 🚀
+1. **Build your first API**:
+   - Create collections for your data model
+   - Set up access rules
+   - Test with the TypeScript SDK
+
+2. **Add authentication**:
+   - Configure OAuth providers
+   - Customize email templates
+   - Set up user roles
+
+3. **Enable search**:
+   - Create search indexes
+   - Build a search UI
+   - Test full-text search
+
+4. **Set up backups**:
+   - Configure automated backups
+   - Test restore functionality
+   - Set up S3 storage (optional)
+
+5. **Go to production**:
+   - Use PostgreSQL for production
+   - Configure proper security settings
+   - Set up monitoring and logs
+
+---
+
+## Support
+
+- **Documentation**: You're reading it! 📖
+- **API Docs**: http://localhost:8000/docs
+- **GitHub**: Report issues and contribute
+- **Community**: Join our Discord (coming soon)
+
+---
+
+**Happy building with fastCMS! 🚀**
+
+*Version 0.2.0 - Last updated: November 11, 2025*

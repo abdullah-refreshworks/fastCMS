@@ -208,9 +208,33 @@ Thumbs.db
 
         progress.update(task, description="Project created successfully!")
 
-    console.print(f"\n[green]✓[/green] Project '{project_name}' created successfully!\n")
-    console.print("[bold]Next steps:[/bold]")
-    console.print(f"  1. cd {project_name}")
-    console.print(f"  2. Update .env with your configuration")
-    console.print(f"  3. fastcms migrate up")
-    console.print(f"  4. fastcms dev\n")
+    console.print(f"\n[bold green]✓ Success![/bold green] Project '{project_name}' created successfully!\n")
+
+    console.print("[bold cyan]═══════════════════════════════════════════[/bold cyan]")
+    console.print("[bold cyan]          🎉 Project Ready!               [/bold cyan]")
+    console.print("[bold cyan]═══════════════════════════════════════════[/bold cyan]\n")
+
+    console.print("[bold]Quick Start Guide:[/bold]\n")
+    console.print(f"  1️⃣  Navigate to your project:")
+    console.print(f"      [bold cyan]cd {project_name}[/bold cyan]\n")
+
+    console.print(f"  2️⃣  Review and update your configuration:")
+    console.print(f"      [bold cyan]nano .env[/bold cyan]  [dim](or use your favorite editor)[/dim]\n")
+
+    console.print(f"  3️⃣  Run database migrations:")
+    console.print(f"      [bold cyan]fastcms migrate up[/bold cyan]\n")
+
+    console.print(f"  4️⃣  Start the development server:")
+    console.print(f"      [bold cyan]fastcms dev[/bold cyan]\n")
+
+    console.print("[dim]The server will prompt you to create an admin user on first run![/dim]\n")
+
+    console.print("[bold]Or create an admin user now:[/bold]")
+    console.print(f"      [bold cyan]cd {project_name} && fastcms users create --interactive[/bold cyan]\n")
+
+    console.print("[bold]Useful Links:[/bold]")
+    console.print(f"  • API Docs: [link]http://localhost:8000/docs[/link]")
+    console.print(f"  • Admin Dashboard: [link]http://localhost:8000/admin[/link]")
+    console.print(f"  • Health Check: [link]http://localhost:8000/health[/link]\n")
+
+    console.print("[dim]Need help? Check out USER_GUIDE.md in your project![/dim]\n")

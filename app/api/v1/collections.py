@@ -44,7 +44,9 @@ async def create_collection(
         Created collection
     """
     service = CollectionService(db)
-    return await service.create_collection(data)
+    collection = await service.create_collection(data)
+    collection.message = f"✅ Collection '{collection.name}' created successfully! You can now start adding records."
+    return collection
 
 
 @router.get(
@@ -78,11 +80,17 @@ async def list_collections(
         include_system=include_system,
     )
 
+    count = len(collections)
+    message = f"✅ Retrieved {count} collection{'s' if count != 1 else ''}"
+    if total > count:
+        message += f" (page {page} of {(total + per_page - 1) // per_page})"
+
     return CollectionListResponse(
         items=collections,
         total=total,
         page=page,
         per_page=per_page,
+        message=message,
     )
 
 
@@ -107,7 +115,9 @@ async def get_collection(
         Collection data
     """
     service = CollectionService(db)
-    return await service.get_collection(collection_id)
+    collection = await service.get_collection(collection_id)
+    collection.message = f"✅ Collection '{collection.name}' retrieved successfully!"
+    return collection
 
 
 @router.patch(
@@ -135,12 +145,14 @@ async def update_collection(
         Updated collection
     """
     service = CollectionService(db)
-    return await service.update_collection(collection_id, data)
+    collection = await service.update_collection(collection_id, data)
+    collection.message = f"✅ Collection '{collection.name}' updated successfully!"
+    return collection
 
 
 @router.delete(
     "/{collection_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
     summary="Delete a collection",
     description="Delete a collection and its associated table. Requires authentication.",
 )
@@ -148,7 +160,7 @@ async def delete_collection(
     collection_id: str,
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(require_auth),
-) -> None:
+) -> dict[str, str]:
     """
     Delete a collection.
 
@@ -156,9 +168,15 @@ async def delete_collection(
         collection_id: Collection ID
         db: Database session
         user_id: Authenticated user ID
+
+    Returns:
+        Success message
     """
     service = CollectionService(db)
+    collection = await service.get_collection(collection_id)  # Get name before deletion
+    collection_name = collection.name
     await service.delete_collection(collection_id)
+    return {"message": f"✅ Collection '{collection_name}' and all its records have been deleted successfully."}
 
 
 @router.get(
@@ -182,4 +200,6 @@ async def get_collection_by_name(
         Collection data
     """
     service = CollectionService(db)
-    return await service.get_collection_by_name(collection_name)
+    collection = await service.get_collection_by_name(collection_name)
+    collection.message = f"✅ Collection '{collection.name}' retrieved successfully!"
+    return collection

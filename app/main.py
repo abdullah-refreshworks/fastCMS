@@ -106,10 +106,25 @@ async def fastcms_exception_handler(
             "path": request.url.path,
         },
     )
+
+    # Create user-friendly message based on status code
+    user_message = exc.message
+    if exc.status_code == 404:
+        user_message = f"❌ {exc.message}. The resource you're looking for doesn't exist or you don't have permission to access it."
+    elif exc.status_code == 403:
+        user_message = f"❌ {exc.message}. Please check your permissions or contact an administrator if you believe this is an error."
+    elif exc.status_code == 409:
+        user_message = f"❌ {exc.message}. This resource already exists. Please try a different name or update the existing one."
+    elif exc.status_code >= 500:
+        user_message = f"❌ {exc.message}. Our team has been notified. Please try again later."
+    else:
+        user_message = f"❌ {exc.message}"
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
             "error": exc.message,
+            "message": user_message,
             "details": exc.details,
         },
     )
@@ -128,11 +143,29 @@ async def validation_exception_handler(
             "path": request.url.path,
         },
     )
+
+    # Format errors in a user-friendly way
+    formatted_errors = {}
+    for error in exc.errors():
+        field = ".".join(str(loc) for loc in error["loc"][1:])  # Skip 'body'
+        msg = error["msg"]
+
+        # Make error messages more user-friendly
+        if "required" in msg.lower():
+            formatted_errors[field] = "This field is required"
+        elif "invalid" in msg.lower():
+            formatted_errors[field] = f"Invalid value: {msg}"
+        elif "type" in msg.lower():
+            formatted_errors[field] = f"Invalid data type: {msg}"
+        else:
+            formatted_errors[field] = msg
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": "Validation failed",
-            "details": exc.errors(),
+            "message": "❌ Please check your input and try again. Some fields have errors.",
+            "details": formatted_errors,
         },
     )
 
@@ -151,6 +184,7 @@ async def general_exception_handler(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": "Internal server error",
+            "message": "❌ Something went wrong on our end. Our team has been notified and will fix this soon. Please try again later.",
             "details": str(exc) if settings.DEBUG else "An unexpected error occurred",
         },
     )
