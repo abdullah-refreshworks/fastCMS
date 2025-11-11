@@ -7,6 +7,7 @@ Create Date: 2025-11-11
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers, used by Alembic.
@@ -18,12 +19,24 @@ depends_on = None
 
 def upgrade() -> None:
     """Add view_query column to collections table"""
-    op.add_column(
-        "collections",
-        sa.Column("view_query", sa.Text(), nullable=True),
-    )
+    # Check if column already exists to make migration idempotent
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('collections')]
+
+    if 'view_query' not in columns:
+        op.add_column(
+            "collections",
+            sa.Column("view_query", sa.Text(), nullable=True),
+        )
 
 
 def downgrade() -> None:
     """Remove view_query column from collections table"""
-    op.drop_column("collections", "view_query")
+    # Check if column exists before dropping
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    columns = [col['name'] for col in inspector.get_columns('collections')]
+
+    if 'view_query' in columns:
+        op.drop_column("collections", "view_query")
