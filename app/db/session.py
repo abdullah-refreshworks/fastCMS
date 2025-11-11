@@ -118,3 +118,24 @@ async def close_db() -> None:
     logger.info("Closing database connections...")
     await engine.dispose()
     logger.info("Database connections closed")
+
+
+class get_db_context:
+    """
+    Context manager for getting database session in CLI commands.
+
+    Usage:
+        async with get_db_context() as db:
+            result = await db.execute(...)
+    """
+
+    async def __aenter__(self) -> AsyncSession:
+        self.session = AsyncSessionLocal()
+        return self.session
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            await self.session.rollback()
+        else:
+            await self.session.commit()
+        await self.session.close()

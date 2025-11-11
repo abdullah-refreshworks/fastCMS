@@ -70,6 +70,7 @@ class CollectionService:
             create_rule=data.create_rule,
             update_rule=data.update_rule,
             delete_rule=data.delete_rule,
+            view_query=data.view_query,
             system=False,
         )
 
@@ -79,22 +80,27 @@ class CollectionService:
 
         logger.info(f"Collection '{data.name}' created with ID: {collection.id}")
 
-        # Create dynamic model and table
+        # Create dynamic model and table/view
         try:
-            model = DynamicModelGenerator.create_model(
-                collection_name=data.name,
-                fields=data.schema,
-            )
+            if data.type == "view":
+                # Create SQL view for view collections
+                await self._create_view(data.name, data.view_query)
+                logger.info(f"Database view '{data.name}' created successfully")
+            else:
+                # Create table for base/auth collections
+                model = DynamicModelGenerator.create_model(
+                    collection_name=data.name,
+                    fields=data.schema,
+                )
 
-            await DynamicModelGenerator.create_table(engine, model)
-
-            logger.info(f"Database table '{data.name}' created successfully")
+                await DynamicModelGenerator.create_table(engine, model)
+                logger.info(f"Database table '{data.name}' created successfully")
 
         except Exception as e:
-            # Rollback collection creation if table creation fails
+            # Rollback collection creation if table/view creation fails
             await self.db.rollback()
-            logger.error(f"Failed to create table for collection '{data.name}': {e}")
-            raise BadRequestException(f"Failed to create collection table: {str(e)}")
+            logger.error(f"Failed to create table/view for collection '{data.name}': {e}")
+            raise BadRequestException(f"Failed to create collection: {str(e)}")
 
         return self._to_response(collection)
 
@@ -222,6 +228,20 @@ class CollectionService:
         if data.delete_rule is not None:
             collection.delete_rule = data.delete_rule
 
+        if data.view_query is not None:
+            # Only allow view_query for view collections
+            if collection.type != "view":
+                raise BadRequestException("view_query can only be set for view collections")
+            collection.view_query = data.view_query
+
+            # Recreate the view with new query
+            try:
+                await self._drop_view(collection.name)
+                await self._create_view(collection.name, data.view_query)
+                logger.info(f"View '{collection.name}' recreated with updated query")
+            except Exception as e:
+                raise BadRequestException(f"Failed to update view: {str(e)}")
+
         collection = await self.repo.update(collection)
         await self.db.commit()
 
@@ -229,7 +249,8 @@ class CollectionService:
 
         # TODO: Handle schema changes (add/remove columns)
         # For now, we'll just clear the model cache
-        DynamicModelGenerator.clear_cache(collection.name)
+        if collection.type != "view":
+            DynamicModelGenerator.clear_cache(collection.name)
 
         return self._to_response(collection)
 
@@ -252,25 +273,79 @@ class CollectionService:
         if collection.system:
             raise BadRequestException("Cannot delete system collection")
 
-        # Drop database table
+        # Drop database table or view
         try:
-            model = DynamicModelGenerator.get_model(collection.name)
-            if model:
-                await DynamicModelGenerator.drop_table(engine, model)
-                logger.info(f"Database table '{collection.name}' dropped")
+            if collection.type == "view":
+                # Drop view for view collections
+                await self._drop_view(collection.name)
+                logger.info(f"Database view '{collection.name}' dropped")
+            else:
+                # Drop table for base/auth collections
+                model = DynamicModelGenerator.get_model(collection.name)
+                if model:
+                    await DynamicModelGenerator.drop_table(engine, model)
+                    logger.info(f"Database table '{collection.name}' dropped")
 
-            # Clear cache
-            DynamicModelGenerator.clear_cache(collection.name)
+                # Clear cache
+                DynamicModelGenerator.clear_cache(collection.name)
 
         except Exception as e:
-            logger.warning(f"Failed to drop table '{collection.name}': {e}")
-            # Continue with collection deletion even if table drop fails
+            logger.warning(f"Failed to drop table/view '{collection.name}': {e}")
+            # Continue with collection deletion even if drop fails
 
         # Delete collection record
         await self.repo.delete(collection)
         await self.db.commit()
 
         logger.info(f"Collection '{collection.name}' deleted")
+
+    async def _create_view(self, view_name: str, query: str) -> None:
+        """
+        Create a SQL view.
+
+        Args:
+            view_name: Name of the view to create
+            query: SQL SELECT query for the view
+
+        Raises:
+            BadRequestException: If view creation fails
+        """
+        from sqlalchemy import text
+
+        # Sanitize view name to prevent SQL injection
+        if not view_name.replace("_", "").isalnum():
+            raise BadRequestException("Invalid view name")
+
+        # Create view SQL
+        create_view_sql = f"CREATE VIEW {view_name} AS {query}"
+
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(create_view_sql))
+        except Exception as e:
+            logger.error(f"Failed to create view '{view_name}': {e}")
+            raise BadRequestException(f"Failed to create view: {str(e)}")
+
+    async def _drop_view(self, view_name: str) -> None:
+        """
+        Drop a SQL view.
+
+        Args:
+            view_name: Name of the view to drop
+        """
+        from sqlalchemy import text
+
+        # Sanitize view name
+        if not view_name.replace("_", "").isalnum():
+            return
+
+        drop_view_sql = f"DROP VIEW IF EXISTS {view_name}"
+
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(drop_view_sql))
+        except Exception as e:
+            logger.warning(f"Failed to drop view '{view_name}': {e}")
 
     def _to_response(self, collection: Collection) -> CollectionResponse:
         """
@@ -299,6 +374,7 @@ class CollectionService:
             create_rule=collection.create_rule,
             update_rule=collection.update_rule,
             delete_rule=collection.delete_rule,
+            view_query=collection.view_query,
             system=collection.system,
             created=collection.created,
             updated=collection.updated,

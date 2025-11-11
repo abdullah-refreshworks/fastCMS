@@ -16,6 +16,8 @@ from app.schemas.collection import (
     CollectionUpdate,
 )
 from app.services.collection_service import CollectionService
+from app.services.code_generator import CodeGenerator
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -44,7 +46,9 @@ async def create_collection(
         Created collection
     """
     service = CollectionService(db)
-    return await service.create_collection(data)
+    collection = await service.create_collection(data)
+    collection.message = f"✅ Collection '{collection.name}' created successfully! You can now start adding records."
+    return collection
 
 
 @router.get(
@@ -78,11 +82,17 @@ async def list_collections(
         include_system=include_system,
     )
 
+    count = len(collections)
+    message = f"✅ Retrieved {count} collection{'s' if count != 1 else ''}"
+    if total > count:
+        message += f" (page {page} of {(total + per_page - 1) // per_page})"
+
     return CollectionListResponse(
         items=collections,
         total=total,
         page=page,
         per_page=per_page,
+        message=message,
     )
 
 
@@ -107,7 +117,9 @@ async def get_collection(
         Collection data
     """
     service = CollectionService(db)
-    return await service.get_collection(collection_id)
+    collection = await service.get_collection(collection_id)
+    collection.message = f"✅ Collection '{collection.name}' retrieved successfully!"
+    return collection
 
 
 @router.patch(
@@ -135,12 +147,14 @@ async def update_collection(
         Updated collection
     """
     service = CollectionService(db)
-    return await service.update_collection(collection_id, data)
+    collection = await service.update_collection(collection_id, data)
+    collection.message = f"✅ Collection '{collection.name}' updated successfully!"
+    return collection
 
 
 @router.delete(
     "/{collection_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
     summary="Delete a collection",
     description="Delete a collection and its associated table. Requires authentication.",
 )
@@ -148,7 +162,7 @@ async def delete_collection(
     collection_id: str,
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(require_auth),
-) -> None:
+) -> dict[str, str]:
     """
     Delete a collection.
 
@@ -156,9 +170,15 @@ async def delete_collection(
         collection_id: Collection ID
         db: Database session
         user_id: Authenticated user ID
+
+    Returns:
+        Success message
     """
     service = CollectionService(db)
+    collection = await service.get_collection(collection_id)  # Get name before deletion
+    collection_name = collection.name
     await service.delete_collection(collection_id)
+    return {"message": f"✅ Collection '{collection_name}' and all its records have been deleted successfully."}
 
 
 @router.get(
@@ -182,4 +202,102 @@ async def get_collection_by_name(
         Collection data
     """
     service = CollectionService(db)
-    return await service.get_collection_by_name(collection_name)
+    collection = await service.get_collection_by_name(collection_name)
+    collection.message = f"✅ Collection '{collection.name}' retrieved successfully!"
+    return collection
+
+
+@router.get(
+    "/{collection_id}/api-examples",
+    response_model=dict[str, dict[str, str]],
+    summary="Get API code examples for a collection",
+    description="Generate code examples in multiple languages (cURL, JavaScript, TypeScript, React, Python) showing how to use the API for this collection.",
+)
+async def get_collection_api_examples(
+    collection_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, dict[str, str]]:
+    """
+    Get API code examples for a collection.
+
+    Returns code examples in multiple languages showing how to:
+    - List records
+    - Get a single record
+    - Create a record
+    - Update a record
+    - Delete a record
+    - Filter records
+    - Sort records
+
+    Supported languages:
+    - cURL
+    - JavaScript (Fetch API)
+    - TypeScript (SDK)
+    - React (hooks)
+    - Python (requests)
+
+    Args:
+        collection_id: Collection ID
+        db: Database session
+
+    Returns:
+        Dictionary with language -> examples mapping
+    """
+    service = CollectionService(db)
+    collection = await service.get_collection(collection_id)
+
+    # Get base URL from settings or request
+    base_url = settings.BASE_URL or "http://localhost:8000"
+
+    # Generate all examples
+    examples = CodeGenerator.generate_all_examples(collection, base_url)
+
+    return examples
+
+
+@router.get(
+    "/name/{collection_name}/api-examples",
+    response_model=dict[str, dict[str, str]],
+    summary="Get API code examples for a collection by name",
+    description="Generate code examples in multiple languages showing how to use the API for this collection.",
+)
+async def get_collection_api_examples_by_name(
+    collection_name: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, dict[str, str]]:
+    """
+    Get API code examples for a collection by name.
+
+    Returns code examples in multiple languages showing how to:
+    - List records
+    - Get a single record
+    - Create a record
+    - Update a record
+    - Delete a record
+    - Filter records
+    - Sort records
+
+    Supported languages:
+    - cURL
+    - JavaScript (Fetch API)
+    - TypeScript (SDK)
+    - React (hooks)
+    - Python (requests)
+
+    Args:
+        collection_name: Collection name
+        db: Database session
+
+    Returns:
+        Dictionary with language -> examples mapping
+    """
+    service = CollectionService(db)
+    collection = await service.get_collection_by_name(collection_name)
+
+    # Get base URL from settings or request
+    base_url = settings.BASE_URL or "http://localhost:8000"
+
+    # Generate all examples
+    examples = CodeGenerator.generate_all_examples(collection, base_url)
+
+    return examples

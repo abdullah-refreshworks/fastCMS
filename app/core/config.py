@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str
 
     # File Storage
-    STORAGE_TYPE: Literal["local", "s3"] = "local"
+    STORAGE_TYPE: Literal["local", "s3", "azure"] = "local"
     MAX_FILE_SIZE: int = 10485760  # 10MB in bytes
     ALLOWED_FILE_TYPES: List[str] = [
         "image/jpeg",
@@ -61,8 +61,10 @@ class Settings(BaseSettings):
         "image/gif",
         "image/webp",
         "application/pdf",
+        "application/zip",
+        "text/plain",
+        "text/csv",
     ]
-    LOCAL_STORAGE_PATH: str = "./data/files"
 
     @field_validator("ALLOWED_FILE_TYPES", mode="before")
     @classmethod
@@ -72,12 +74,29 @@ class Settings(BaseSettings):
             return [ft.strip() for ft in v.split(",")]
         return v
 
-    # S3 Storage (optional)
-    S3_BUCKET: str = ""
-    S3_REGION: str = "us-east-1"
-    S3_ENDPOINT_URL: str = ""
+    # Local Storage (default)
+    LOCAL_STORAGE_PATH: str = "./data/files"
+
+    # AWS S3 Storage (optional - requires: pip install boto3 aioboto3)
+    AWS_S3_BUCKET_NAME: str = ""
+    AWS_S3_REGION: str = "us-east-1"
+    AWS_S3_ENDPOINT_URL: str = ""  # For S3-compatible services (MinIO, DigitalOcean Spaces)
+    AWS_S3_PUBLIC_URL: str = ""  # Custom public URL base
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
+
+    # Azure Blob Storage (optional - requires: pip install azure-storage-blob)
+    AZURE_STORAGE_CONTAINER_NAME: str = ""
+    AZURE_STORAGE_CONNECTION_STRING: str = ""  # Recommended method
+    AZURE_STORAGE_ACCOUNT_NAME: str = ""  # Alternative method
+    AZURE_STORAGE_ACCOUNT_KEY: str = ""  # Alternative method
+    AZURE_STORAGE_PUBLIC_URL: str = ""  # Custom public URL base
+
+    # Image Processing
+    IMAGE_THUMBNAIL_SIZES: List[int] = [100, 300, 600]  # Thumbnail widths in pixels
+    IMAGE_MAX_WIDTH: int = 2000  # Max image width for resizing
+    IMAGE_MAX_HEIGHT: int = 2000  # Max image height for resizing
+    IMAGE_QUALITY: int = 85  # JPEG quality (1-100)
 
     # Email (SMTP)
     SMTP_HOST: str = "smtp.gmail.com"

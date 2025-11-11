@@ -74,6 +74,7 @@ class UserResponse(BaseModel):
     role: str
     created: datetime
     updated: datetime
+    message: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -84,6 +85,7 @@ class AuthResponse(BaseModel):
 
     user: UserResponse
     token: TokenResponse
+    message: Optional[str] = None
 
 
 class PasswordResetRequest(BaseModel):

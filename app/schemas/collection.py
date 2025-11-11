@@ -72,6 +72,12 @@ class CollectionCreate(CollectionBase):
         description="Rule for deleting records",
     )
 
+    # View query (required for view collections)
+    view_query: Optional[str] = Field(
+        default=None,
+        description="SQL SELECT query for view collections",
+    )
+
     @field_validator("schema")
     @classmethod
     def validate_schema(cls, v: List[FieldSchema]) -> List[FieldSchema]:
@@ -79,6 +85,17 @@ class CollectionCreate(CollectionBase):
         names = [field.name for field in v]
         if len(names) != len(set(names)):
             raise ValueError("Duplicate field names in schema")
+        return v
+
+    @field_validator("view_query")
+    @classmethod
+    def validate_view_query(cls, v: Optional[str], values: dict) -> Optional[str]:
+        """Validate view_query is provided for view collections."""
+        collection_type = values.data.get("type")
+        if collection_type == "view" and not v:
+            raise ValueError("view_query is required for view collections")
+        if collection_type != "view" and v:
+            raise ValueError("view_query is only allowed for view collections")
         return v
 
 
@@ -100,6 +117,7 @@ class CollectionUpdate(BaseModel):
     create_rule: Optional[str] = None
     update_rule: Optional[str] = None
     delete_rule: Optional[str] = None
+    view_query: Optional[str] = None
 
 
 class CollectionResponse(CollectionBase):
@@ -114,10 +132,12 @@ class CollectionResponse(CollectionBase):
     create_rule: Optional[str]
     update_rule: Optional[str]
     delete_rule: Optional[str]
+    view_query: Optional[str]
 
     system: bool
     created: datetime
     updated: datetime
+    message: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -130,6 +150,7 @@ class CollectionListResponse(BaseModel):
     total: int
     page: int
     per_page: int
+    message: Optional[str] = None
 
 
 class CollectionSchemaExport(BaseModel):
@@ -144,3 +165,4 @@ class CollectionSchemaExport(BaseModel):
     create_rule: Optional[str]
     update_rule: Optional[str]
     delete_rule: Optional[str]
+    view_query: Optional[str]
