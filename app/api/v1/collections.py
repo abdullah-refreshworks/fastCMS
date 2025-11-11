@@ -16,6 +16,8 @@ from app.schemas.collection import (
     CollectionUpdate,
 )
 from app.services.collection_service import CollectionService
+from app.services.code_generator import CodeGenerator
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -203,3 +205,99 @@ async def get_collection_by_name(
     collection = await service.get_collection_by_name(collection_name)
     collection.message = f"✅ Collection '{collection.name}' retrieved successfully!"
     return collection
+
+
+@router.get(
+    "/{collection_id}/api-examples",
+    response_model=dict[str, dict[str, str]],
+    summary="Get API code examples for a collection",
+    description="Generate code examples in multiple languages (cURL, JavaScript, TypeScript, React, Python) showing how to use the API for this collection.",
+)
+async def get_collection_api_examples(
+    collection_id: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, dict[str, str]]:
+    """
+    Get API code examples for a collection.
+
+    Returns code examples in multiple languages showing how to:
+    - List records
+    - Get a single record
+    - Create a record
+    - Update a record
+    - Delete a record
+    - Filter records
+    - Sort records
+
+    Supported languages:
+    - cURL
+    - JavaScript (Fetch API)
+    - TypeScript (SDK)
+    - React (hooks)
+    - Python (requests)
+
+    Args:
+        collection_id: Collection ID
+        db: Database session
+
+    Returns:
+        Dictionary with language -> examples mapping
+    """
+    service = CollectionService(db)
+    collection = await service.get_collection(collection_id)
+
+    # Get base URL from settings or request
+    base_url = settings.BASE_URL or "http://localhost:8000"
+
+    # Generate all examples
+    examples = CodeGenerator.generate_all_examples(collection, base_url)
+
+    return examples
+
+
+@router.get(
+    "/name/{collection_name}/api-examples",
+    response_model=dict[str, dict[str, str]],
+    summary="Get API code examples for a collection by name",
+    description="Generate code examples in multiple languages showing how to use the API for this collection.",
+)
+async def get_collection_api_examples_by_name(
+    collection_name: str,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, dict[str, str]]:
+    """
+    Get API code examples for a collection by name.
+
+    Returns code examples in multiple languages showing how to:
+    - List records
+    - Get a single record
+    - Create a record
+    - Update a record
+    - Delete a record
+    - Filter records
+    - Sort records
+
+    Supported languages:
+    - cURL
+    - JavaScript (Fetch API)
+    - TypeScript (SDK)
+    - React (hooks)
+    - Python (requests)
+
+    Args:
+        collection_name: Collection name
+        db: Database session
+
+    Returns:
+        Dictionary with language -> examples mapping
+    """
+    service = CollectionService(db)
+    collection = await service.get_collection_by_name(collection_name)
+
+    # Get base URL from settings or request
+    base_url = settings.BASE_URL or "http://localhost:8000"
+
+    # Generate all examples
+    examples = CodeGenerator.generate_all_examples(collection, base_url)
+
+    return examples

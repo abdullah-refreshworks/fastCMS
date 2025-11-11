@@ -3,72 +3,461 @@
 {% block title %}{{ collection.name }} - FastCMS Admin{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>{{ collection.name }}</h1>
-    <div>
-        <a href="/admin/collections/{{ collection.id }}/edit" class="btn btn-primary">Edit</a>
-        <a href="/admin/collections/{{ collection.name }}/records" class="btn">View Records</a>
-    </div>
-</div>
+<!-- Prism.js for code highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
 
-<div class="card">
-    <h2>Collection Information</h2>
-    <div class="info-grid">
-        <div class="info-item">
-            <label>ID:</label>
-            <span>{{ collection.id }}</span>
-        </div>
-        <div class="info-item">
-            <label>Name:</label>
-            <span>{{ collection.name }}</span>
-        </div>
-        <div class="info-item">
-            <label>Type:</label>
-            <span class="badge">{{ collection.type }}</span>
-        </div>
-        <div class="info-item">
-            <label>Created:</label>
-            <span>{{ collection.created.strftime('%Y-%m-%d %H:%M:%S') }}</span>
-        </div>
-        <div class="info-item">
-            <label>Updated:</label>
-            <span>{{ collection.updated.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+<div class="page-header mb-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold text-gray-900">{{ collection.name }}</h1>
+        <div class="flex space-x-2">
+            <a href="/admin/collections/{{ collection.id }}/edit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <i class="fas fa-edit mr-2"></i>Edit
+            </a>
+            <a href="/admin/collections/{{ collection.name }}/records" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                <i class="fas fa-database mr-2"></i>View Records
+            </a>
         </div>
     </div>
 </div>
 
-<div class="card">
-    <h2>Schema Fields ({{ collection.schema | length }})</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Field Name</th>
-                <th>Type</th>
-                <th>Required</th>
-                <th>Unique</th>
-                <th>Options</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for field in collection.schema %}
-            <tr>
-                <td><strong>{{ field.name }}</strong></td>
-                <td><span class="badge badge-secondary">{{ field.type }}</span></td>
-                <td>{{ '✓' if field.required else '—' }}</td>
-                <td>{{ '✓' if field.unique else '—' }}</td>
-                <td>
-                    {% if field.options %}
-                    <details>
-                        <summary>View options</summary>
-                        <pre>{{ field.options | tojson(indent=2) }}</pre>
-                    </details>
-                    {% else %}
-                    —
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- Tab Navigation -->
+<div x-data="{ activeTab: 'details' }" class="w-full">
+    <!-- Tab Buttons -->
+    <div class="border-b border-gray-200 mb-6">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button
+                @click="activeTab = 'details'"
+                :class="activeTab === 'details' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+            >
+                <i class="fas fa-info-circle mr-2"></i>Details
+            </button>
+            <button
+                @click="activeTab = 'api-examples'; loadApiExamples()"
+                :class="activeTab === 'api-examples' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+            >
+                <i class="fas fa-code mr-2"></i>API Examples
+            </button>
+        </nav>
+    </div>
+
+    <!-- Tab Content: Details -->
+    <div x-show="activeTab === 'details'" x-cloak>
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+            <div class="px-4 py-5 sm:px-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Collection Information</h3>
+            </div>
+            <div class="border-t border-gray-200 px-4 py-5 sm:p-0">
+                <dl class="sm:divide-y sm:divide-gray-200">
+                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500">ID</dt>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ collection.id }}</dd>
+                    </div>
+                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500">Name</dt>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ collection.name }}</dd>
+                    </div>
+                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500">Type</dt>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                {{ collection.type }}
+                            </span>
+                        </dd>
+                    </div>
+                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500">Created</dt>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ collection.created.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
+                    </div>
+                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
+                        <dt class="text-sm font-medium text-gray-500">Updated</dt>
+                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ collection.updated.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Schema Fields ({{ collection.schema | length }})</h3>
+            </div>
+            <div class="border-t border-gray-200">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field Name</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Required</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unique</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Options</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for field in collection.schema %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ field.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    {{ field.type }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ '✓' if field.required else '—' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ '✓' if field.unique else '—' }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {% if field.options %}
+                                <details>
+                                    <summary class="cursor-pointer text-indigo-600 hover:text-indigo-900">View options</summary>
+                                    <pre class="mt-2 text-xs bg-gray-50 p-2 rounded">{{ field.options | tojson(indent=2) }}</pre>
+                                </details>
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab Content: API Examples -->
+    <div x-show="activeTab === 'api-examples'" x-cloak id="api-examples-container">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <div class="px-4 py-5 sm:px-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">API Code Examples</h3>
+                <p class="mt-1 max-w-2xl text-sm text-gray-500">
+                    Use these examples to interact with the <strong>{{ collection.name }}</strong> collection via the API.
+                </p>
+            </div>
+
+            <!-- Language Selector -->
+            <div x-data="apiExamples()" class="border-t border-gray-200">
+                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                    <div class="flex space-x-2">
+                        <button
+                            @click="selectLanguage('curl')"
+                            :class="selectedLanguage === 'curl' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
+                        >
+                            cURL
+                        </button>
+                        <button
+                            @click="selectLanguage('javascript')"
+                            :class="selectedLanguage === 'javascript' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
+                        >
+                            JavaScript
+                        </button>
+                        <button
+                            @click="selectLanguage('typescript')"
+                            :class="selectedLanguage === 'typescript' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
+                        >
+                            TypeScript SDK
+                        </button>
+                        <button
+                            @click="selectLanguage('react')"
+                            :class="selectedLanguage === 'react' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
+                        >
+                            React
+                        </button>
+                        <button
+                            @click="selectLanguage('python')"
+                            :class="selectedLanguage === 'python' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
+                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
+                        >
+                            Python
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div x-show="loading" class="px-4 py-8 text-center">
+                    <i class="fas fa-spinner fa-spin text-3xl text-indigo-600"></i>
+                    <p class="mt-2 text-sm text-gray-500">Loading examples...</p>
+                </div>
+
+                <!-- Error State -->
+                <div x-show="error" class="px-4 py-8">
+                    <div class="rounded-md bg-red-50 p-4">
+                        <div class="flex">
+                            <i class="fas fa-exclamation-circle text-red-400 mt-0.5"></i>
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-red-800">Failed to load examples</h3>
+                                <p class="mt-2 text-sm text-red-700" x-text="error"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Examples Content -->
+                <div x-show="!loading && !error" class="divide-y divide-gray-200">
+                    <!-- Setup Example (for TypeScript and Python) -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].setup">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-cog mr-2 text-gray-400"></i>Setup</span>
+                                <button @click="copyCode(examples[selectedLanguage].setup)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].setup"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- List Records -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].list">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-list mr-2 text-gray-400"></i>List Records</span>
+                                <button @click="copyCode(examples[selectedLanguage].list)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].list"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Get Single Record -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].get">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-eye mr-2 text-gray-400"></i>Get Single Record</span>
+                                <button @click="copyCode(examples[selectedLanguage].get)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].get"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Create Record -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].create">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-plus mr-2 text-gray-400"></i>Create Record</span>
+                                <button @click="copyCode(examples[selectedLanguage].create)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].create"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Update Record -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].update">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-edit mr-2 text-gray-400"></i>Update Record</span>
+                                <button @click="copyCode(examples[selectedLanguage].update)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].update"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Delete Record -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].delete">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-trash mr-2 text-gray-400"></i>Delete Record</span>
+                                <button @click="copyCode(examples[selectedLanguage].delete)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].delete"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Filter Records (cURL/JS only) -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].filter">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-filter mr-2 text-gray-400"></i>Filter Records</span>
+                                <button @click="copyCode(examples[selectedLanguage].filter)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].filter"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Sort Records (cURL/JS only) -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].sort">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-sort mr-2 text-gray-400"></i>Sort Records</span>
+                                <button @click="copyCode(examples[selectedLanguage].sort)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].sort"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Real-time Subscription (TypeScript/React only) -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].realtime">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fas fa-bolt mr-2 text-gray-400"></i>Real-time Subscription</span>
+                                <button @click="copyCode(examples[selectedLanguage].realtime)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].realtime"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- React Hook Example -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].hook">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fab fa-react mr-2 text-gray-400"></i>Custom Hook</span>
+                                <button @click="copyCode(examples[selectedLanguage].hook)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].hook"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- React Component Example -->
+                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].component">
+                        <div class="px-4 py-5">
+                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
+                                <span><i class="fab fa-react mr-2 text-gray-400"></i>Component Example</span>
+                                <button @click="copyCode(examples[selectedLanguage].component)" class="text-xs text-indigo-600 hover:text-indigo-900">
+                                    <i class="fas fa-copy mr-1"></i>Copy
+                                </button>
+                            </h4>
+                            <div class="relative">
+                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].component"></code></pre>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+    // Global function to load API examples
+    let examplesLoaded = false;
+    let apiExamplesData = null;
+
+    async function loadApiExamples() {
+        if (examplesLoaded) return;
+
+        const container = document.querySelector('[x-data*="apiExamples"]');
+        if (!container) return;
+
+        const alpineInstance = Alpine.$data(container);
+        if (!alpineInstance) return;
+
+        alpineInstance.loading = true;
+        alpineInstance.error = null;
+
+        try {
+            const response = await fetch('/api/v1/collections/{{ collection.id }}/api-examples');
+            if (!response.ok) {
+                throw new Error(`Failed to fetch examples: ${response.statusText}`);
+            }
+
+            apiExamplesData = await response.json();
+            alpineInstance.examples = apiExamplesData;
+            examplesLoaded = true;
+
+            // Trigger syntax highlighting after data is loaded
+            setTimeout(() => {
+                Prism.highlightAll();
+            }, 100);
+        } catch (err) {
+            alpineInstance.error = err.message;
+        } finally {
+            alpineInstance.loading = false;
+        }
+    }
+
+    // Alpine.js component for API examples
+    function apiExamples() {
+        return {
+            selectedLanguage: 'curl',
+            examples: {},
+            loading: false,
+            error: null,
+
+            selectLanguage(lang) {
+                this.selectedLanguage = lang;
+                // Re-highlight code after language change
+                this.$nextTick(() => {
+                    Prism.highlightAll();
+                });
+            },
+
+            getLanguageClass() {
+                const languageMap = {
+                    'curl': 'bash',
+                    'javascript': 'javascript',
+                    'typescript': 'typescript',
+                    'react': 'jsx',
+                    'python': 'python'
+                };
+                return languageMap[this.selectedLanguage] || 'javascript';
+            },
+
+            async copyCode(code) {
+                try {
+                    await navigator.clipboard.writeText(code);
+                    showToast('Code copied to clipboard!', 'success');
+                } catch (err) {
+                    showToast('Failed to copy code', 'error');
+                }
+            }
+        };
+    }
+
+    // Ensure Prism highlights code when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        Prism.highlightAll();
+    });
+</script>
+
+<style>
+    /* Custom styles for code blocks */
+    pre[class*="language-"] {
+        margin: 0 !important;
+    }
+
+    code[class*="language-"] {
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+</style>
 {% endblock %}
