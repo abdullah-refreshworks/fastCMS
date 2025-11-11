@@ -43,6 +43,10 @@ class RecordService:
         if not collection:
             raise NotFoundException(f"Collection '{self.collection_name}' not found")
 
+        # View collections are read-only
+        if collection.type == "view":
+            raise BadRequestException(f"Cannot create records in view collection '{self.collection_name}'")
+
         # Check create permission
         context = self._create_access_context()
         access_control.check(collection.create_rule, context, "create")
@@ -155,6 +159,10 @@ class RecordService:
         if not collection:
             raise NotFoundException(f"Collection '{self.collection_name}' not found")
 
+        # View collections are read-only
+        if collection.type == "view":
+            raise BadRequestException(f"Cannot update records in view collection '{self.collection_name}'")
+
         # Check update permission
         record_data = self._record_to_dict(existing)
         context = self._create_access_context(record_data)
@@ -194,6 +202,10 @@ class RecordService:
         # Get collection and check delete permission
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if collection:
+            # View collections are read-only
+            if collection.type == "view":
+                raise BadRequestException(f"Cannot delete records in view collection '{self.collection_name}'")
+
             record_data = self._record_to_dict(record)
             context = self._create_access_context(record_data)
             access_control.check(collection.delete_rule, context, "delete")
