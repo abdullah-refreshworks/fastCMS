@@ -78,9 +78,7 @@ def create_user(email: str, password: str, admin: bool, name: str, interactive: 
         console.print("\n[bold cyan]═══════════════════════════════════════════[/bold cyan]")
         console.print("[bold cyan]      Create Your First Admin User        [/bold cyan]")
         console.print("[bold cyan]═══════════════════════════════════════════[/bold cyan]\n")
-        console.print("[dim]This admin user will have full access to manage")
-        console.print("your fastCMS instance, including collections, users,")
-        console.print("and system settings.[/dim]\n")
+        console.print("[dim]This admin user will have full access to manage\nyour fastCMS instance, including collections, users,\nand system settings.[/dim]\n")
 
         if not email:
             email = Prompt.ask("[bold]Enter admin email[/bold]", default="admin@example.com")
