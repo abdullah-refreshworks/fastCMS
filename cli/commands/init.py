@@ -107,7 +107,7 @@ RATE_LIMIT_PER_HOUR=1000
 LOG_LEVEL=INFO
 LOG_FORMAT=json
 """
-        with open(f"{project_name}/.env", "w") as f:
+        with open(f"{project_name}/.env", "w", encoding="utf-8") as f:
             f.write(env_content)
 
         # Create README
@@ -169,7 +169,7 @@ Then visit http://localhost:8000/admin to access the admin dashboard.
 - Issues: https://github.com/fastcms/fastcms/issues
 - Docs: https://docs.fastcms.dev
 """
-        with open(f"{project_name}/README.md", "w") as f:
+        with open(f"{project_name}/README.md", "w", encoding="utf-8") as f:
             f.write(readme_content)
 
         # Create .gitignore
@@ -203,7 +203,7 @@ Thumbs.db
 # Logs
 *.log
 """
-        with open(f"{project_name}/.gitignore", "w") as f:
+        with open(f"{project_name}/.gitignore", "w", encoding="utf-8") as f:
             f.write(gitignore_content)
 
         progress.update(task, description="Project created successfully!")

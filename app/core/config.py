@@ -3,7 +3,7 @@ Application configuration using Pydantic Settings.
 All settings are loaded from environment variables or .env file.
 """
 
-from typing import List, Literal
+from typing import List, Literal, Optional
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -50,7 +50,7 @@ class Settings(BaseSettings):
 
     # Admin
     ADMIN_EMAIL: str = "admin@example.com"
-    ADMIN_PASSWORD: str
+    ADMIN_PASSWORD: Optional[str] = None  # Only needed for initial admin creation
 
     # File Storage
     STORAGE_TYPE: Literal["local", "s3", "azure"] = "local"
