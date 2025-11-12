@@ -22,7 +22,7 @@ class TestAccessControlWorkflow:
                 "name": "Test User",
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         token = response.json()["token"]["access_token"]
 
         # 2. Create collection with public list/view, authenticated create
@@ -81,7 +81,7 @@ class TestAccessControlWorkflow:
                 "name": "Owner",
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         owner_token = response.json()["token"]["access_token"]
         owner_id = response.json()["user"]["id"]
 
@@ -95,7 +95,7 @@ class TestAccessControlWorkflow:
                 "name": "Other User",
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         other_token = response.json()["token"]["access_token"]
 
         # 3. Create collection with owner-only rules
@@ -194,7 +194,7 @@ class TestAccessControlWorkflow:
                 "name": "Regular User",
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         user_token = response.json()["token"]["access_token"]
         user_id = response.json()["user"]["id"]
 
@@ -301,7 +301,7 @@ class TestAdminDashboardWorkflow:
                 "name": "New User",
             },
         )
-        assert response.status_code == 200
+        assert response.status_code == 201
         new_user_id = response.json()["user"]["id"]
 
         # 6. Promote user to admin

@@ -17,6 +17,7 @@ from app.db.repositories.user import UserRepository
 from app.db.session import get_db
 from app.schemas.auth import UserResponse
 from app.schemas.collection import CollectionResponse
+from app.services.collection_service import CollectionService
 
 router = APIRouter()
 
@@ -220,6 +221,7 @@ async def list_collections_admin(
         Paginated list of collections
     """
     collection_repo = CollectionRepository(db)
+    collection_service = CollectionService(db)
 
     skip = (page - 1) * per_page
     collections = await collection_repo.get_all(skip=skip, limit=per_page)
@@ -230,7 +232,7 @@ async def list_collections_admin(
     total_pages = math.ceil(total / per_page) if total > 0 else 0
 
     return {
-        "items": [CollectionResponse.model_validate(col) for col in collections],
+        "items": [collection_service._to_response(col) for col in collections],
         "total": total,
         "page": page,
         "per_page": per_page,

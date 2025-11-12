@@ -65,6 +65,9 @@ AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
 )
 
+# Alias for tests and backward compatibility
+async_session_maker = AsyncSessionLocal
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """

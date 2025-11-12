@@ -346,15 +346,20 @@ class TestRelationExpansion:
 class TestWebhooks:
     """Test webhook functionality."""
 
-    @patch("httpx.AsyncClient.post")
+    @patch("app.services.webhook_service.httpx.AsyncClient")
     async def test_webhook_delivery(
-        self, mock_post: AsyncMock, client: AsyncClient
+        self, mock_client_class: AsyncMock, client: AsyncClient
     ):
         """Test webhook is triggered on record creation."""
         # Mock HTTP POST for webhook delivery
         mock_response = AsyncMock()
         mock_response.status_code = 200
-        mock_post.return_value = mock_response
+        mock_post = AsyncMock(return_value=mock_response)
+        mock_client_instance = AsyncMock()
+        mock_client_instance.post = mock_post
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=None)
+        mock_client_class.return_value = mock_client_instance
 
         # Register and login
         response = await client.post(

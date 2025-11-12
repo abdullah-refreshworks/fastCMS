@@ -140,11 +140,15 @@ class AccessControlEngine:
         - Parentheses
         """
         # Convert SQL-style operators to Python
+        # Handle compound operators first before single character replacements
         expression = expression.replace("&&", " and ")
         expression = expression.replace("||", " or ")
-        expression = expression.replace("!", " not ")
+        # Replace != first to preserve it
+        expression = expression.replace("!=", "!__NE__")
+        # Now safe to replace = with ==
         expression = expression.replace("=", "==")
-        expression = expression.replace("!==", "!=")
+        # Restore !=
+        expression = expression.replace("!__NE__", "!=")
 
         # Only allow safe characters
         if not re.match(r"^[\w\s'\"()!=<>&|.]+$", expression):
