@@ -118,7 +118,7 @@ class TestAdminUsers:
     """Test admin user management endpoints."""
 
     async def test_list_users_as_admin(
-        self, client: AsyncClient, admin_token: str, db: AsyncSession
+        self, client: AsyncClient, admin_token: str, admin_user: User, regular_user: User, db: AsyncSession
     ):
         """Admin can list all users."""
         response = await client.get(
