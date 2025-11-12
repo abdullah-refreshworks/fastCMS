@@ -229,7 +229,7 @@ curl -X GET "http://localhost:8000/api/v1/posts/records?page=1&per_page=20" \
 
 ### Filtering Records
 
-FastCMS uses PocketBase-style filter syntax:
+FastCMS uses an expressive filter syntax:
 
 **Examples:**
 ```bash

@@ -1,6 +1,6 @@
 """
 Query parser for advanced filtering and sorting.
-Supports PocketBase-like filter syntax.
+Supports expressive filter syntax with operators and chaining.
 """
 
 import re
