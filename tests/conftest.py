@@ -2,6 +2,13 @@
 Pytest configuration and fixtures.
 """
 
+import os
+
+# Configure test environment BEFORE any app imports
+os.environ["RATE_LIMIT_ENABLED"] = "false"
+os.environ["ENVIRONMENT"] = "development"
+os.environ["DEBUG"] = "true"
+
 import asyncio
 from typing import AsyncGenerator
 

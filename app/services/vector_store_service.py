@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional, Tuple
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_openai import OpenAIEmbeddings
-from langchain_anthropic import AnthropicEmbeddings
 
 from app.core.config import settings
 from app.core.logging import get_logger
