@@ -5,6 +5,7 @@ Main FastAPI application entry point.
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, Request, status
@@ -222,8 +223,12 @@ async def root() -> dict[str, str]:
     }
 
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")
+# Mount static files - use absolute path for cross-platform compatibility
+static_dir = Path(__file__).parent / "admin" / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+else:
+    logger.warning(f"Static directory not found at {static_dir}, skipping static files mount")
 
 # Add custom middleware
 from app.core.middleware import LoggingMiddleware, ReadOnlyMiddleware
