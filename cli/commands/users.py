@@ -109,7 +109,7 @@ def create_user(email: str, password: str, admin: bool, name: str, interactive: 
     async def _create():
         try:
             from app.db.session import get_db_context
-            from app.db.repositories.user_repository import UserRepository
+            from app.db.repositories.user import UserRepository
             from app.schemas.auth import UserCreate
 
             async with get_db_context() as db:
