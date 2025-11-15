@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.db.session import get_db
-from app.core.security import require_admin, get_current_user
+from app.core.dependencies import require_admin, get_current_user
 from app.services.backup_service import BackupService
 from app.db.models.backup import Backup
 from app.db.models.user import User

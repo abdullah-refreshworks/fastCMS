@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from app.db.session import get_db
-from app.core.security import require_admin
+from app.core.dependencies import require_admin
 from app.services.settings_service import SettingsService
 
 router = APIRouter()

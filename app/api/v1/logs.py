@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
-from app.core.security import require_admin
+from app.core.dependencies import require_admin
 from app.services.log_service import LogService
 
 router = APIRouter()

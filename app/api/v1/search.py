@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.db.session import get_db
 from app.services.search_service import SearchService
-from app.core.security import require_admin
+from app.core.dependencies import require_admin
 
 router = APIRouter()
 

@@ -2,7 +2,7 @@
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from app.core.security import get_current_user
+from app.core.dependencies import get_current_user
 from app.db.models.user import User
 from app.services.batch_service import BatchService
 from app.core.logging import get_logger
