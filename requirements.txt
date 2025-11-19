@@ -32,6 +32,9 @@ httpx==0.28.1
 # Performance
 orjson==3.10.7
 
+# System monitoring
+psutil==6.1.0
+
 # Images
 pillow==11.0.0
 
