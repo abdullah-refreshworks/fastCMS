@@ -1,74 +1,375 @@
 {% extends "base.html" %}
 
-{% block title %}{{ collection.name }} - FastCMS Admin{% endblock %}
+{% block title %}{{ collection_name }} - API Reference{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>{{ collection.name }}</h1>
-    <div>
-        <a href="/admin/collections/{{ collection.id }}/edit" class="btn btn-primary">Edit</a>
-        <a href="/admin/collections/{{ collection.name }}/records" class="btn">View Records</a>
-    </div>
-</div>
-
-<div class="card">
-    <h2>Collection Information</h2>
-    <div class="info-grid">
-        <div class="info-item">
-            <label>ID:</label>
-            <span>{{ collection.id }}</span>
+<div x-data="collectionDetailData('{{ collection_name }}')" x-init="init()">
+    <!-- Header -->
+    <div class="px-4 sm:px-0 flex justify-between items-start mb-6">
+        <div class="flex items-center space-x-3">
+            <a href="/admin/collections" class="text-gray-400 hover:text-gray-500">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900" x-text="collection?.name || '{{ collection_name }}'"></h1>
+                <p class="mt-1 text-sm text-gray-500">Collection API Reference & Testing</p>
+            </div>
         </div>
-        <div class="info-item">
-            <label>Name:</label>
-            <span>{{ collection.name }}</span>
-        </div>
-        <div class="info-item">
-            <label>Type:</label>
-            <span class="badge">{{ collection.type }}</span>
-        </div>
-        <div class="info-item">
-            <label>Created:</label>
-            <span>{{ collection.created.strftime('%Y-%m-%d %H:%M:%S') }}</span>
-        </div>
-        <div class="info-item">
-            <label>Updated:</label>
-            <span>{{ collection.updated.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+        <div class="flex space-x-2">
+            <a :href="`/admin/collections/${collection?.id}/edit`"
+               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-edit mr-2"></i>Edit Collection
+            </a>
+            <a :href="`/admin/collections/{{ collection_name }}/records`"
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                <i class="fas fa-list mr-2"></i>View Records
+            </a>
         </div>
     </div>
-</div>
 
-<div class="card">
-    <h2>Schema Fields ({{ collection.schema | length }})</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Field Name</th>
-                <th>Type</th>
-                <th>Required</th>
-                <th>Unique</th>
-                <th>Options</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for field in collection.schema %}
-            <tr>
-                <td><strong>{{ field.name }}</strong></td>
-                <td><span class="badge badge-secondary">{{ field.type }}</span></td>
-                <td>{{ '✓' if field.required else '—' }}</td>
-                <td>{{ '✓' if field.unique else '—' }}</td>
-                <td>
-                    {% if field.options %}
-                    <details>
-                        <summary>View options</summary>
-                        <pre>{{ field.options | tojson(indent=2) }}</pre>
-                    </details>
-                    {% else %}
-                    —
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <!-- Main Content: 2-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left Column: Collection Info & Schema -->
+        <div class="space-y-6">
+            <!-- Collection Info Card -->
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <h2 class="text-lg font-medium text-gray-900">Collection Details</h2>
+                </div>
+                <div class="px-6 py-4 space-y-3">
+                    <div>
+                        <span class="text-sm font-medium text-gray-500">Name:</span>
+                        <span class="ml-2 text-sm text-gray-900" x-text="collection?.name"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm font-medium text-gray-500">Type:</span>
+                        <span class="ml-2 text-sm text-gray-900" x-text="collection?.type"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm font-medium text-gray-500">Base URL:</span>
+                        <code class="ml-2 text-xs bg-gray-100 px-2 py-1 rounded" x-text="`${baseUrl}/{{ collection_name }}`"></code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schema Fields -->
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <h2 class="text-lg font-medium text-gray-900">Schema Fields</h2>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="space-y-3">
+                        <template x-for="field in collection?.schema" :key="field.name">
+                            <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-gray-50 rounded">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span class="font-mono text-sm font-semibold text-gray-900" x-text="field.name"></span>
+                                        <span class="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded" x-text="field.type"></span>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <span x-show="field.validation?.required" class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                                            Required
+                                        </span>
+                                        <span x-show="field.validation?.unique" class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                            Unique
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: API Reference -->
+        <div class="space-y-6">
+            <!-- API Endpoints -->
+            <div class="bg-white shadow rounded-lg overflow-hidden lg:sticky lg:top-6">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                    <h2 class="text-lg font-medium text-gray-900">API Endpoints</h2>
+                    <select x-model="selectedLang" class="text-sm border-gray-300 rounded-md">
+                        <option value="curl">cURL</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="python">Python</option>
+                    </select>
+                </div>
+                <div class="divide-y divide-gray-200 max-h-[calc(100vh-200px)] overflow-y-auto">
+                    <!-- List Records -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded">GET</span>
+                                <span class="text-sm font-mono text-gray-700">List Records</span>
+                            </div>
+                            <button @click="copyCode('list')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('list')"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Create Record -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">POST</span>
+                                <span class="text-sm font-mono text-gray-700">Create Record</span>
+                            </div>
+                            <button @click="copyCode('create')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('create')"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Get Record -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded">GET</span>
+                                <span class="text-sm font-mono text-gray-700">Get Record</span>
+                            </div>
+                            <button @click="copyCode('get')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('get')"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Update Record -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded">PUT</span>
+                                <span class="text-sm font-mono text-gray-700">Update Record</span>
+                            </div>
+                            <button @click="copyCode('update')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('update')"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Delete Record -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded">DELETE</span>
+                                <span class="text-sm font-mono text-gray-700">Delete Record</span>
+                            </div>
+                            <button @click="copyCode('delete')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('delete')"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function collectionDetailData(collectionName) {
+        return {
+            collectionName: collectionName,
+            collection: null,
+            selectedLang: 'curl',
+            baseUrl: window.location.origin + '/api/v1',
+
+            async init() {
+                await this.loadCollection();
+            },
+
+            async loadCollection() {
+                try {
+                    const response = await apiRequest(`/collections?filter=name=${this.collectionName}`);
+                    if (response.items && response.items.length > 0) {
+                        this.collection = response.items[0];
+                    }
+                } catch (error) {
+                    console.error('Failed to load collection:', error);
+                    showToast('Failed to load collection', 'error');
+                }
+            },
+
+            getCode(operation) {
+                const collectionName = this.collectionName;
+                const baseUrl = this.baseUrl;
+
+                if (this.selectedLang === 'curl') {
+                    return this.getCurlCode(operation, collectionName, baseUrl);
+                } else if (this.selectedLang === 'javascript') {
+                    return this.getJavaScriptCode(operation, collectionName, baseUrl);
+                } else if (this.selectedLang === 'python') {
+                    return this.getPythonCode(operation, collectionName, baseUrl);
+                }
+            },
+
+            getCurlCode(operation, collection, baseUrl) {
+                const examples = {
+                    list: `curl "${baseUrl}/${collection}/records?page=1&per_page=20" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+                    create: `curl -X POST "${baseUrl}/${collection}/records" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '${this.getExampleData()}'`,
+                    get: `curl "${baseUrl}/${collection}/records/RECORD_ID" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+                    update: `curl -X PUT "${baseUrl}/${collection}/records/RECORD_ID" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '${this.getExampleData()}'`,
+                    delete: `curl -X DELETE "${baseUrl}/${collection}/records/RECORD_ID" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`
+                };
+                return examples[operation];
+            },
+
+            getJavaScriptCode(operation, collection, baseUrl) {
+                const examples = {
+                    list: `// List records
+const response = await fetch('${baseUrl}/${collection}/records?page=1&per_page=20', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();`,
+                    create: `// Create record
+const response = await fetch('${baseUrl}/${collection}/records', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify(${this.getExampleData()})
+});
+const data = await response.json();`,
+                    get: `// Get record
+const response = await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();`,
+                    update: `// Update record
+const response = await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify(${this.getExampleData()})
+});
+const data = await response.json();`,
+                    delete: `// Delete record
+await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});`
+                };
+                return examples[operation];
+            },
+
+            getPythonCode(operation, collection, baseUrl) {
+                const examples = {
+                    list: `import requests
+
+# List records
+response = requests.get(
+    '${baseUrl}/${collection}/records',
+    params={'page': 1, 'per_page': 20},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    create: `import requests
+
+# Create record
+response = requests.post(
+    '${baseUrl}/${collection}/records',
+    json=${this.getExampleData()},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    get: `import requests
+
+# Get record
+response = requests.get(
+    '${baseUrl}/${collection}/records/RECORD_ID',
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    update: `import requests
+
+# Update record
+response = requests.put(
+    '${baseUrl}/${collection}/records/RECORD_ID',
+    json=${this.getExampleData()},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    delete: `import requests
+
+# Delete record
+requests.delete(
+    '${baseUrl}/${collection}/records/RECORD_ID',
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)`
+                };
+                return examples[operation];
+            },
+
+            getExampleData() {
+                if (!this.collection || !this.collection.schema) {
+                    return '{\n  "field": "value"\n}';
+                }
+
+                const example = {};
+                this.collection.schema.forEach(field => {
+                    if (field.type === 'text' || field.type === 'email' || field.type === 'url') {
+                        example[field.name] = `example_${field.name}`;
+                    } else if (field.type === 'number') {
+                        example[field.name] = 42;
+                    } else if (field.type === 'bool') {
+                        example[field.name] = true;
+                    } else if (field.type === 'date') {
+                        example[field.name] = '2024-01-01';
+                    } else if (field.type === 'json') {
+                        example[field.name] = {};
+                    } else {
+                        example[field.name] = 'value';
+                    }
+                });
+
+                return JSON.stringify(example, null, 2);
+            },
+
+            async copyCode(operation) {
+                const code = this.getCode(operation);
+                try {
+                    await navigator.clipboard.writeText(code);
+                    showToast('Code copied to clipboard!', 'success');
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    showToast('Failed to copy code', 'error');
+                }
+            }
+        };
+    }
+</script>
 {% endblock %}

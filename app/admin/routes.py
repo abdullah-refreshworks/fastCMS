@@ -9,9 +9,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import UserContext, get_optional_user
+from app.db.models.user import User
 from app.db.session import get_db
 
 # Setup templates
@@ -41,6 +43,18 @@ async def admin_dashboard(
     )
 
 
+@router.get("/api", response_class=HTMLResponse)
+async def api_documentation(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Comprehensive API documentation page."""
+    return templates.TemplateResponse(
+        "api_docs.html",
+        {"request": request, "user": user, "active": "api"},
+    )
+
+
 @router.get("/users", response_class=HTMLResponse)
 async def admin_users(
     request: Request,
@@ -49,6 +63,18 @@ async def admin_users(
     """User management page."""
     return templates.TemplateResponse(
         "users.html",
+        {"request": request, "user": user, "active": "users"},
+    )
+
+
+@router.get("/users/api", response_class=HTMLResponse)
+async def users_api_reference(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """View users & authentication API reference."""
+    return templates.TemplateResponse(
+        "users_api.html",
         {"request": request, "user": user, "active": "users"},
     )
 
@@ -65,7 +91,127 @@ async def admin_collections(
     )
 
 
+@router.get("/collections/new", response_class=HTMLResponse)
+async def create_collection_form(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Create new collection form."""
+    return templates.TemplateResponse(
+        "collection_form.html",
+        {"request": request, "user": user, "active": "collections", "collection": None},
+    )
+
+
+@router.get("/collections/{collection_id}/edit", response_class=HTMLResponse)
+async def edit_collection_form(
+    request: Request,
+    collection_id: str,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Edit collection form."""
+    return templates.TemplateResponse(
+        "collection_form.html",
+        {"request": request, "user": user, "active": "collections", "collection_id": collection_id},
+    )
+
+
+@router.get("/collections/{collection_name}/api", response_class=HTMLResponse)
+async def collection_api_reference(
+    request: Request,
+    collection_name: str,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """View collection API reference with code examples."""
+    return templates.TemplateResponse(
+        "collection_detail.html",
+        {"request": request, "user": user, "active": "collections", "collection_name": collection_name},
+    )
+
+
+@router.get("/collections/{collection_name}/records", response_class=HTMLResponse)
+async def collection_records(
+    request: Request,
+    collection_name: str,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """View records in a collection."""
+    return templates.TemplateResponse(
+        "records.html",
+        {"request": request, "user": user, "active": "collections", "collection_name": collection_name},
+    )
+
+
+@router.get("/collections/{collection_name}/records/new", response_class=HTMLResponse)
+async def create_record_form(
+    request: Request,
+    collection_name: str,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Create new record form."""
+    return templates.TemplateResponse(
+        "record_form.html",
+        {"request": request, "user": user, "active": "collections", "collection_name": collection_name, "record": None},
+    )
+
+
+@router.get("/collections/{collection_name}/records/{record_id}", response_class=HTMLResponse)
+async def view_record(
+    request: Request,
+    collection_name: str,
+    record_id: str,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """View record details."""
+    return templates.TemplateResponse(
+        "record_detail.html",
+        {"request": request, "user": user, "active": "collections", "collection_name": collection_name, "record_id": record_id},
+    )
+
+
+@router.get("/collections/{collection_name}/records/{record_id}/edit", response_class=HTMLResponse)
+async def edit_record_form(
+    request: Request,
+    collection_name: str,
+    record_id: str,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Edit record form."""
+    return templates.TemplateResponse(
+        "record_form.html",
+        {"request": request, "user": user, "active": "collections", "collection_name": collection_name, "record_id": record_id},
+    )
+
+
+@router.get("/files", response_class=HTMLResponse)
+async def file_manager(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """File management page."""
+    return templates.TemplateResponse(
+        "files.html",
+        {"request": request, "user": user, "active": "files"},
+    )
+
+
 @router.get("/login", response_class=HTMLResponse)
-async def admin_login(request: Request):
+async def admin_login(request: Request, db: AsyncSession = Depends(get_db)):
     """Admin login page."""
+    # Check if setup is needed
+    result = await db.execute(select(User).limit(1))
+    if not result.scalar_one_or_none():
+        return RedirectResponse(url="/setup", status_code=302)
+
     return templates.TemplateResponse("login.html", {"request": request})
+
+
+@router.get("/setup", response_class=HTMLResponse)
+async def admin_setup(request: Request, db: AsyncSession = Depends(get_db)):
+    """Initial setup page for creating first admin user."""
+    # Check if setup is already done
+    result = await db.execute(select(User).limit(1))
+    if result.scalar_one_or_none():
+        return RedirectResponse(url="/admin/login", status_code=302)
+
+    return templates.TemplateResponse("setup.html", {"request": request})

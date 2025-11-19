@@ -87,11 +87,11 @@ async def get_current_user_id(
     return user_context.user_id if user_context else None
 
 
-async def require_auth(
+async def require_auth_context(
     user_context: Optional[UserContext] = Depends(get_current_user),
 ) -> UserContext:
     """
-    Dependency that requires authentication.
+    Dependency that requires authentication and returns UserContext.
 
     Args:
         user_context: User context from get_current_user dependency
@@ -105,6 +105,27 @@ async def require_auth(
     if not user_context:
         raise UnauthorizedException("Authentication required")
     return user_context
+
+
+async def require_auth(
+    user_context: Optional[UserContext] = Depends(get_current_user),
+) -> str:
+    """
+    Dependency that requires authentication and returns user ID.
+    For backward compatibility with existing endpoints.
+
+    Args:
+        user_context: User context from get_current_user dependency
+
+    Returns:
+        User ID string
+
+    Raises:
+        UnauthorizedException: If user is not authenticated
+    """
+    if not user_context:
+        raise UnauthorizedException("Authentication required")
+    return user_context.user_id
 
 
 async def get_optional_user_id(
@@ -139,7 +160,7 @@ async def get_optional_user(
 
 
 async def require_admin(
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> UserContext:
     """
     Dependency that requires admin role.

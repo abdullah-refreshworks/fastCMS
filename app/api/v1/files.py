@@ -28,6 +28,16 @@ async def upload_file(
     user_id: str = Depends(require_auth),
 ):
     """Upload a file with optional metadata linking to a collection record."""
+    from app.core.exceptions import BadRequestException
+
+    # Validate required file attributes
+    if not file.filename:
+        raise BadRequestException("File must have a filename")
+    if not file.content_type:
+        raise BadRequestException("File must have a content type")
+    if file.size is None:
+        raise BadRequestException("File size cannot be determined")
+
     service = FileService(db)
 
     metadata = FileUpload(

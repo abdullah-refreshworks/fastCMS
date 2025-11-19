@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import UserContext, get_optional_user, require_auth
+from app.core.dependencies import UserContext, get_optional_user, require_auth_context
 from app.db.session import get_db
 from app.schemas.record import (
     RecordCreate,
@@ -28,7 +28,7 @@ async def create_record(
     collection_name: str = Path(..., description="Collection name"),
     data: RecordCreate = ...,
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ):
     """Create a new record in the specified collection."""
     service = RecordService(db, collection_name, user_context)
@@ -117,7 +117,7 @@ async def update_record(
     record_id: str = Path(..., description="Record ID"),
     data: RecordUpdate = ...,
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ):
     """Update a specific record."""
     service = RecordService(db, collection_name, user_context)
@@ -133,7 +133,7 @@ async def delete_record(
     collection_name: str = Path(..., description="Collection name"),
     record_id: str = Path(..., description="Record ID"),
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ):
     """Delete a specific record."""
     service = RecordService(db, collection_name, user_context)

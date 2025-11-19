@@ -1,11 +1,20 @@
 {% extends "base.html" %} {% block title %}Collections{% endblock %} {% block
 content %}
 <div x-data="collectionsData()" x-init="loadCollections()">
-  <div class="px-4 sm:px-0">
-    <h1 class="text-3xl font-bold text-gray-900">Collections</h1>
-    <p class="mt-2 text-sm text-gray-700">
-      Manage database collections and schemas
-    </p>
+  <div class="px-4 sm:px-0 flex justify-between items-start">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Collections</h1>
+      <p class="mt-2 text-sm text-gray-700">
+        Manage database collections and schemas
+      </p>
+    </div>
+    <a
+      href="/admin/collections/new"
+      class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+    >
+      <i class="fas fa-plus mr-2"></i>
+      Create Collection
+    </a>
   </div>
 
   <!-- Collections Grid -->
@@ -80,19 +89,33 @@ content %}
           </div>
         </div>
 
-        <div class="bg-gray-50 px-5 py-3 flex justify-between">
-          <button
-            @click="viewCollection(collection)"
-            class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
-          >
-            View Details
-          </button>
+        <div class="bg-gray-50 px-5 py-3 flex justify-between items-center">
+          <div class="flex space-x-3">
+            <a
+              :href="`/admin/collections/${collection.name}/api`"
+              class="text-sm font-medium text-green-600 hover:text-green-700"
+            >
+              <i class="fas fa-code mr-1"></i>API
+            </a>
+            <a
+              :href="`/admin/collections/${collection.name}/records`"
+              class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+            >
+              <i class="fas fa-list mr-1"></i>Records
+            </a>
+            <button
+              @click="viewCollection(collection)"
+              class="text-sm font-medium text-gray-600 hover:text-gray-500"
+            >
+              <i class="fas fa-info-circle mr-1"></i>Details
+            </button>
+          </div>
           <button
             x-show="!collection.system"
             @click="deleteCollection(collection)"
             class="text-sm font-medium text-red-600 hover:text-red-500"
           >
-            Delete
+            <i class="fas fa-trash mr-1"></i>Delete
           </button>
         </div>
       </div>

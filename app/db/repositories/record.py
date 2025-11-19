@@ -18,9 +18,29 @@ class RecordRepository:
     async def _get_model(self) -> Type[BaseModel]:
         """Get or cache the dynamic model for this collection."""
         if self.model is None:
+            # Try to get from cache first
             self.model = DynamicModelGenerator.get_model(self.collection_name)
+
+            # If not in cache, regenerate from database
             if self.model is None:
-                raise ValueError(f"Collection '{self.collection_name}' does not exist")
+                from app.db.repositories.collection import CollectionRepository
+
+                collection_repo = CollectionRepository(self.db)
+                collection = await collection_repo.get_by_name(self.collection_name)
+
+                if collection is None:
+                    raise ValueError(f"Collection '{self.collection_name}' does not exist")
+
+                # Extract field schemas from collection
+                from app.utils.field_types import FieldSchema
+                fields = [FieldSchema(**field_data) for field_data in collection.schema.get("fields", [])]
+
+                # Create and cache the model
+                self.model = DynamicModelGenerator.create_model(
+                    collection_name=self.collection_name,
+                    fields=fields,
+                )
+
         return self.model
 
     async def create(self, data: Dict[str, Any]) -> BaseModel:
@@ -68,7 +88,7 @@ class RecordRepository:
         query = query.offset(skip).limit(limit)
 
         result = await self.db.execute(query)
-        return list(result.scalars.all())
+        return list(result.scalars().all())
 
     async def count(self, filters: Optional[List[RecordFilter]] = None) -> int:
         """Count records with optional filtering."""

@@ -15,7 +15,7 @@ from app.db.models.user import User
 from app.db.repositories.collection import CollectionRepository
 from app.db.repositories.user import UserRepository
 from app.db.session import get_db
-from app.schemas.auth import UserResponse
+from app.schemas.auth import UserResponse, UserRegister
 from app.schemas.collection import CollectionResponse
 
 router = APIRouter()
@@ -102,6 +102,58 @@ async def list_users(
         "per_page": per_page,
         "total_pages": total_pages,
     }
+
+
+@router.post("/users", response_model=UserResponse, status_code=201, summary="Create a new user")
+async def create_user(
+    data: UserRegister,
+    role: str = Query("user", pattern="^(user|admin)$", description="User role"),
+    db: AsyncSession = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> UserResponse:
+    """
+    Create a new user with specified role (admin only).
+
+    Args:
+        data: User registration data
+        role: User role (user or admin)
+        db: Database session
+        _: Admin user context
+
+    Returns:
+        Created user details
+    """
+    from app.services.auth_service import AuthService
+    from app.core.exceptions import ConflictException
+
+    auth_service = AuthService(db)
+
+    # Check if user already exists
+    user_repo = UserRepository(db)
+    existing_user = await user_repo.get_by_email(data.email)
+    if existing_user:
+        raise ConflictException("User with this email already exists")
+
+    # Register the user
+    response = await auth_service.register(
+        data=data,
+        user_agent=None,
+        ip_address=None,
+    )
+
+    # Update role if not default
+    if role != "user":
+        from sqlalchemy import select
+        result = await db.execute(select(User).where(User.id == response.user.id))
+        user_obj = result.scalar_one_or_none()
+        if user_obj:
+            user_obj.role = role
+            user_obj.verified = True  # Admin-created users are auto-verified
+            await db.commit()
+            await db.refresh(user_obj)
+            return UserResponse.model_validate(user_obj)
+
+    return response.user
 
 
 @router.get("/users/{user_id}", response_model=UserResponse, summary="Get user details")
@@ -219,6 +271,8 @@ async def list_collections_admin(
     Returns:
         Paginated list of collections
     """
+    from app.utils.field_types import FieldSchema
+
     collection_repo = CollectionRepository(db)
 
     skip = (page - 1) * per_page
@@ -229,8 +283,33 @@ async def list_collections_admin(
 
     total_pages = math.ceil(total / per_page) if total > 0 else 0
 
+    # Convert collections to response format
+    items = []
+    for col in collections:
+        # Extract fields from schema
+        fields = [
+            FieldSchema(**field_data)
+            for field_data in col.schema.get("fields", [])
+        ]
+
+        items.append(CollectionResponse(
+            id=col.id,
+            name=col.name,
+            type=col.type,
+            schema=fields,
+            options=col.options,
+            list_rule=col.list_rule,
+            view_rule=col.view_rule,
+            create_rule=col.create_rule,
+            update_rule=col.update_rule,
+            delete_rule=col.delete_rule,
+            system=col.system,
+            created=col.created,
+            updated=col.updated,
+        ))
+
     return {
-        "items": [CollectionResponse.model_validate(col) for col in collections],
+        "items": items,
         "total": total,
         "page": page,
         "per_page": per_page,

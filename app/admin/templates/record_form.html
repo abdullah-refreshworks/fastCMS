@@ -1,132 +1,315 @@
 {% extends "base.html" %}
 
-{% block title %}{{ 'Edit' if record else 'Create' }} Record - {{ collection.name }} - FastCMS Admin{% endblock %}
+{% block title %}{{ 'Edit' if record_id else 'Create' }} Record{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>{{ 'Edit' if record else 'Create' }} {{ collection.name }} Record</h1>
-    <a href="/admin/collections/{{ collection.name }}/records" class="btn">Back to Records</a>
-</div>
-
-<div class="card">
-    <form method="POST" action="{{ '/admin/collections/' + collection.name + '/records/' + record.id + '/edit' if record else '/admin/collections/' + collection.name + '/records/new' }}">
-        {% for field in collection.schema %}
-        <div class="form-group">
-            <label for="{{ field.name }}">
-                {{ field.name }}
-                {% if field.required %}<span class="text-danger">*</span>{% endif %}
-                <span class="badge badge-secondary">{{ field.type }}</span>
-            </label>
-
-            {% if field.type == 'text' %}
-            <input
-                type="text"
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                value="{{ record.data.get(field.name) if record else '' }}"
-                {{ 'required' if field.required else '' }}
-            >
-
-            {% elif field.type == 'number' %}
-            <input
-                type="number"
-                step="any"
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                value="{{ record.data.get(field.name) if record else '' }}"
-                {{ 'required' if field.required else '' }}
-            >
-
-            {% elif field.type == 'bool' %}
-            <label class="checkbox-label">
-                <input
-                    type="checkbox"
-                    id="{{ field.name }}"
-                    name="{{ field.name }}"
-                    {{ 'checked' if record and record.data.get(field.name) else '' }}
-                >
-                Enable
-            </label>
-
-            {% elif field.type == 'email' %}
-            <input
-                type="email"
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                value="{{ record.data.get(field.name) if record else '' }}"
-                {{ 'required' if field.required else '' }}
-            >
-
-            {% elif field.type == 'url' %}
-            <input
-                type="url"
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                value="{{ record.data.get(field.name) if record else '' }}"
-                {{ 'required' if field.required else '' }}
-            >
-
-            {% elif field.type == 'date' %}
-            <input
-                type="date"
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                value="{{ record.data.get(field.name) if record else '' }}"
-                {{ 'required' if field.required else '' }}
-            >
-
-            {% elif field.type == 'editor' %}
-            <textarea
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                rows="10"
-                {{ 'required' if field.required else '' }}
-            >{{ record.data.get(field.name) if record else '' }}</textarea>
-
-            {% elif field.type == 'json' %}
-            <textarea
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                rows="6"
-                placeholder='{"key": "value"}'
-                {{ 'required' if field.required else '' }}
-            >{{ record.data.get(field.name) | tojson if record and record.data.get(field.name) else '' }}</textarea>
-            <small>Enter valid JSON</small>
-
-            {% elif field.type == 'select' %}
-            <select
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                {{ 'required' if field.required else '' }}
-            >
-                <option value="">-- Select --</option>
-                {% if field.options and field.options.values %}
-                {% for option in field.options.values %}
-                <option value="{{ option }}" {{ 'selected' if record and record.data.get(field.name) == option else '' }}>
-                    {{ option }}
-                </option>
-                {% endfor %}
-                {% endif %}
-            </select>
-
-            {% else %}
-            <input
-                type="text"
-                id="{{ field.name }}"
-                name="{{ field.name }}"
-                value="{{ record.data.get(field.name) if record else '' }}"
-                {{ 'required' if field.required else '' }}
-                placeholder="{{ field.type }}"
-            >
-            <small>Field type: {{ field.type }}</small>
-            {% endif %}
+<div x-data="recordFormData('{{ collection_name }}', '{{ record_id if record_id else '' }}')" x-init="init()">
+    <div class="px-4 sm:px-0 flex justify-between items-start mb-6">
+        <div>
+            <div class="flex items-center space-x-3">
+                <a :href="`/admin/collections/{{ collection_name }}/records`" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1 class="text-3xl font-bold text-gray-900">
+                    <span x-text="recordId ? 'Edit' : 'Create'"></span>
+                    <span x-text="collection?.name || '{{ collection_name }}'"></span> Record
+                </h1>
+            </div>
+            <p class="mt-2 text-sm text-gray-700">
+                Fill in the fields below to <span x-text="recordId ? 'update' : 'create'"></span> a record
+            </p>
         </div>
-        {% endfor %}
+    </div>
 
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">{{ 'Update' if record else 'Create' }} Record</button>
-            <a href="/admin/collections/{{ collection.name }}/records" class="btn">Cancel</a>
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <form @submit.prevent="saveRecord">
+                <div class="space-y-6">
+                    <template x-for="field in collection?.schema || []" :key="field.name">
+                        <div>
+                            <label :for="field.name" class="block text-sm font-medium text-gray-700">
+                                <span x-text="field.name"></span>
+                                <span x-show="field.validation?.required" class="text-red-600">*</span>
+                                <span class="ml-2 text-xs text-gray-500" x-text="field.type"></span>
+                            </label>
+
+                            <!-- Text Field -->
+                            <template x-if="field.type === 'text'">
+                                <input
+                                    type="text"
+                                    :id="field.name"
+                                    x-model="formData[field.name]"
+                                    :required="field.validation?.required"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                >
+                            </template>
+
+                            <!-- Number Field -->
+                            <template x-if="field.type === 'number'">
+                                <input
+                                    type="number"
+                                    step="any"
+                                    :id="field.name"
+                                    x-model.number="formData[field.name]"
+                                    :required="field.validation?.required"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                >
+                            </template>
+
+                            <!-- Boolean Field -->
+                            <template x-if="field.type === 'bool'">
+                                <div class="mt-1">
+                                    <label class="inline-flex items-center">
+                                        <input
+                                            type="checkbox"
+                                            :id="field.name"
+                                            x-model="formData[field.name]"
+                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                        >
+                                        <span class="ml-2 text-sm text-gray-700">Enable</span>
+                                    </label>
+                                </div>
+                            </template>
+
+                            <!-- Email Field -->
+                            <template x-if="field.type === 'email'">
+                                <input
+                                    type="email"
+                                    :id="field.name"
+                                    x-model="formData[field.name]"
+                                    :required="field.validation?.required"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                >
+                            </template>
+
+                            <!-- URL Field -->
+                            <template x-if="field.type === 'url'">
+                                <input
+                                    type="url"
+                                    :id="field.name"
+                                    x-model="formData[field.name]"
+                                    :required="field.validation?.required"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                >
+                            </template>
+
+                            <!-- Date Field -->
+                            <template x-if="field.type === 'date'">
+                                <input
+                                    type="date"
+                                    :id="field.name"
+                                    x-model="formData[field.name]"
+                                    :required="field.validation?.required"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                >
+                            </template>
+
+                            <!-- Editor/Textarea Field -->
+                            <template x-if="field.type === 'editor'">
+                                <textarea
+                                    :id="field.name"
+                                    x-model="formData[field.name]"
+                                    :required="field.validation?.required"
+                                    rows="10"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                ></textarea>
+                            </template>
+
+                            <!-- JSON Field -->
+                            <template x-if="field.type === 'json'">
+                                <div>
+                                    <textarea
+                                        :id="field.name"
+                                        x-model="formData[field.name]"
+                                        :required="field.validation?.required"
+                                        rows="6"
+                                        placeholder='{"key": "value"}'
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm font-mono"
+                                    ></textarea>
+                                    <p class="mt-1 text-sm text-gray-500">Enter valid JSON</p>
+                                </div>
+                            </template>
+
+                            <!-- Select Field -->
+                            <template x-if="field.type === 'select'">
+                                <select
+                                    :id="field.name"
+                                    x-model="formData[field.name]"
+                                    :required="field.validation?.required"
+                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                >
+                                    <option value="">-- Select --</option>
+                                    <template x-if="field.options?.values">
+                                        <template x-for="option in field.options.values" :key="option">
+                                            <option :value="option" x-text="option"></option>
+                                        </template>
+                                    </template>
+                                </select>
+                            </template>
+
+                            <!-- Default/Other Field Types -->
+                            <template x-if="!['text', 'number', 'bool', 'email', 'url', 'date', 'editor', 'json', 'select'].includes(field.type)">
+                                <div>
+                                    <input
+                                        type="text"
+                                        :id="field.name"
+                                        x-model="formData[field.name]"
+                                        :required="field.validation?.required"
+                                        :placeholder="`Field type: ${field.type}`"
+                                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                    >
+                                    <p class="mt-1 text-sm text-gray-500">Field type: <span x-text="field.type"></span></p>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <div x-show="!collection || collection.schema.length === 0" class="text-center py-6 text-gray-500">
+                        Loading collection schema...
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex justify-end space-x-3 pt-6 border-t border-gray-200 mt-6">
+                    <a
+                        :href="`/admin/collections/{{ collection_name }}/records`"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                        Cancel
+                    </a>
+                    <button
+                        type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                    >
+                        <span x-text="recordId ? 'Update' : 'Create'"></span> Record
+                    </button>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function recordFormData(collectionName, recordId) {
+        return {
+            collectionName: collectionName,
+            recordId: recordId,
+            collection: null,
+            formData: {},
+
+            async init() {
+                await this.loadCollection();
+                if (this.recordId) {
+                    await this.loadRecord();
+                } else {
+                    this.initializeFormData();
+                }
+            },
+
+            async loadCollection() {
+                try {
+                    const response = await apiRequest(`/collections?filter=name=${this.collectionName}`);
+                    if (response.items && response.items.length > 0) {
+                        this.collection = response.items[0];
+                    }
+                } catch (error) {
+                    console.error('Failed to load collection:', error);
+                    showToast('Failed to load collection', 'error');
+                }
+            },
+
+            async loadRecord() {
+                try {
+                    const response = await apiRequest(`/${this.collectionName}/records/${this.recordId}`);
+                    this.formData = { ...response.data };
+                } catch (error) {
+                    console.error('Failed to load record:', error);
+                    showToast('Failed to load record', 'error');
+                }
+            },
+
+            initializeFormData() {
+                // Initialize form data with default values based on field types
+                if (this.collection && this.collection.schema) {
+                    this.collection.schema.forEach(field => {
+                        if (field.type === 'bool') {
+                            this.formData[field.name] = false;
+                        } else if (field.type === 'number') {
+                            this.formData[field.name] = null;
+                        } else if (field.type === 'json') {
+                            this.formData[field.name] = '';
+                        } else {
+                            this.formData[field.name] = '';
+                        }
+                    });
+                }
+            },
+
+            async saveRecord() {
+                try {
+                    // Parse JSON fields and clean up empty values
+                    const processedData = { ...this.formData };
+                    if (this.collection && this.collection.schema) {
+                        this.collection.schema.forEach(field => {
+                            const value = processedData[field.name];
+
+                            // Handle JSON fields
+                            if (field.type === 'json' && typeof value === 'string') {
+                                try {
+                                    if (value.trim()) {
+                                        processedData[field.name] = JSON.parse(value);
+                                    } else {
+                                        // Empty JSON field - remove if not required
+                                        if (!field.validation?.required) {
+                                            delete processedData[field.name];
+                                        } else {
+                                            processedData[field.name] = null;
+                                        }
+                                    }
+                                } catch (e) {
+                                    throw new Error(`Invalid JSON in field "${field.name}"`);
+                                }
+                            }
+                            // Handle empty strings for non-required fields
+                            else if (value === '' && !field.validation?.required) {
+                                // Remove empty non-required fields instead of sending empty strings
+                                delete processedData[field.name];
+                            }
+                            // Handle null number fields
+                            else if (field.type === 'number' && value === null && !field.validation?.required) {
+                                delete processedData[field.name];
+                            }
+                        });
+                    }
+
+                    if (this.recordId) {
+                        // Update existing record - use PATCH
+                        await apiRequest(`/${this.collectionName}/records/${this.recordId}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ data: processedData })
+                        });
+                        showToast('Record updated successfully', 'success');
+                    } else {
+                        // Create new record
+                        await apiRequest(`/${this.collectionName}/records`, {
+                            method: 'POST',
+                            body: JSON.stringify({ data: processedData })
+                        });
+                        showToast('Record created successfully', 'success');
+                    }
+
+                    // Redirect to records list
+                    setTimeout(() => {
+                        window.location.href = `/admin/collections/${this.collectionName}/records`;
+                    }, 500);
+                } catch (error) {
+                    console.error('Failed to save record:', error);
+                    showToast(error.message || 'Failed to save record', 'error');
+                }
+            }
+        };
+    }
+</script>
 {% endblock %}

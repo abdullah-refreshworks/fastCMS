@@ -1,144 +1,648 @@
 {% extends "base.html" %}
 
-{% block title %}{{ 'Edit' if collection else 'Create' }} Collection - FastCMS Admin{% endblock %}
+{% block title %}{{ 'Edit' if collection_id else 'Create' }} Collection{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>{{ 'Edit' if collection else 'Create' }} Collection</h1>
-    <a href="/admin/collections" class="btn">Back to Collections</a>
-</div>
-
-<div class="card">
-    <form method="POST" action="{{ '/admin/collections/' + collection.id + '/edit' if collection else '/admin/collections/new' }}">
-        <div class="form-group">
-            <label for="name">Collection Name *</label>
-            <input
-                type="text"
-                id="name"
-                name="name"
-                value="{{ collection.name if collection else '' }}"
-                required
-                pattern="[a-z0-9_]+"
-                title="Only lowercase letters, numbers, and underscores"
-                {{ 'readonly' if collection else '' }}
-            >
-            <small>Only lowercase letters, numbers, and underscores. Cannot be changed after creation.</small>
+<div x-data="collectionFormData('{{ collection_id if collection_id else '' }}')" x-init="init()">
+    <div class="px-4 sm:px-0 flex justify-between items-start mb-6">
+        <div>
+            <div class="flex items-center space-x-3">
+                <a href="/admin/collections" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1 class="text-3xl font-bold text-gray-900">
+                    <span x-text="collectionId ? 'Edit' : 'Create'"></span> Collection
+                </h1>
+            </div>
+            <p class="mt-2 text-sm text-gray-700">
+                Define your collection structure and schema
+            </p>
         </div>
+    </div>
 
-        <div class="form-group">
-            <label for="type">Collection Type *</label>
-            <select id="type" name="type" required {{ 'disabled' if collection else '' }}>
-                <option value="base" {{ 'selected' if collection and collection.type == 'base' else '' }}>Base</option>
-                <option value="auth" {{ 'selected' if collection and collection.type == 'auth' else '' }}>Auth (Users)</option>
-            </select>
-            <small>Type cannot be changed after creation.</small>
-        </div>
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <form @submit.prevent="saveCollection">
+                <!-- Collection Name -->
+                <div class="mb-6">
+                    <label for="name" class="block text-sm font-medium text-gray-700">Collection Name *</label>
+                    <input
+                        type="text"
+                        id="name"
+                        x-model="formData.name"
+                        :readonly="collectionId !== ''"
+                        required
+                        pattern="[a-z0-9_]+"
+                        title="Only lowercase letters, numbers, and underscores"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        :class="{ 'bg-gray-100': collectionId !== '' }"
+                    >
+                    <p class="mt-1 text-sm text-gray-500">Only lowercase letters, numbers, and underscores. Cannot be changed after creation.</p>
+                </div>
 
-        <div class="form-section">
-            <h3>Schema Fields</h3>
-            <div id="fields-container">
-                {% if collection %}
-                    {% for field in collection.schema %}
-                    <div class="field-item" data-index="{{ loop.index0 }}">
-                        <div class="field-row">
-                            <div class="form-group">
-                                <label>Field Name</label>
-                                <input type="text" name="fields[{{ loop.index0 }}][name]" value="{{ field.name }}" required>
+                <!-- Collection Type -->
+                <div class="mb-6">
+                    <label for="type" class="block text-sm font-medium text-gray-700">Collection Type *</label>
+                    <select
+                        id="type"
+                        x-model="formData.type"
+                        :disabled="collectionId !== ''"
+                        required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        :class="{ 'bg-gray-100': collectionId !== '' }"
+                    >
+                        <option value="base">Base - Standard collection for any data</option>
+                        <option value="auth">Auth - User authentication (✅ Fully implemented!)</option>
+                        <option value="view">View - Virtual/computed data (✅ Fully implemented!)</option>
+                    </select>
+                    <p class="mt-1 text-sm text-gray-500">Type cannot be changed after creation.</p>
+
+                    <!-- Auth Type Info -->
+                    <div x-show="formData.type === 'auth'" class="mt-2 p-3 bg-green-50 border-l-4 border-green-400 rounded">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-check-circle text-green-400"></i>
                             </div>
-                            <div class="form-group">
-                                <label>Type</label>
-                                <select name="fields[{{ loop.index0 }}][type]" required>
-                                    <option value="text" {{ 'selected' if field.type == 'text' else '' }}>Text</option>
-                                    <option value="number" {{ 'selected' if field.type == 'number' else '' }}>Number</option>
-                                    <option value="bool" {{ 'selected' if field.type == 'bool' else '' }}>Boolean</option>
-                                    <option value="email" {{ 'selected' if field.type == 'email' else '' }}>Email</option>
-                                    <option value="url" {{ 'selected' if field.type == 'url' else '' }}>URL</option>
-                                    <option value="date" {{ 'selected' if field.type == 'date' else '' }}>Date</option>
-                                    <option value="select" {{ 'selected' if field.type == 'select' else '' }}>Select</option>
-                                    <option value="relation" {{ 'selected' if field.type == 'relation' else '' }}>Relation</option>
-                                    <option value="file" {{ 'selected' if field.type == 'file' else '' }}>File</option>
-                                    <option value="json" {{ 'selected' if field.type == 'json' else '' }}>JSON</option>
-                                    <option value="editor" {{ 'selected' if field.type == 'editor' else '' }}>Editor</option>
-                                </select>
+                            <div class="ml-3">
+                                <p class="text-sm text-green-700">
+                                    <strong>Auth collections are fully implemented!</strong> This will automatically add authentication fields
+                                    (<code class="bg-green-100 px-1 rounded">email</code>,
+                                    <code class="bg-green-100 px-1 rounded">password</code>,
+                                    <code class="bg-green-100 px-1 rounded">verified</code>)
+                                    and create authentication endpoints
+                                    (<code class="bg-green-100 px-1 rounded">/auth/register</code>,
+                                    <code class="bg-green-100 px-1 rounded">/auth/login</code>).
+                                </p>
+                                <p class="text-sm text-green-700 mt-2">
+                                    <strong>Perfect for:</strong> customers, vendors, team members, or any user type needing authentication.
+                                </p>
                             </div>
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" name="fields[{{ loop.index0 }}][required]" {{ 'checked' if field.required else '' }}>
-                                    Required
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label>
-                                    <input type="checkbox" name="fields[{{ loop.index0 }}][unique]" {{ 'checked' if field.unique else '' }}>
-                                    Unique
-                                </label>
-                            </div>
-                            <button type="button" class="btn btn-danger btn-sm" onclick="removeField(this)">Remove</button>
                         </div>
                     </div>
-                    {% endfor %}
-                {% endif %}
-            </div>
-            <button type="button" class="btn btn-secondary" onclick="addField()">Add Field</button>
-        </div>
 
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">{{ 'Update' if collection else 'Create' }} Collection</button>
-            <a href="/admin/collections" class="btn">Cancel</a>
+                    <!-- View Type Info -->
+                    <div x-show="formData.type === 'view'" class="mt-2 p-3 bg-blue-50 border-l-4 border-blue-400 rounded">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle text-blue-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-blue-700">
+                                    <strong>View collections are virtual!</strong> They don't store data but compute it from other collections.
+                                    Configure the query below to define what data to show.
+                                </p>
+                                <p class="text-sm text-blue-700 mt-2">
+                                    <strong>Perfect for:</strong> statistics, joined data, aggregations, reports, dashboards.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Query Configuration (only for view type) -->
+                <div x-show="formData.type === 'view'" class="mb-6 border-t pt-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">View Query Configuration</h3>
+
+                    <!-- Source Collection -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Source Collection *</label>
+                        <select
+                            x-model="formData.options.query.source"
+                            required
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        >
+                            <option value="">Select primary source collection...</option>
+                            <template x-for="coll in availableCollections" :key="coll.id">
+                                <option :value="coll.name" x-text="coll.name"></option>
+                            </template>
+                        </select>
+                        <p class="mt-1 text-xs text-gray-500">The main collection to query from</p>
+                    </div>
+
+                    <!-- Select Fields -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Select Fields</label>
+                        <textarea
+                            x-model="viewSelectFields"
+                            @input="updateViewSelect"
+                            rows="3"
+                            placeholder="posts.id, posts.title, COUNT(comments.id) as comment_count"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        ></textarea>
+                        <p class="mt-1 text-xs text-gray-500">Comma-separated list of fields to select (use table.field notation)</p>
+                    </div>
+
+                    <!-- Group By -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Group By (optional)</label>
+                        <input
+                            type="text"
+                            x-model="viewGroupBy"
+                            @input="updateViewGroupBy"
+                            placeholder="posts.id, posts.title"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Comma-separated list of fields to group by (for aggregations)</p>
+                    </div>
+
+                    <!-- Order By -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Order By (optional)</label>
+                        <input
+                            type="text"
+                            x-model="viewOrderBy"
+                            @input="updateViewOrderBy"
+                            placeholder="-comment_count, posts.title"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">Comma-separated list (prefix with - for descending)</p>
+                    </div>
+
+                    <!-- Cache TTL -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700">Cache TTL (seconds)</label>
+                        <input
+                            type="number"
+                            x-model.number="formData.options.cache_ttl"
+                            min="0"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        >
+                        <p class="mt-1 text-xs text-gray-500">How long to cache results (0 = no caching, default: 300)</p>
+                    </div>
+
+                    <!-- Example Query Display -->
+                    <div class="mt-4 p-3 bg-gray-50 border border-gray-200 rounded">
+                        <p class="text-xs font-medium text-gray-700 mb-2">Resulting SQL Query (preview):</p>
+                        <code class="text-xs text-gray-600 block break-all">
+                            SELECT <span x-text="viewSelectFields || '*'"></span>
+                            FROM <span x-text="formData.options.query.source || '{source}'"></span>
+                            <span x-show="viewGroupBy"> GROUP BY <span x-text="viewGroupBy"></span></span>
+                            <span x-show="viewOrderBy"> ORDER BY <span x-text="viewOrderBy"></span></span>
+                        </code>
+                    </div>
+                </div>
+
+                <!-- Schema Fields (only for base and auth types) -->
+                <div x-show="formData.type !== 'view'" class="mb-6">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="text-lg font-medium text-gray-900">Schema Fields</h3>
+                        <button
+                            type="button"
+                            @click="addField"
+                            class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200"
+                        >
+                            <i class="fas fa-plus mr-2"></i>Add Field
+                        </button>
+                    </div>
+
+                    <div class="space-y-3">
+                        <template x-for="(field, index) in formData.schema" :key="index">
+                            <div class="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-6">
+                                    <!-- Field Name -->
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Field Name</label>
+                                        <input
+                                            type="text"
+                                            x-model="field.name"
+                                            required
+                                            pattern="[a-z0-9_]+"
+                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                        >
+                                    </div>
+
+                                    <!-- Field Type -->
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700">Type</label>
+                                        <select
+                                            x-model="field.type"
+                                            required
+                                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                        >
+                                            <option value="text">Text</option>
+                                            <option value="number">Number</option>
+                                            <option value="bool">Boolean</option>
+                                            <option value="email">Email</option>
+                                            <option value="url">URL</option>
+                                            <option value="date">Date</option>
+                                            <option value="select">Select</option>
+                                            <option value="relation">Relation</option>
+                                            <option value="file">File</option>
+                                            <option value="json">JSON</option>
+                                            <option value="editor">Editor</option>
+                                        </select>
+                                    </div>
+
+                                    <!-- Validation Options -->
+                                    <div class="sm:col-span-1 flex flex-col justify-center space-y-2">
+                                        <label class="inline-flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                x-model="field.validation.required"
+                                                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            >
+                                            <span class="ml-2 text-sm text-gray-700">Required</span>
+                                        </label>
+                                        <label class="inline-flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                x-model="field.validation.unique"
+                                                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                            >
+                                            <span class="ml-2 text-sm text-gray-700">Unique</span>
+                                        </label>
+                                    </div>
+
+                                    <!-- Remove Button -->
+                                    <div class="sm:col-span-1 flex items-center justify-end">
+                                        <button
+                                            type="button"
+                                            @click="removeField(index)"
+                                            class="text-red-600 hover:text-red-900"
+                                        >
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Relation Options (show when type is 'relation') -->
+                                <div x-show="field.type === 'relation'" class="mt-3 pl-4 border-l-4 border-indigo-200 bg-indigo-50 p-3 rounded">
+                                    <h4 class="text-sm font-medium text-gray-900 mb-3">Relation Configuration</h4>
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <!-- Target Collection -->
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Target Collection *</label>
+                                            <select
+                                                x-model="field.relation.collection_id"
+                                                required
+                                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                                <option value="">Select a collection...</option>
+                                                <template x-for="coll in availableCollections" :key="coll.id">
+                                                    <option :value="coll.id" x-text="coll.name"></option>
+                                                </template>
+                                            </select>
+                                            <p class="mt-1 text-xs text-gray-500">Which collection to link to</p>
+                                        </div>
+
+                                        <!-- Relationship Type -->
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Relationship Type</label>
+                                            <select
+                                                x-model="field.relation.type"
+                                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                                <option value="one-to-many">One to Many</option>
+                                                <option value="many-to-one">Many to One</option>
+                                                <option value="many-to-many">Many to Many</option>
+                                                <option value="one-to-one">One to One</option>
+                                            </select>
+                                            <p class="mt-1 text-xs text-gray-500">Type of relationship</p>
+                                        </div>
+
+                                        <!-- Display Fields -->
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Display Fields</label>
+                                            <input
+                                                type="text"
+                                                x-model="field.relation.display_fields_str"
+                                                placeholder="id, name, email"
+                                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                            <p class="mt-1 text-xs text-gray-500">Comma-separated field names to show</p>
+                                        </div>
+
+                                        <!-- Cascade Delete -->
+                                        <div class="flex items-center">
+                                            <label class="inline-flex items-center">
+                                                <input
+                                                    type="checkbox"
+                                                    x-model="field.relation.cascade_delete"
+                                                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                >
+                                                <span class="ml-2 text-sm text-gray-700">
+                                                    Cascade Delete
+                                                    <span class="block text-xs text-gray-500">Delete related records when this record is deleted</span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Select Options (show when type is 'select') -->
+                                <div x-show="field.type === 'select'" class="mt-3 pl-4 border-l-4 border-green-200 bg-green-50 p-3 rounded">
+                                    <h4 class="text-sm font-medium text-gray-900 mb-3">Select Configuration</h4>
+                                    <div class="grid grid-cols-1 gap-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Options *</label>
+                                            <input
+                                                type="text"
+                                                x-model="field.select.values_str"
+                                                placeholder="option1, option2, option3"
+                                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                            <p class="mt-1 text-xs text-gray-500">Comma-separated options</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Max Select</label>
+                                            <input
+                                                type="number"
+                                                x-model="field.select.max_select"
+                                                min="1"
+                                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                            <p class="mt-1 text-xs text-gray-500">1 for single select, &gt;1 for multi-select</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- File Options (show when type is 'file') -->
+                                <div x-show="field.type === 'file'" class="mt-3 pl-4 border-l-4 border-purple-200 bg-purple-50 p-3 rounded">
+                                    <h4 class="text-sm font-medium text-gray-900 mb-3">File Configuration</h4>
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Max Files</label>
+                                            <input
+                                                type="number"
+                                                x-model="field.file.max_files"
+                                                min="1"
+                                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Max Size (MB)</label>
+                                            <input
+                                                type="number"
+                                                x-model="field.file.max_size_mb"
+                                                min="1"
+                                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                                            >
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="formData.schema.length === 0" class="text-center py-6 text-gray-500">
+                            No fields defined yet. Click "Add Field" to create your schema.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                    <a
+                        href="/admin/collections"
+                        class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                        Cancel
+                    </a>
+                    <button
+                        type="submit"
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+                    >
+                        <span x-text="collectionId ? 'Update' : 'Create'"></span> Collection
+                    </button>
+                </div>
+            </form>
         </div>
-    </form>
+    </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-let fieldIndex = {{ collection.schema | length if collection else 0 }};
+    function collectionFormData(collectionId) {
+        return {
+            collectionId: collectionId,
+            availableCollections: [],
+            formData: {
+                name: '',
+                type: 'base',
+                schema: [],
+                options: {
+                    query: {
+                        source: '',
+                        select: [],
+                        joins: [],
+                        group_by: [],
+                        order_by: []
+                    },
+                    cache_ttl: 300
+                }
+            },
+            // View-specific fields
+            viewSelectFields: '',
+            viewGroupBy: '',
+            viewOrderBy: '',
 
-function addField() {
-    const container = document.getElementById('fields-container');
-    const fieldHtml = `
-        <div class="field-item" data-index="${fieldIndex}">
-            <div class="field-row">
-                <div class="form-group">
-                    <label>Field Name</label>
-                    <input type="text" name="fields[${fieldIndex}][name]" required>
-                </div>
-                <div class="form-group">
-                    <label>Type</label>
-                    <select name="fields[${fieldIndex}][type]" required>
-                        <option value="text">Text</option>
-                        <option value="number">Number</option>
-                        <option value="bool">Boolean</option>
-                        <option value="email">Email</option>
-                        <option value="url">URL</option>
-                        <option value="date">Date</option>
-                        <option value="select">Select</option>
-                        <option value="relation">Relation</option>
-                        <option value="file">File</option>
-                        <option value="json">JSON</option>
-                        <option value="editor">Editor</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="fields[${fieldIndex}][required]">
-                        Required
-                    </label>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" name="fields[${fieldIndex}][unique]">
-                        Unique
-                    </label>
-                </div>
-                <button type="button" class="btn btn-danger btn-sm" onclick="removeField(this)">Remove</button>
-            </div>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', fieldHtml);
-    fieldIndex++;
-}
+            async init() {
+                await this.loadAvailableCollections();
+                if (this.collectionId) {
+                    await this.loadCollection();
+                }
+            },
 
-function removeField(button) {
-    button.closest('.field-item').remove();
-}
+            async loadAvailableCollections() {
+                try {
+                    const response = await apiRequest('/collections?per_page=100');
+                    this.availableCollections = response.items || [];
+                } catch (error) {
+                    console.error('Failed to load collections:', error);
+                }
+            },
+
+            async loadCollection() {
+                try {
+                    const response = await apiRequest(`/collections/${this.collectionId}`);
+                    this.formData = {
+                        name: response.name,
+                        type: response.type,
+                        schema: response.schema.map(field => {
+                            const baseField = {
+                                name: field.name,
+                                type: field.type,
+                                validation: {
+                                    required: field.validation?.required || false,
+                                    unique: field.validation?.unique || false
+                                }
+                            };
+
+                            // Add relation config if exists
+                            if (field.type === 'relation' && field.relation) {
+                                baseField.relation = {
+                                    collection_id: field.relation.collection_id || '',
+                                    type: field.relation.type || 'one-to-many',
+                                    cascade_delete: field.relation.cascade_delete || false,
+                                    display_fields_str: field.relation.display_fields?.join(', ') || 'id'
+                                };
+                            }
+
+                            // Add select config if exists
+                            if (field.type === 'select' && field.select) {
+                                baseField.select = {
+                                    values_str: field.select.values?.join(', ') || '',
+                                    max_select: field.select.max_select || 1
+                                };
+                            }
+
+                            // Add file config if exists
+                            if (field.type === 'file' && field.file) {
+                                baseField.file = {
+                                    max_files: field.file.max_files || 1,
+                                    max_size_mb: (field.file.max_size || 5242880) / 1048576
+                                };
+                            }
+
+                            return baseField;
+                        })
+                    };
+                } catch (error) {
+                    console.error('Failed to load collection:', error);
+                    showToast('Failed to load collection', 'error');
+                }
+            },
+
+            addField() {
+                this.formData.schema.push({
+                    name: '',
+                    type: 'text',
+                    validation: {
+                        required: false,
+                        unique: false
+                    },
+                    relation: {
+                        collection_id: '',
+                        type: 'one-to-many',
+                        cascade_delete: false,
+                        display_fields_str: 'id'
+                    },
+                    select: {
+                        values_str: '',
+                        max_select: 1
+                    },
+                    file: {
+                        max_files: 1,
+                        max_size_mb: 5
+                    }
+                });
+            },
+
+            removeField(index) {
+                this.formData.schema.splice(index, 1);
+            },
+
+            // View query helpers
+            updateViewSelect() {
+                const fields = this.viewSelectFields.split(',').map(f => f.trim()).filter(Boolean);
+                this.formData.options.query.select = fields;
+            },
+
+            updateViewGroupBy() {
+                const fields = this.viewGroupBy.split(',').map(f => f.trim()).filter(Boolean);
+                this.formData.options.query.group_by = fields;
+            },
+
+            updateViewOrderBy() {
+                const fields = this.viewOrderBy.split(',').map(f => f.trim()).filter(Boolean);
+                this.formData.options.query.order_by = fields;
+            },
+
+            async saveCollection() {
+                try {
+                    console.log('Starting saveCollection...');
+                    console.log('Form data:', this.formData);
+
+                    // Validate collection name
+                    if (!this.formData.name || !this.formData.name.trim()) {
+                        showToast('Collection name is required', 'error');
+                        return;
+                    }
+
+                    // Format the data for the API
+                    const formattedData = {
+                        name: this.formData.name,
+                        type: this.formData.type,
+                        options: this.formData.type === 'view' ? this.formData.options : {},
+                        schema: this.formData.type === 'view' ? [] : this.formData.schema.map(field => {
+                            const formatted = {
+                                name: field.name,
+                                type: field.type,
+                                validation: field.validation || { required: false, unique: false }
+                            };
+
+                            // Add relation config if type is relation
+                            if (field.type === 'relation' && field.relation) {
+                                if (!field.relation.collection_id) {
+                                    throw new Error(`Relation field '${field.name}' requires a target collection`);
+                                }
+                                formatted.relation = {
+                                    collection_id: field.relation.collection_id,
+                                    type: field.relation.type || 'one-to-many',
+                                    cascade_delete: field.relation.cascade_delete || false,
+                                    display_fields: field.relation.display_fields_str
+                                        ? field.relation.display_fields_str.split(',').map(s => s.trim()).filter(Boolean)
+                                        : ['id']
+                                };
+                            }
+
+                            // Add select config if type is select
+                            if (field.type === 'select' && field.select) {
+                                const values = field.select.values_str
+                                    ? field.select.values_str.split(',').map(s => s.trim()).filter(Boolean)
+                                    : [];
+                                if (values.length === 0) {
+                                    throw new Error(`Select field '${field.name}' requires at least one option`);
+                                }
+                                formatted.select = {
+                                    values: values,
+                                    max_select: parseInt(field.select.max_select) || 1
+                                };
+                            }
+
+                            // Add file config if type is file
+                            if (field.type === 'file' && field.file) {
+                                formatted.file = {
+                                    max_files: parseInt(field.file.max_files) || 1,
+                                    max_size: parseInt(field.file.max_size_mb) * 1048576 || 5242880,
+                                    mime_types: ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'],
+                                    thumbs: ['100x100', '500x500']
+                                };
+                            }
+
+                            return formatted;
+                        })
+                    };
+
+                    console.log('Formatted data:', JSON.stringify(formattedData, null, 2));
+
+                    if (this.collectionId) {
+                        // Update existing collection
+                        await apiRequest(`/collections/${this.collectionId}`, {
+                            method: 'PUT',
+                            body: JSON.stringify(formattedData)
+                        });
+                        showToast('Collection updated successfully', 'success');
+                    } else {
+                        // Create new collection
+                        const result = await apiRequest('/collections', {
+                            method: 'POST',
+                            body: JSON.stringify(formattedData)
+                        });
+                        console.log('Create result:', result);
+                        showToast('Collection created successfully', 'success');
+                    }
+
+                    // Redirect to collections list
+                    setTimeout(() => {
+                        window.location.href = '/admin/collections';
+                    }, 500);
+                } catch (error) {
+                    console.error('Failed to save collection:', error);
+                    showToast(error.message || 'Failed to save collection', 'error');
+                }
+            }
+        };
+    }
 </script>
 {% endblock %}
