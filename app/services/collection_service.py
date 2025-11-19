@@ -56,6 +56,10 @@ class CollectionService:
         if await self.repo.exists(data.name):
             raise ConflictException(f"Collection '{data.name}' already exists")
 
+        # Handle auth collections - inject required fields
+        if data.type == "auth":
+            data.schema = self._ensure_auth_fields(data.schema)
+
         # Convert schema to dict for storage
         schema_dict = [field.model_dump() for field in data.schema]
 
@@ -80,27 +84,25 @@ class CollectionService:
 
         logger.info(f"Collection '{data.name}' created with ID: {collection.id}")
 
-        # Create dynamic model and table/view
-        try:
-            if data.type == "view":
-                # Create SQL view for view collections
-                await self._create_view(data.name, data.view_query)
-                logger.info(f"Database view '{data.name}' created successfully")
-            else:
-                # Create table for base/auth collections
+        # Create dynamic model and table (skip for view collections)
+        if data.type != "view":
+            try:
                 model = DynamicModelGenerator.create_model(
                     collection_name=data.name,
                     fields=data.schema,
                 )
 
                 await DynamicModelGenerator.create_table(engine, model)
+
                 logger.info(f"Database table '{data.name}' created successfully")
 
-        except Exception as e:
-            # Rollback collection creation if table/view creation fails
-            await self.db.rollback()
-            logger.error(f"Failed to create table/view for collection '{data.name}': {e}")
-            raise BadRequestException(f"Failed to create collection: {str(e)}")
+            except Exception as e:
+                # Rollback collection creation if table creation fails
+                await self.db.rollback()
+                logger.error(f"Failed to create table for collection '{data.name}': {e}")
+                raise BadRequestException(f"Failed to create collection table: {str(e)}")
+        else:
+            logger.info(f"View collection '{data.name}' created (no physical table)")
 
         return self._to_response(collection)
 
@@ -379,3 +381,68 @@ class CollectionService:
             created=collection.created,
             updated=collection.updated,
         )
+
+    def _ensure_auth_fields(self, schema: List[FieldSchema]) -> List[FieldSchema]:
+        """
+        Ensure auth collections have required authentication fields.
+
+        Args:
+            schema: Original schema fields
+
+        Returns:
+            Schema with auth fields injected
+        """
+        from app.utils.field_types import FieldSchema, FieldType, FieldValidation
+
+        existing_field_names = {field.name for field in schema}
+
+        # Required auth fields
+        required_auth_fields = []
+
+        # Add email field if not exists
+        if 'email' not in existing_field_names:
+            required_auth_fields.append(FieldSchema(
+                name='email',
+                type=FieldType.EMAIL,
+                validation=FieldValidation(required=True, unique=True),
+                label='Email',
+                hint='User email address',
+                system=True
+            ))
+
+        # Add password field if not exists (will be handled specially)
+        if 'password' not in existing_field_names:
+            required_auth_fields.append(FieldSchema(
+                name='password',
+                type=FieldType.TEXT,
+                validation=FieldValidation(required=True, min_length=8),
+                label='Password',
+                hint='User password (will be hashed)',
+                hidden=True,
+                system=True
+            ))
+
+        # Add verified field if not exists
+        if 'verified' not in existing_field_names:
+            required_auth_fields.append(FieldSchema(
+                name='verified',
+                type=FieldType.BOOL,
+                validation=FieldValidation(required=False),
+                label='Email Verified',
+                hint='Whether email has been verified',
+                system=True
+            ))
+
+        # Add email_visibility field if not exists
+        if 'email_visibility' not in existing_field_names:
+            required_auth_fields.append(FieldSchema(
+                name='email_visibility',
+                type=FieldType.BOOL,
+                validation=FieldValidation(required=False),
+                label='Email Visibility',
+                hint='Whether email is publicly visible',
+                system=True
+            ))
+
+        # Prepend required fields to the schema
+        return required_auth_fields + schema

@@ -7,7 +7,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.dependencies import UserContext, require_auth
+from app.core.dependencies import UserContext, require_auth_context
 from app.core.exceptions import BadRequestException, NotFoundException
 from app.db.repositories.collection import CollectionRepository
 from app.db.repositories.record import RecordRepository
@@ -63,7 +63,7 @@ def check_ai_enabled() -> None:
 )
 async def generate_content(
     data: GenerateContentRequest,
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> GenerateContentResponse:
     """
     Generate content using AI based on a prompt.
@@ -93,7 +93,7 @@ async def generate_content(
 )
 async def generate_content_stream(
     data: GenerateContentRequest,
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> StreamingResponse:
     """
     Stream generated content token by token.
@@ -132,7 +132,7 @@ async def generate_content_stream(
 async def natural_language_query(
     data: NaturalLanguageQueryRequest,
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> NaturalLanguageQueryResponse:
     """
     Convert natural language query to FastCMS filter syntax.
@@ -172,7 +172,7 @@ async def natural_language_query(
 )
 async def enrich_data(
     data: EnrichDataRequest,
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> EnrichDataResponse:
     """
     Enrich or validate data using AI.
@@ -202,7 +202,7 @@ async def enrich_data(
 )
 async def generate_schema(
     data: GenerateSchemaRequest,
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> GenerateSchemaResponse:
     """
     Generate a collection schema based on natural language description.
@@ -230,7 +230,7 @@ async def generate_schema(
 async def semantic_search(
     data: SemanticSearchRequest,
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> SemanticSearchResponse:
     """
     Perform semantic search using vector embeddings.
@@ -276,7 +276,7 @@ async def semantic_search(
 async def index_collection(
     data: IndexCollectionRequest,
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> IndexCollectionResponse:
     """
     Index a collection's records for semantic search.
@@ -347,7 +347,7 @@ async def index_collection(
 )
 async def chat(
     data: ChatRequest,
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> ChatResponse:
     """
     Chat with AI assistant about FastCMS usage.

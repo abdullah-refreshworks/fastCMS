@@ -1,68 +1,178 @@
 {% extends "base.html" %}
 
-{% block title %}Record {{ record.id[:8] }} - {{ collection.name }} - FastCMS Admin{% endblock %}
+{% block title %}Record Details{% endblock %}
 
 {% block content %}
-<div class="page-header">
-    <h1>{{ collection.name }} Record</h1>
-    <div>
-        <a href="/admin/collections/{{ collection.name }}/records/{{ record.id }}/edit" class="btn btn-primary">Edit</a>
-        <a href="/admin/collections/{{ collection.name }}/records" class="btn">Back to Records</a>
+<div x-data="recordDetailData('{{ collection_name }}', '{{ record_id }}')" x-init="init()">
+    <div class="px-4 sm:px-0 flex justify-between items-start mb-6">
+        <div>
+            <div class="flex items-center space-x-3">
+                <a :href="`/admin/collections/{{ collection_name }}/records`" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-arrow-left"></i>
+                </a>
+                <h1 class="text-3xl font-bold text-gray-900">
+                    <span x-text="collection?.name || '{{ collection_name }}'"></span> Record
+                </h1>
+            </div>
+            <p class="mt-2 text-sm text-gray-700">
+                View record details
+            </p>
+        </div>
+        <div class="flex space-x-3">
+            <a
+                href="/admin/collections/{{ collection_name }}/api"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+                <i class="fas fa-code mr-2"></i>
+                View API
+            </a>
+            <a
+                :href="`/admin/collections/{{ collection_name }}/records/{{ record_id }}/edit`"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
+            >
+                <i class="fas fa-edit mr-2"></i>
+                Edit Record
+            </a>
+        </div>
+    </div>
+
+    <!-- Record Information -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Record Information</h3>
+        </div>
+        <div class="border-t border-gray-200 px-4 py-5 sm:p-6">
+            <dl class="grid grid-cols-1 gap-x-4 gap-y-6 sm:grid-cols-3">
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">ID</dt>
+                    <dd class="mt-1 text-sm text-gray-900">
+                        <code class="bg-gray-100 px-2 py-1 rounded" x-text="record?.id"></code>
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Created</dt>
+                    <dd class="mt-1 text-sm text-gray-900" x-text="record?.created ? new Date(record.created).toLocaleString() : '—'"></dd>
+                </div>
+                <div>
+                    <dt class="text-sm font-medium text-gray-500">Updated</dt>
+                    <dd class="mt-1 text-sm text-gray-900" x-text="record?.updated ? new Date(record.updated).toLocaleString() : '—'"></dd>
+                </div>
+            </dl>
+        </div>
+    </div>
+
+    <!-- Record Data -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Record Data</h3>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <template x-for="field in collection?.schema || []" :key="field.name">
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" x-text="field.name"></td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800" x-text="field.type"></span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-900">
+                                <div x-html="formatFieldValue(record?.data?.[field.name], field.type)"></div>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="!collection || !collection.schema || collection.schema.length === 0">
+                        <td colspan="3" class="px-6 py-4 text-center text-gray-500">
+                            Loading...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
+{% endblock %}
 
-<div class="card">
-    <h2>Record Information</h2>
-    <div class="info-grid">
-        <div class="info-item">
-            <label>ID:</label>
-            <code>{{ record.id }}</code>
-        </div>
-        <div class="info-item">
-            <label>Created:</label>
-            <span>{{ record.created.strftime('%Y-%m-%d %H:%M:%S') }}</span>
-        </div>
-        <div class="info-item">
-            <label>Updated:</label>
-            <span>{{ record.updated.strftime('%Y-%m-%d %H:%M:%S') }}</span>
-        </div>
-    </div>
-</div>
+{% block scripts %}
+<script>
+    function recordDetailData(collectionName, recordId) {
+        return {
+            collectionName: collectionName,
+            recordId: recordId,
+            collection: null,
+            record: null,
 
-<div class="card">
-    <h2>Record Data</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Field</th>
-                <th>Type</th>
-                <th>Value</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for field in collection.schema %}
-            <tr>
-                <td><strong>{{ field.name }}</strong></td>
-                <td><span class="badge badge-secondary">{{ field.type }}</span></td>
-                <td>
-                    {% set value = record.data.get(field.name) %}
-                    {% if value is none %}
-                    <span class="text-muted">null</span>
-                    {% elif field.type == 'bool' %}
-                    {{ '✓ true' if value else '✗ false' }}
-                    {% elif field.type == 'json' %}
-                    <pre>{{ value | tojson(indent=2) }}</pre>
-                    {% elif field.type == 'date' %}
-                    {{ value }}
-                    {% elif field.type in ['text', 'editor'] %}
-                    <div class="text-content">{{ value }}</div>
-                    {% else %}
-                    {{ value }}
-                    {% endif %}
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+            async init() {
+                await this.loadCollection();
+                await this.loadRecord();
+            },
+
+            async loadCollection() {
+                try {
+                    const response = await apiRequest(`/collections?filter=name=${this.collectionName}`);
+                    if (response.items && response.items.length > 0) {
+                        this.collection = response.items[0];
+                    }
+                } catch (error) {
+                    console.error('Failed to load collection:', error);
+                    showToast('Failed to load collection', 'error');
+                }
+            },
+
+            async loadRecord() {
+                try {
+                    const response = await apiRequest(`/${this.collectionName}/records/${this.recordId}`);
+                    this.record = response;
+                } catch (error) {
+                    console.error('Failed to load record:', error);
+                    showToast('Failed to load record', 'error');
+                }
+            },
+
+            formatFieldValue(value, type) {
+                if (value === null || value === undefined) {
+                    return '<span class="text-gray-400 italic">null</span>';
+                }
+
+                if (type === 'bool') {
+                    return value
+                        ? '<span class="text-green-600">✓ true</span>'
+                        : '<span class="text-red-600">✗ false</span>';
+                }
+
+                if (type === 'json') {
+                    return `<pre class="bg-gray-50 p-3 rounded text-xs overflow-x-auto">${JSON.stringify(value, null, 2)}</pre>`;
+                }
+
+                if (type === 'date') {
+                    try {
+                        return new Date(value).toLocaleString();
+                    } catch (e) {
+                        return value;
+                    }
+                }
+
+                if (type === 'url' && typeof value === 'string') {
+                    return `<a href="${value}" target="_blank" class="text-blue-600 hover:text-blue-800 underline">${value}</a>`;
+                }
+
+                if (type === 'email' && typeof value === 'string') {
+                    return `<a href="mailto:${value}" class="text-blue-600 hover:text-blue-800">${value}</a>`;
+                }
+
+                if (type === 'editor' || (typeof value === 'string' && value.length > 100)) {
+                    return `<div class="max-w-2xl whitespace-pre-wrap">${value}</div>`;
+                }
+
+                return value;
+            }
+        };
+    }
+</script>
 {% endblock %}

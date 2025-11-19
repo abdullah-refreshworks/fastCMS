@@ -1,463 +1,375 @@
 {% extends "base.html" %}
 
-{% block title %}{{ collection.name }} - FastCMS Admin{% endblock %}
+{% block title %}{{ collection_name }} - API Reference{% endblock %}
 
 {% block content %}
-<!-- Prism.js for code highlighting -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
-
-<div class="page-header mb-6">
-    <div class="flex justify-between items-center">
-        <h1 class="text-3xl font-bold text-gray-900">{{ collection.name }}</h1>
+<div x-data="collectionDetailData('{{ collection_name }}')" x-init="init()">
+    <!-- Header -->
+    <div class="px-4 sm:px-0 flex justify-between items-start mb-6">
+        <div class="flex items-center space-x-3">
+            <a href="/admin/collections" class="text-gray-400 hover:text-gray-500">
+                <i class="fas fa-arrow-left"></i>
+            </a>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900" x-text="collection?.name || '{{ collection_name }}'"></h1>
+                <p class="mt-1 text-sm text-gray-500">Collection API Reference & Testing</p>
+            </div>
+        </div>
         <div class="flex space-x-2">
-            <a href="/admin/collections/{{ collection.id }}/edit" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                <i class="fas fa-edit mr-2"></i>Edit
+            <a :href="`/admin/collections/${collection?.id}/edit`"
+               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-edit mr-2"></i>Edit Collection
             </a>
-            <a href="/admin/collections/{{ collection.name }}/records" class="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                <i class="fas fa-database mr-2"></i>View Records
+            <a :href="`/admin/collections/{{ collection_name }}/records`"
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                <i class="fas fa-list mr-2"></i>View Records
             </a>
         </div>
     </div>
-</div>
 
-<!-- Tab Navigation -->
-<div x-data="{ activeTab: 'details' }" class="w-full">
-    <!-- Tab Buttons -->
-    <div class="border-b border-gray-200 mb-6">
-        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-            <button
-                @click="activeTab = 'details'"
-                :class="activeTab === 'details' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
-            >
-                <i class="fas fa-info-circle mr-2"></i>Details
-            </button>
-            <button
-                @click="activeTab = 'api-examples'; loadApiExamples()"
-                :class="activeTab === 'api-examples' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
-                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
-            >
-                <i class="fas fa-code mr-2"></i>API Examples
-            </button>
-        </nav>
-    </div>
-
-    <!-- Tab Content: Details -->
-    <div x-show="activeTab === 'details'" x-cloak>
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
-            <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Collection Information</h3>
+    <!-- Main Content: 2-column layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Left Column: Collection Info & Schema -->
+        <div class="space-y-6">
+            <!-- Collection Info Card -->
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <h2 class="text-lg font-medium text-gray-900">Collection Details</h2>
+                </div>
+                <div class="px-6 py-4 space-y-3">
+                    <div>
+                        <span class="text-sm font-medium text-gray-500">Name:</span>
+                        <span class="ml-2 text-sm text-gray-900" x-text="collection?.name"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm font-medium text-gray-500">Type:</span>
+                        <span class="ml-2 text-sm text-gray-900" x-text="collection?.type"></span>
+                    </div>
+                    <div>
+                        <span class="text-sm font-medium text-gray-500">Base URL:</span>
+                        <code class="ml-2 text-xs bg-gray-100 px-2 py-1 rounded" x-text="`${baseUrl}/{{ collection_name }}`"></code>
+                    </div>
+                </div>
             </div>
-            <div class="border-t border-gray-200 px-4 py-5 sm:p-0">
-                <dl class="sm:divide-y sm:divide-gray-200">
-                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">ID</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ collection.id }}</dd>
+
+            <!-- Schema Fields -->
+            <div class="bg-white shadow rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                    <h2 class="text-lg font-medium text-gray-900">Schema Fields</h2>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="space-y-3">
+                        <template x-for="field in collection?.schema" :key="field.name">
+                            <div class="border-l-4 border-indigo-500 pl-4 py-2 bg-gray-50 rounded">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <span class="font-mono text-sm font-semibold text-gray-900" x-text="field.name"></span>
+                                        <span class="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-1 rounded" x-text="field.type"></span>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <span x-show="field.validation?.required" class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded">
+                                            Required
+                                        </span>
+                                        <span x-show="field.validation?.unique" class="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
+                                            Unique
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                     </div>
-                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Name</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ collection.name }}</dd>
-                    </div>
-                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Type</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                {{ collection.type }}
-                            </span>
-                        </dd>
-                    </div>
-                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Created</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ collection.created.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
-                    </div>
-                    <div class="py-4 sm:py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
-                        <dt class="text-sm font-medium text-gray-500">Updated</dt>
-                        <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">{{ collection.updated.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
-                    </div>
-                </dl>
+                </div>
             </div>
         </div>
 
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-            <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Schema Fields ({{ collection.schema | length }})</h3>
-            </div>
-            <div class="border-t border-gray-200">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Field Name</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Required</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unique</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Options</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for field in collection.schema %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ field.name }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                                    {{ field.type }}
-                                </span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ '✓' if field.required else '—' }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ '✓' if field.unique else '—' }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {% if field.options %}
-                                <details>
-                                    <summary class="cursor-pointer text-indigo-600 hover:text-indigo-900">View options</summary>
-                                    <pre class="mt-2 text-xs bg-gray-50 p-2 rounded">{{ field.options | tojson(indent=2) }}</pre>
-                                </details>
-                                {% else %}
-                                —
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tab Content: API Examples -->
-    <div x-show="activeTab === 'api-examples'" x-cloak id="api-examples-container">
-        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-            <div class="px-4 py-5 sm:px-6">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">API Code Examples</h3>
-                <p class="mt-1 max-w-2xl text-sm text-gray-500">
-                    Use these examples to interact with the <strong>{{ collection.name }}</strong> collection via the API.
-                </p>
-            </div>
-
-            <!-- Language Selector -->
-            <div x-data="apiExamples()" class="border-t border-gray-200">
-                <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                    <div class="flex space-x-2">
-                        <button
-                            @click="selectLanguage('curl')"
-                            :class="selectedLanguage === 'curl' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
-                        >
-                            cURL
-                        </button>
-                        <button
-                            @click="selectLanguage('javascript')"
-                            :class="selectedLanguage === 'javascript' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
-                        >
-                            JavaScript
-                        </button>
-                        <button
-                            @click="selectLanguage('typescript')"
-                            :class="selectedLanguage === 'typescript' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
-                        >
-                            TypeScript SDK
-                        </button>
-                        <button
-                            @click="selectLanguage('react')"
-                            :class="selectedLanguage === 'react' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
-                        >
-                            React
-                        </button>
-                        <button
-                            @click="selectLanguage('python')"
-                            :class="selectedLanguage === 'python' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'"
-                            class="px-3 py-2 text-sm font-medium rounded-md border border-gray-300"
-                        >
-                            Python
-                        </button>
-                    </div>
+        <!-- Right Column: API Reference -->
+        <div class="space-y-6">
+            <!-- API Endpoints -->
+            <div class="bg-white shadow rounded-lg overflow-hidden lg:sticky lg:top-6">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                    <h2 class="text-lg font-medium text-gray-900">API Endpoints</h2>
+                    <select x-model="selectedLang" class="text-sm border-gray-300 rounded-md">
+                        <option value="curl">cURL</option>
+                        <option value="javascript">JavaScript</option>
+                        <option value="python">Python</option>
+                    </select>
                 </div>
-
-                <!-- Loading State -->
-                <div x-show="loading" class="px-4 py-8 text-center">
-                    <i class="fas fa-spinner fa-spin text-3xl text-indigo-600"></i>
-                    <p class="mt-2 text-sm text-gray-500">Loading examples...</p>
-                </div>
-
-                <!-- Error State -->
-                <div x-show="error" class="px-4 py-8">
-                    <div class="rounded-md bg-red-50 p-4">
-                        <div class="flex">
-                            <i class="fas fa-exclamation-circle text-red-400 mt-0.5"></i>
-                            <div class="ml-3">
-                                <h3 class="text-sm font-medium text-red-800">Failed to load examples</h3>
-                                <p class="mt-2 text-sm text-red-700" x-text="error"></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Examples Content -->
-                <div x-show="!loading && !error" class="divide-y divide-gray-200">
-                    <!-- Setup Example (for TypeScript and Python) -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].setup">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-cog mr-2 text-gray-400"></i>Setup</span>
-                                <button @click="copyCode(examples[selectedLanguage].setup)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].setup"></code></pre>
-                            </div>
-                        </div>
-                    </template>
-
+                <div class="divide-y divide-gray-200 max-h-[calc(100vh-200px)] overflow-y-auto">
                     <!-- List Records -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].list">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-list mr-2 text-gray-400"></i>List Records</span>
-                                <button @click="copyCode(examples[selectedLanguage].list)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].list"></code></pre>
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded">GET</span>
+                                <span class="text-sm font-mono text-gray-700">List Records</span>
                             </div>
+                            <button @click="copyCode('list')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
                         </div>
-                    </template>
-
-                    <!-- Get Single Record -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].get">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-eye mr-2 text-gray-400"></i>Get Single Record</span>
-                                <button @click="copyCode(examples[selectedLanguage].get)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].get"></code></pre>
-                            </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('list')"></pre>
                         </div>
-                    </template>
+                    </div>
 
                     <!-- Create Record -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].create">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-plus mr-2 text-gray-400"></i>Create Record</span>
-                                <button @click="copyCode(examples[selectedLanguage].create)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].create"></code></pre>
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">POST</span>
+                                <span class="text-sm font-mono text-gray-700">Create Record</span>
                             </div>
+                            <button @click="copyCode('create')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
                         </div>
-                    </template>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('create')"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Get Record -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded">GET</span>
+                                <span class="text-sm font-mono text-gray-700">Get Record</span>
+                            </div>
+                            <button @click="copyCode('get')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('get')"></pre>
+                        </div>
+                    </div>
 
                     <!-- Update Record -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].update">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-edit mr-2 text-gray-400"></i>Update Record</span>
-                                <button @click="copyCode(examples[selectedLanguage].update)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].update"></code></pre>
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded">PUT</span>
+                                <span class="text-sm font-mono text-gray-700">Update Record</span>
                             </div>
+                            <button @click="copyCode('update')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
                         </div>
-                    </template>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('update')"></pre>
+                        </div>
+                    </div>
 
                     <!-- Delete Record -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].delete">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-trash mr-2 text-gray-400"></i>Delete Record</span>
-                                <button @click="copyCode(examples[selectedLanguage].delete)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].delete"></code></pre>
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded">DELETE</span>
+                                <span class="text-sm font-mono text-gray-700">Delete Record</span>
                             </div>
+                            <button @click="copyCode('delete')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
                         </div>
-                    </template>
-
-                    <!-- Filter Records (cURL/JS only) -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].filter">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-filter mr-2 text-gray-400"></i>Filter Records</span>
-                                <button @click="copyCode(examples[selectedLanguage].filter)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].filter"></code></pre>
-                            </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('delete')"></pre>
                         </div>
-                    </template>
-
-                    <!-- Sort Records (cURL/JS only) -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].sort">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-sort mr-2 text-gray-400"></i>Sort Records</span>
-                                <button @click="copyCode(examples[selectedLanguage].sort)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].sort"></code></pre>
-                            </div>
-                        </div>
-                    </template>
-
-                    <!-- Real-time Subscription (TypeScript/React only) -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].realtime">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fas fa-bolt mr-2 text-gray-400"></i>Real-time Subscription</span>
-                                <button @click="copyCode(examples[selectedLanguage].realtime)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].realtime"></code></pre>
-                            </div>
-                        </div>
-                    </template>
-
-                    <!-- React Hook Example -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].hook">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fab fa-react mr-2 text-gray-400"></i>Custom Hook</span>
-                                <button @click="copyCode(examples[selectedLanguage].hook)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].hook"></code></pre>
-                            </div>
-                        </div>
-                    </template>
-
-                    <!-- React Component Example -->
-                    <template x-if="examples[selectedLanguage] && examples[selectedLanguage].component">
-                        <div class="px-4 py-5">
-                            <h4 class="text-sm font-medium text-gray-900 mb-3 flex items-center justify-between">
-                                <span><i class="fab fa-react mr-2 text-gray-400"></i>Component Example</span>
-                                <button @click="copyCode(examples[selectedLanguage].component)" class="text-xs text-indigo-600 hover:text-indigo-900">
-                                    <i class="fas fa-copy mr-1"></i>Copy
-                                </button>
-                            </h4>
-                            <div class="relative">
-                                <pre class="!bg-gray-900 !rounded-md !p-4 !m-0 overflow-x-auto"><code :class="'language-' + getLanguageClass()" x-text="examples[selectedLanguage].component"></code></pre>
-                            </div>
-                        </div>
-                    </template>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-    // Global function to load API examples
-    let examplesLoaded = false;
-    let apiExamplesData = null;
-
-    async function loadApiExamples() {
-        if (examplesLoaded) return;
-
-        const container = document.querySelector('[x-data*="apiExamples"]');
-        if (!container) return;
-
-        const alpineInstance = Alpine.$data(container);
-        if (!alpineInstance) return;
-
-        alpineInstance.loading = true;
-        alpineInstance.error = null;
-
-        try {
-            const response = await fetch('/api/v1/collections/{{ collection.id }}/api-examples');
-            if (!response.ok) {
-                throw new Error(`Failed to fetch examples: ${response.statusText}`);
-            }
-
-            apiExamplesData = await response.json();
-            alpineInstance.examples = apiExamplesData;
-            examplesLoaded = true;
-
-            // Trigger syntax highlighting after data is loaded
-            setTimeout(() => {
-                Prism.highlightAll();
-            }, 100);
-        } catch (err) {
-            alpineInstance.error = err.message;
-        } finally {
-            alpineInstance.loading = false;
-        }
-    }
-
-    // Alpine.js component for API examples
-    function apiExamples() {
+    function collectionDetailData(collectionName) {
         return {
-            selectedLanguage: 'curl',
-            examples: {},
-            loading: false,
-            error: null,
+            collectionName: collectionName,
+            collection: null,
+            selectedLang: 'curl',
+            baseUrl: window.location.origin + '/api/v1',
 
-            selectLanguage(lang) {
-                this.selectedLanguage = lang;
-                // Re-highlight code after language change
-                this.$nextTick(() => {
-                    Prism.highlightAll();
-                });
+            async init() {
+                await this.loadCollection();
             },
 
-            getLanguageClass() {
-                const languageMap = {
-                    'curl': 'bash',
-                    'javascript': 'javascript',
-                    'typescript': 'typescript',
-                    'react': 'jsx',
-                    'python': 'python'
+            async loadCollection() {
+                try {
+                    const response = await apiRequest(`/collections?filter=name=${this.collectionName}`);
+                    if (response.items && response.items.length > 0) {
+                        this.collection = response.items[0];
+                    }
+                } catch (error) {
+                    console.error('Failed to load collection:', error);
+                    showToast('Failed to load collection', 'error');
+                }
+            },
+
+            getCode(operation) {
+                const collectionName = this.collectionName;
+                const baseUrl = this.baseUrl;
+
+                if (this.selectedLang === 'curl') {
+                    return this.getCurlCode(operation, collectionName, baseUrl);
+                } else if (this.selectedLang === 'javascript') {
+                    return this.getJavaScriptCode(operation, collectionName, baseUrl);
+                } else if (this.selectedLang === 'python') {
+                    return this.getPythonCode(operation, collectionName, baseUrl);
+                }
+            },
+
+            getCurlCode(operation, collection, baseUrl) {
+                const examples = {
+                    list: `curl "${baseUrl}/${collection}/records?page=1&per_page=20" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+                    create: `curl -X POST "${baseUrl}/${collection}/records" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '${this.getExampleData()}'`,
+                    get: `curl "${baseUrl}/${collection}/records/RECORD_ID" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+                    update: `curl -X PUT "${baseUrl}/${collection}/records/RECORD_ID" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '${this.getExampleData()}'`,
+                    delete: `curl -X DELETE "${baseUrl}/${collection}/records/RECORD_ID" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`
                 };
-                return languageMap[this.selectedLanguage] || 'javascript';
+                return examples[operation];
             },
 
-            async copyCode(code) {
+            getJavaScriptCode(operation, collection, baseUrl) {
+                const examples = {
+                    list: `// List records
+const response = await fetch('${baseUrl}/${collection}/records?page=1&per_page=20', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();`,
+                    create: `// Create record
+const response = await fetch('${baseUrl}/${collection}/records', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify(${this.getExampleData()})
+});
+const data = await response.json();`,
+                    get: `// Get record
+const response = await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();`,
+                    update: `// Update record
+const response = await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify(${this.getExampleData()})
+});
+const data = await response.json();`,
+                    delete: `// Delete record
+await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});`
+                };
+                return examples[operation];
+            },
+
+            getPythonCode(operation, collection, baseUrl) {
+                const examples = {
+                    list: `import requests
+
+# List records
+response = requests.get(
+    '${baseUrl}/${collection}/records',
+    params={'page': 1, 'per_page': 20},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    create: `import requests
+
+# Create record
+response = requests.post(
+    '${baseUrl}/${collection}/records',
+    json=${this.getExampleData()},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    get: `import requests
+
+# Get record
+response = requests.get(
+    '${baseUrl}/${collection}/records/RECORD_ID',
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    update: `import requests
+
+# Update record
+response = requests.put(
+    '${baseUrl}/${collection}/records/RECORD_ID',
+    json=${this.getExampleData()},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    delete: `import requests
+
+# Delete record
+requests.delete(
+    '${baseUrl}/${collection}/records/RECORD_ID',
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)`
+                };
+                return examples[operation];
+            },
+
+            getExampleData() {
+                if (!this.collection || !this.collection.schema) {
+                    return '{\n  "field": "value"\n}';
+                }
+
+                const example = {};
+                this.collection.schema.forEach(field => {
+                    if (field.type === 'text' || field.type === 'email' || field.type === 'url') {
+                        example[field.name] = `example_${field.name}`;
+                    } else if (field.type === 'number') {
+                        example[field.name] = 42;
+                    } else if (field.type === 'bool') {
+                        example[field.name] = true;
+                    } else if (field.type === 'date') {
+                        example[field.name] = '2024-01-01';
+                    } else if (field.type === 'json') {
+                        example[field.name] = {};
+                    } else {
+                        example[field.name] = 'value';
+                    }
+                });
+
+                return JSON.stringify(example, null, 2);
+            },
+
+            async copyCode(operation) {
+                const code = this.getCode(operation);
                 try {
                     await navigator.clipboard.writeText(code);
                     showToast('Code copied to clipboard!', 'success');
                 } catch (err) {
+                    console.error('Failed to copy:', err);
                     showToast('Failed to copy code', 'error');
                 }
             }
         };
     }
-
-    // Ensure Prism highlights code when DOM is ready
-    document.addEventListener('DOMContentLoaded', () => {
-        Prism.highlightAll();
-    });
 </script>
-
-<style>
-    /* Custom styles for code blocks */
-    pre[class*="language-"] {
-        margin: 0 !important;
-    }
-
-    code[class*="language-"] {
-        font-size: 0.875rem;
-        line-height: 1.5;
-    }
-</style>
 {% endblock %}

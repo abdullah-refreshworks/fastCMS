@@ -1,146 +1,223 @@
-"""Backup service for creating system backups"""
+"""Service for database backup and restore operations."""
 import os
-import zipfile
 import shutil
-from datetime import datetime, timezone
+import zipfile
+from datetime import datetime
 from pathlib import Path
-import uuid
-from typing import Optional
+from typing import List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.readonly import ReadOnlyContext
-from app.core.config import settings
-from app.db.models.backup import Backup
-from app.core.logging import get_logger
+import json
 
-logger = get_logger(__name__)
+from app.core.config import settings
+from app.core.exceptions import BadRequestException, NotFoundException
 
 
 class BackupService:
-    """Service for system backups"""
+    """Service for managing database backups and restores."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.backup_dir = Path("./data/backups")
+        self.backup_dir = Path("data/backups")
         self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path = Path(settings.DATABASE_URL.replace("sqlite+aiosqlite:///./", ""))
 
-    async def create_backup(self, created_by: Optional[str] = None) -> Backup:
+    async def create_backup(self, name: Optional[str] = None) -> dict:
         """
-        Create a full system backup
-
-        Args:
-            created_by: Optional user ID who initiated backup
+        Create a complete backup of the database and uploaded files.
 
         Returns:
-            Backup record
+            dict: Backup metadata including filename, size, and path
         """
-        backup_id = str(uuid.uuid4())
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        filename = f"backup_{timestamp}_{backup_id[:8]}.zip"
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        backup_name = name or f"backup_{timestamp}"
+        backup_filename = f"{backup_name}.zip"
+        backup_path = self.backup_dir / backup_filename
+
+        try:
+            with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
+                # Backup database file
+                if self.db_path.exists():
+                    zipf.write(self.db_path, "database.db")
+
+                # Backup uploaded files
+                files_dir = Path(settings.LOCAL_STORAGE_PATH)
+                if files_dir.exists():
+                    for file_path in files_dir.rglob("*"):
+                        if file_path.is_file():
+                            arcname = f"files/{file_path.relative_to(files_dir)}"
+                            zipf.write(file_path, arcname)
+
+                # Add metadata
+                metadata = {
+                    "created_at": datetime.utcnow().isoformat(),
+                    "app_version": settings.APP_VERSION,
+                    "backup_name": backup_name,
+                }
+                zipf.writestr("metadata.json", json.dumps(metadata, indent=2))
+
+            # Get backup file size
+            backup_size = backup_path.stat().st_size
+
+            return {
+                "filename": backup_filename,
+                "name": backup_name,
+                "size": backup_size,
+                "size_mb": round(backup_size / (1024 * 1024), 2),
+                "created": datetime.utcnow().isoformat(),
+                "path": str(backup_path),
+            }
+
+        except Exception as e:
+            # Clean up failed backup
+            if backup_path.exists():
+                backup_path.unlink()
+            raise BadRequestException(f"Failed to create backup: {str(e)}")
+
+    async def list_backups(self) -> List[dict]:
+        """
+        List all available backups.
+
+        Returns:
+            List of backup metadata
+        """
+        backups = []
+
+        for backup_file in self.backup_dir.glob("*.zip"):
+            try:
+                # Get file stats
+                stat = backup_file.stat()
+                size = stat.st_size
+                created = datetime.fromtimestamp(stat.st_mtime)
+
+                # Try to read metadata from zip
+                metadata = {}
+                try:
+                    with zipfile.ZipFile(backup_file, "r") as zipf:
+                        if "metadata.json" in zipf.namelist():
+                            metadata = json.loads(zipf.read("metadata.json"))
+                except Exception:
+                    pass
+
+                backups.append(
+                    {
+                        "filename": backup_file.name,
+                        "name": backup_file.stem,
+                        "size": size,
+                        "size_mb": round(size / (1024 * 1024), 2),
+                        "created": metadata.get("created_at", created.isoformat()),
+                        "app_version": metadata.get("app_version", "unknown"),
+                    }
+                )
+            except Exception:
+                continue
+
+        # Sort by creation time, newest first
+        backups.sort(key=lambda x: x["created"], reverse=True)
+        return backups
+
+    async def restore_backup(self, filename: str) -> dict:
+        """
+        Restore database and files from a backup.
+
+        WARNING: This will overwrite the current database and files!
+
+        Args:
+            filename: Name of the backup file to restore
+
+        Returns:
+            dict: Restoration status and metadata
+        """
         backup_path = self.backup_dir / filename
 
-        # Create backup record
-        backup = Backup(
-            id=backup_id,
-            filename=filename,
-            size_bytes=0,
-            location="local",
-            status="pending",
-            created_by=created_by,
-        )
-        self.db.add(backup)
-        await self.db.commit()
+        if not backup_path.exists():
+            raise NotFoundException(f"Backup file '{filename}' not found")
 
         try:
-            # Enable read-only mode during backup
-            async with ReadOnlyContext("Backup in progress"):
-                # Create ZIP archive
-                with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                    # Backup database
-                    if os.path.exists("./data/app.db"):
-                        zipf.write("./data/app.db", "app.db")
+            # Create temporary restore directory
+            temp_dir = self.backup_dir / "temp_restore"
+            temp_dir.mkdir(exist_ok=True)
 
-                    # Backup files
-                    files_dir = Path("./data/files")
-                    if files_dir.exists():
-                        for file_path in files_dir.rglob("*"):
-                            if file_path.is_file():
-                                arcname = file_path.relative_to("./data")
-                                zipf.write(file_path, arcname)
+            # Extract backup
+            with zipfile.ZipFile(backup_path, "r") as zipf:
+                zipf.extractall(temp_dir)
 
-                    # Backup .env
-                    if os.path.exists(".env"):
-                        zipf.write(".env", ".env")
+            # Close database connections (important!)
+            # This should be handled by the caller before calling restore
 
-                # Update backup record
-                backup.size_bytes = backup_path.stat().st_size
-                backup.status = "completed"
-                backup.completed_at = datetime.now(timezone.utc)
-                await self.db.commit()
+            # Restore database
+            db_backup = temp_dir / "database.db"
+            if db_backup.exists():
+                # Backup current database first
+                if self.db_path.exists():
+                    current_backup = self.db_path.with_suffix(".db.bak")
+                    shutil.copy2(self.db_path, current_backup)
 
-                logger.info(f"Backup created: {filename} ({backup.size_bytes} bytes)")
+                # Replace with backup
+                shutil.copy2(db_backup, self.db_path)
+
+            # Restore files
+            files_backup = temp_dir / "files"
+            if files_backup.exists():
+                files_dir = Path(settings.LOCAL_STORAGE_PATH)
+
+                # Backup current files
+                if files_dir.exists():
+                    current_files_backup = files_dir.parent / f"{files_dir.name}_bak"
+                    if current_files_backup.exists():
+                        shutil.rmtree(current_files_backup)
+                    shutil.copytree(files_dir, current_files_backup)
+                    shutil.rmtree(files_dir)
+
+                # Restore from backup
+                shutil.copytree(files_backup, files_dir)
+
+            # Clean up temp directory
+            shutil.rmtree(temp_dir)
+
+            return {
+                "status": "success",
+                "message": f"Successfully restored backup '{filename}'",
+                "restored_at": datetime.utcnow().isoformat(),
+            }
 
         except Exception as e:
-            logger.error(f"Backup failed: {str(e)}")
-            backup.status = "failed"
-            backup.error = str(e)
-            await self.db.commit()
-            raise
+            # Clean up temp directory on failure
+            temp_dir = self.backup_dir / "temp_restore"
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir)
 
-        return backup
+            raise BadRequestException(f"Failed to restore backup: {str(e)}")
 
-    async def restore_backup(self, backup_id: str) -> bool:
+    async def delete_backup(self, filename: str) -> None:
         """
-        Restore from a backup
+        Delete a backup file.
 
         Args:
-            backup_id: Backup ID to restore
-
-        Returns:
-            Success status
+            filename: Name of the backup file to delete
         """
-        from sqlalchemy import select
-
-        result = await self.db.execute(select(Backup).where(Backup.id == backup_id))
-        backup = result.scalar_one_or_none()
-
-        if not backup or backup.status != "completed":
-            raise ValueError("Backup not found or not completed")
-
-        backup_path = self.backup_dir / backup.filename
+        backup_path = self.backup_dir / filename
 
         if not backup_path.exists():
-            raise ValueError("Backup file not found")
+            raise NotFoundException(f"Backup file '{filename}' not found")
 
         try:
-            async with ReadOnlyContext("Restore in progress"):
-                # Extract ZIP archive
-                with zipfile.ZipFile(backup_path, 'r') as zipf:
-                    zipf.extractall("./data")
-
-                logger.info(f"Backup restored: {backup.filename}")
-                return True
-
-        except Exception as e:
-            logger.error(f"Restore failed: {str(e)}")
-            raise
-
-    async def delete_backup(self, backup_id: str) -> bool:
-        """Delete a backup"""
-        from sqlalchemy import select, delete
-
-        result = await self.db.execute(select(Backup).where(Backup.id == backup_id))
-        backup = result.scalar_one_or_none()
-
-        if not backup:
-            return False
-
-        # Delete file
-        backup_path = self.backup_dir / backup.filename
-        if backup_path.exists():
             backup_path.unlink()
+        except Exception as e:
+            raise BadRequestException(f"Failed to delete backup: {str(e)}")
 
-        # Delete record
-        await self.db.execute(delete(Backup).where(Backup.id == backup_id))
-        await self.db.commit()
+    async def download_backup(self, filename: str) -> Path:
+        """
+        Get path to a backup file for download.
 
-        return True
+        Args:
+            filename: Name of the backup file
+
+        Returns:
+            Path to the backup file
+        """
+        backup_path = self.backup_dir / filename
+
+        if not backup_path.exists():
+            raise NotFoundException(f"Backup file '{filename}' not found")
+
+        return backup_path

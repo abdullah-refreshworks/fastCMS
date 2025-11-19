@@ -5,13 +5,19 @@ Security utilities for password hashing and JWT token management.
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
-import bcrypt
 from jose import JWTError, jwt
+from passlib.context import CryptContext
 
 from app.core.config import settings
 
-# Bcrypt configuration
-BCRYPT_ROUNDS = 10
+# Password hashing context with bcrypt (cost factor 10 for compatibility)
+# Lower rounds to avoid initialization issues with some bcrypt versions
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto",
+    bcrypt__rounds=10,
+    bcrypt__ident="2b",  # Use 2b identifier for better compatibility
+)
 
 
 def hash_password(password: str) -> str:
@@ -26,20 +32,10 @@ def hash_password(password: str) -> str:
     Returns:
         Hashed password string
     """
-    # Bcrypt has a max length of 72 bytes
-    # Truncate at character boundary to avoid cutting multi-byte chars
-    password_bytes = password.encode('utf-8')
-    if len(password_bytes) > 72:
-        # Find the largest substring that fits in 72 bytes
-        truncated = password
-        while len(truncated.encode('utf-8')) > 72:
-            truncated = truncated[:-1]
-        password_bytes = truncated.encode('utf-8')
-
-    # Hash the password
-    salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
-    hashed = bcrypt.hashpw(password_bytes, salt)
-    return hashed.decode('utf-8')
+    # Bcrypt has a max length of 72 bytes - truncate the string (not bytes)
+    # Passlib expects a string, not bytes
+    password_truncated = password[:72]
+    return pwd_context.hash(password_truncated)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -55,19 +51,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches, False otherwise
     """
-    # Bcrypt has a max length of 72 bytes
-    # Truncate at character boundary to avoid cutting multi-byte chars
-    password_bytes = plain_password.encode('utf-8')
-    if len(password_bytes) > 72:
-        # Find the largest substring that fits in 72 bytes
-        truncated = plain_password
-        while len(truncated.encode('utf-8')) > 72:
-            truncated = truncated[:-1]
-        password_bytes = truncated.encode('utf-8')
-
-    # Verify the password
-    hashed_bytes = hashed_password.encode('utf-8')
-    return bcrypt.checkpw(password_bytes, hashed_bytes)
+    # Bcrypt has a max length of 72 bytes - truncate the string (not bytes)
+    # Passlib expects a string, not bytes
+    password_truncated = plain_password[:72]
+    return pwd_context.verify(password_truncated, hashed_password)
 
 
 def create_access_token(

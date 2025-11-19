@@ -1,10 +1,10 @@
 """Service for file upload, download, and management."""
-import os
 import uuid
 import math
 from pathlib import Path
 from typing import Optional, BinaryIO
 from sqlalchemy.ext.asyncio import AsyncSession
+from PIL import Image
 
 from app.db.repositories.file import FileRepository
 from app.schemas.file import FileResponse, FileListResponse, FileUpload
@@ -88,6 +88,10 @@ class FileService:
 
         file = await self.repo.create(file_data)
         await self.db.commit()
+
+        # Generate thumbnails for images
+        if mime_type.startswith("image/"):
+            await self._generate_thumbnails(file, full_path)
 
         return self._to_response(file)
 
@@ -188,6 +192,72 @@ class FileService:
         day = now.strftime("%d")
 
         return f"{year}/{month}/{day}/{filename}"
+
+    async def _generate_thumbnails(self, file, original_path: Path):
+        """Generate thumbnails for an image file."""
+        thumbnail_sizes = [
+            ("thumb_100", 100),
+            ("thumb_300", 300),
+            ("thumb_500", 500),
+        ]
+
+        try:
+            with Image.open(original_path) as original_img:
+                # Convert RGBA to RGB if necessary
+                if original_img.mode == "RGBA":
+                    background = Image.new("RGB", original_img.size, (255, 255, 255))
+                    background.paste(original_img, mask=original_img.split()[3])
+                    original_img = background
+                elif original_img.mode != "RGB":
+                    original_img = original_img.convert("RGB")
+
+                for size_name, max_size in thumbnail_sizes:
+                    # Create a copy for each thumbnail size
+                    img = original_img.copy()
+
+                    # Calculate new dimensions maintaining aspect ratio
+                    img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
+                    # Generate thumbnail filename
+                    thumb_filename = f"{file.filename.rsplit('.', 1)[0]}_{size_name}.jpg"
+                    thumb_relative_path = self._get_storage_path(thumb_filename)
+                    thumb_full_path = self.storage_path / thumb_relative_path
+
+                    # Ensure parent directory exists
+                    thumb_full_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # Save thumbnail
+                    img.save(thumb_full_path, "JPEG", quality=85, optimize=True)
+
+                    # Get file size
+                    thumb_size = thumb_full_path.stat().st_size
+
+                    # Create thumbnail database record
+                    thumb_data = {
+                        "filename": thumb_filename,
+                        "original_filename": f"{size_name}_{file.original_filename}",
+                        "mime_type": "image/jpeg",
+                        "size": thumb_size,
+                        "storage_path": str(thumb_relative_path),
+                        "storage_type": settings.STORAGE_TYPE,
+                        "user_id": file.user_id,
+                        "is_thumbnail": True,
+                        "parent_file_id": file.id,
+                        "collection_name": file.collection_name,
+                        "record_id": file.record_id,
+                        "field_name": file.field_name,
+                    }
+
+                    await self.repo.create(thumb_data)
+
+                await self.db.commit()
+
+        except Exception as e:
+            # Log error but don't fail the upload
+            from app.core.logging import get_logger
+
+            logger = get_logger(__name__)
+            logger.error(f"Failed to generate thumbnails: {str(e)}")
 
     def _to_response(self, file) -> FileResponse:
         """Convert file model to response schema."""

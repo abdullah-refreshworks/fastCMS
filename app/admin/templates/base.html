@@ -49,6 +49,18 @@
                   >
                     <i class="fas fa-database mr-2"></i>Collections
                   </a>
+                  <a
+                    href="/admin/files"
+                    class="{% if active == 'files' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium"
+                  >
+                    <i class="fas fa-file mr-2"></i>Files
+                  </a>
+                  <a
+                    href="/admin/api"
+                    class="{% if active == 'api' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium"
+                  >
+                    <i class="fas fa-code mr-2"></i>API Reference
+                  </a>
                 </div>
               </div>
             </div>
@@ -58,13 +70,6 @@
                   <i class="fas fa-user-shield mr-1"></i>
                   {% if user %}{{ user.user_id }}{% else %}Guest{% endif %}
                 </span>
-                <a
-                  href="/docs"
-                  target="_blank"
-                  class="text-gray-300 hover:text-white px-3 py-2 text-sm"
-                >
-                  <i class="fas fa-book"></i> API Docs
-                </a>
               </div>
             </div>
           </div>
@@ -127,15 +132,24 @@
             return null;
           }
 
+          // Handle 204 No Content responses (e.g., DELETE)
+          if (response.status === 204) {
+            return null;
+          }
+
+          // Parse JSON response
           const data = await response.json();
 
           if (!response.ok) {
-            throw new Error(data.error || "Request failed");
+            throw new Error(data.error || data.detail || "Request failed");
           }
 
           return data;
         } catch (error) {
-          showToast(error.message, "error");
+          // Don't show toast for JSON parse errors on 204
+          if (error.message !== "Unexpected end of JSON input") {
+            showToast(error.message, "error");
+          }
           throw error;
         }
       }

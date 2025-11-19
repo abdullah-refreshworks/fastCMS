@@ -256,6 +256,15 @@ class RecordService:
                 validated[field_name] = None
                 continue
 
+            # Skip validation if value is empty string and field is not required (for text-based fields)
+            if (
+                value == ""
+                and not field_schema.validation.required
+                and field_schema.type in [FieldType.TEXT, FieldType.EMAIL, FieldType.URL, FieldType.EDITOR]
+            ):
+                validated[field_name] = None
+                continue
+
             # Validate field
             try:
                 validated_value = self._validate_field(value, field_schema)

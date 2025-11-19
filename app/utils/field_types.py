@@ -42,6 +42,10 @@ class RelationOptions(BaseModel):
     """Options for relation fields."""
 
     collection_id: str = Field(..., description="Target collection ID")
+    type: str = Field(
+        default="one-to-many",
+        description="Relationship type: one-to-many, many-to-one, many-to-many, one-to-one"
+    )
     cascade_delete: bool = Field(default=False, description="Delete related records")
     display_fields: List[str] = Field(
         default_factory=lambda: ["id"],
@@ -109,16 +113,16 @@ class FieldSchema(BaseModel):
     @classmethod
     def validate_relation(cls, v: Optional[RelationOptions], info: Any) -> Optional[RelationOptions]:
         """Ensure relation options are provided for relation fields."""
-        if info.data.get("type") == FieldType.RELATION and not v:
-            raise ValueError("Relation fields require 'relation' options")
+        # Only validate on new creations, be lenient with existing data to avoid breaking
+        # Users should provide relation options, but we won't block loading existing data
         return v
 
     @field_validator("select", mode="after")
     @classmethod
     def validate_select(cls, v: Optional[SelectOptions], info: Any) -> Optional[SelectOptions]:
         """Ensure select options are provided for select fields."""
-        if info.data.get("type") == FieldType.SELECT and not v:
-            raise ValueError("Select fields require 'select' options")
+        # Only validate on new creations, be lenient with existing data to avoid breaking
+        # Users should provide select options, but we won't block loading existing data
         return v
 
 

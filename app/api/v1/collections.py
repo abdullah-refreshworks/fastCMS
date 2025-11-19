@@ -3,11 +3,14 @@ API endpoints for collection management.
 """
 
 from typing import Any
+import json
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import io
 
-from app.core.dependencies import require_auth
+from app.core.dependencies import require_auth, require_admin
 from app.db.session import get_db
 from app.schemas.collection import (
     CollectionCreate,
@@ -16,8 +19,6 @@ from app.schemas.collection import (
     CollectionUpdate,
 )
 from app.services.collection_service import CollectionService
-from app.services.code_generator import CodeGenerator
-from app.core.config import settings
 
 router = APIRouter()
 
@@ -46,9 +47,7 @@ async def create_collection(
         Created collection
     """
     service = CollectionService(db)
-    collection = await service.create_collection(data)
-    collection.message = f"✅ Collection '{collection.name}' created successfully! You can now start adding records."
-    return collection
+    return await service.create_collection(data)
 
 
 @router.get(
@@ -82,17 +81,11 @@ async def list_collections(
         include_system=include_system,
     )
 
-    count = len(collections)
-    message = f"✅ Retrieved {count} collection{'s' if count != 1 else ''}"
-    if total > count:
-        message += f" (page {page} of {(total + per_page - 1) // per_page})"
-
     return CollectionListResponse(
         items=collections,
         total=total,
         page=page,
         per_page=per_page,
-        message=message,
     )
 
 
@@ -117,9 +110,7 @@ async def get_collection(
         Collection data
     """
     service = CollectionService(db)
-    collection = await service.get_collection(collection_id)
-    collection.message = f"✅ Collection '{collection.name}' retrieved successfully!"
-    return collection
+    return await service.get_collection(collection_id)
 
 
 @router.patch(
@@ -147,14 +138,12 @@ async def update_collection(
         Updated collection
     """
     service = CollectionService(db)
-    collection = await service.update_collection(collection_id, data)
-    collection.message = f"✅ Collection '{collection.name}' updated successfully!"
-    return collection
+    return await service.update_collection(collection_id, data)
 
 
 @router.delete(
     "/{collection_id}",
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a collection",
     description="Delete a collection and its associated table. Requires authentication.",
 )
@@ -162,7 +151,7 @@ async def delete_collection(
     collection_id: str,
     db: AsyncSession = Depends(get_db),
     user_id: str = Depends(require_auth),
-) -> dict[str, str]:
+) -> None:
     """
     Delete a collection.
 
@@ -170,15 +159,9 @@ async def delete_collection(
         collection_id: Collection ID
         db: Database session
         user_id: Authenticated user ID
-
-    Returns:
-        Success message
     """
     service = CollectionService(db)
-    collection = await service.get_collection(collection_id)  # Get name before deletion
-    collection_name = collection.name
     await service.delete_collection(collection_id)
-    return {"message": f"✅ Collection '{collection_name}' and all its records have been deleted successfully."}
 
 
 @router.get(
@@ -202,102 +185,130 @@ async def get_collection_by_name(
         Collection data
     """
     service = CollectionService(db)
-    collection = await service.get_collection_by_name(collection_name)
-    collection.message = f"✅ Collection '{collection.name}' retrieved successfully!"
-    return collection
+    return await service.get_collection_by_name(collection_name)
 
 
 @router.get(
-    "/{collection_id}/api-examples",
-    response_model=dict[str, dict[str, str]],
-    summary="Get API code examples for a collection",
-    description="Generate code examples in multiple languages (cURL, JavaScript, TypeScript, React, Python) showing how to use the API for this collection.",
+    "/{collection_id}/export",
+    summary="Export collection",
+    description="Export collection schema and optionally data as JSON. Admin only.",
 )
-async def get_collection_api_examples(
+async def export_collection(
     collection_id: str,
+    include_data: bool = Query(False, description="Include collection records in export"),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, dict[str, str]]:
+    _=Depends(require_admin),
+):
     """
-    Get API code examples for a collection.
+    Export a collection as JSON.
 
-    Returns code examples in multiple languages showing how to:
-    - List records
-    - Get a single record
-    - Create a record
-    - Update a record
-    - Delete a record
-    - Filter records
-    - Sort records
-
-    Supported languages:
-    - cURL
-    - JavaScript (Fetch API)
-    - TypeScript (SDK)
-    - React (hooks)
-    - Python (requests)
-
-    Args:
-        collection_id: Collection ID
-        db: Database session
-
-    Returns:
-        Dictionary with language -> examples mapping
+    - Exports collection schema
+    - Optionally exports all records
+    - Returns downloadable JSON file
     """
     service = CollectionService(db)
     collection = await service.get_collection(collection_id)
 
-    # Get base URL from settings or request
-    base_url = settings.BASE_URL or "http://localhost:8000"
+    export_data = {
+        "name": collection.name,
+        "type": collection.type,
+        "schema": collection.schema,
+        "list_rule": collection.list_rule,
+        "view_rule": collection.view_rule,
+        "create_rule": collection.create_rule,
+        "update_rule": collection.update_rule,
+        "delete_rule": collection.delete_rule,
+        "indexes": collection.indexes or [],
+        "system": collection.system,
+    }
 
-    # Generate all examples
-    examples = CodeGenerator.generate_all_examples(collection, base_url)
+    # Include records if requested
+    if include_data:
+        from app.services.record_service import RecordService
 
-    return examples
+        record_service = RecordService(db)
+        records_response = await record_service.list_records(
+            collection_name=collection.name,
+            page=1,
+            per_page=10000,  # Export up to 10k records
+        )
+        export_data["records"] = [
+            {
+                "id": record.id,
+                "data": record.data,
+                "created": record.created.isoformat() if record.created else None,
+                "updated": record.updated.isoformat() if record.updated else None,
+            }
+            for record in records_response.items
+        ]
+
+    # Create JSON response
+    json_str = json.dumps(export_data, indent=2)
+    buffer = io.BytesIO(json_str.encode())
+
+    return StreamingResponse(
+        buffer,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f"attachment; filename={collection.name}_export.json"
+        },
+    )
 
 
-@router.get(
-    "/name/{collection_name}/api-examples",
-    response_model=dict[str, dict[str, str]],
-    summary="Get API code examples for a collection by name",
-    description="Generate code examples in multiple languages showing how to use the API for this collection.",
+@router.post(
+    "/import",
+    response_model=CollectionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Import collection",
+    description="Import a collection from JSON export. Admin only.",
 )
-async def get_collection_api_examples_by_name(
-    collection_name: str,
+async def import_collection(
+    data: dict,
+    import_records: bool = Query(
+        False, description="Import records along with collection"
+    ),
     db: AsyncSession = Depends(get_db),
-) -> dict[str, dict[str, str]]:
+    _=Depends(require_admin),
+):
     """
-    Get API code examples for a collection by name.
+    Import a collection from JSON export.
 
-    Returns code examples in multiple languages showing how to:
-    - List records
-    - Get a single record
-    - Create a record
-    - Update a record
-    - Delete a record
-    - Filter records
-    - Sort records
-
-    Supported languages:
-    - cURL
-    - JavaScript (Fetch API)
-    - TypeScript (SDK)
-    - React (hooks)
-    - Python (requests)
-
-    Args:
-        collection_name: Collection name
-        db: Database session
-
-    Returns:
-        Dictionary with language -> examples mapping
+    - Creates collection from schema
+    - Optionally imports records
+    - Returns created collection
     """
     service = CollectionService(db)
-    collection = await service.get_collection_by_name(collection_name)
 
-    # Get base URL from settings or request
-    base_url = settings.BASE_URL or "http://localhost:8000"
+    # Extract collection data
+    collection_data = CollectionCreate(
+        name=data["name"],
+        type=data.get("type", "base"),
+        schema=data["schema"],
+        list_rule=data.get("list_rule"),
+        view_rule=data.get("view_rule"),
+        create_rule=data.get("create_rule"),
+        update_rule=data.get("update_rule"),
+        delete_rule=data.get("delete_rule"),
+        indexes=data.get("indexes", []),
+    )
 
-    # Generate all examples
-    examples = CodeGenerator.generate_all_examples(collection, base_url)
+    # Create collection
+    collection = await service.create_collection(collection_data)
 
-    return examples
+    # Import records if requested
+    if import_records and "records" in data:
+        from app.services.record_service import RecordService
+
+        record_service = RecordService(db)
+
+        for record in data["records"]:
+            try:
+                await record_service.create_record(
+                    collection_name=collection.name, data=record["data"]
+                )
+            except Exception as e:
+                # Log but continue importing other records
+                print(f"Failed to import record: {str(e)}")
+                continue
+
+    return collection

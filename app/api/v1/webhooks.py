@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import UserContext, require_auth
+from app.core.dependencies import UserContext, require_auth_context
 from app.core.exceptions import NotFoundException
 from app.db.session import get_db
 from app.schemas.webhook import (
@@ -28,7 +28,7 @@ router = APIRouter()
 async def create_webhook(
     data: WebhookCreate,
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> WebhookResponse:
     """
     Create a new webhook subscription.
@@ -55,7 +55,7 @@ async def list_webhooks(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> WebhookListResponse:
     """
     List all webhooks with optional filtering.
@@ -79,7 +79,7 @@ async def list_webhooks(
 async def get_webhook(
     webhook_id: str = Path(..., description="Webhook ID"),
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> WebhookResponse:
     """
     Get webhook by ID.
@@ -103,7 +103,7 @@ async def update_webhook(
     webhook_id: str = Path(..., description="Webhook ID"),
     data: WebhookUpdate = ...,
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> WebhookResponse:
     """
     Update webhook configuration.
@@ -133,7 +133,7 @@ async def update_webhook(
 async def delete_webhook(
     webhook_id: str = Path(..., description="Webhook ID"),
     db: AsyncSession = Depends(get_db),
-    user_context: UserContext = Depends(require_auth),
+    user_context: UserContext = Depends(require_auth_context),
 ) -> None:
     """
     Delete a webhook.

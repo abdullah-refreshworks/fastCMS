@@ -177,7 +177,12 @@ class DynamicModelGenerator:
             model: Model class to create table for
         """
         async with engine.begin() as conn:
-            await conn.run_sync(model.metadata.create_all)
+            # Use Base.metadata to create only this specific table
+            def create_tables(connection):
+                # Create only the tables for this model
+                model.__table__.create(connection, checkfirst=True)
+
+            await conn.run_sync(create_tables)
 
     @classmethod
     async def drop_table(

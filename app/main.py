@@ -239,29 +239,41 @@ app.add_middleware(LoggingMiddleware)
 # Include API routers
 from app.admin import routes as admin_routes
 from app.api.v1 import (
-    admin, auth, backups, batch, collections, files,
+    admin, auth, auth_collections, backup, backups, batch, collections, files,
     health, logs, oauth, realtime, records, search,
-    settings, webhooks
+    settings, setup, views, webhooks
 )
+from fastapi.responses import RedirectResponse
 # Temporarily disable AI until langchain dependencies are installed
 # from app.api.v1 import ai
 
 app.include_router(health.router, tags=["Health"])
+app.include_router(setup.router, prefix="/api/v1/setup", tags=["Setup"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(auth_collections.router, prefix="/api/v1", tags=["Auth Collections"])
 app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
+app.include_router(views.router, prefix="/api/v1/views", tags=["View Collections"])
 app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
 app.include_router(batch.router, prefix="/api/v1", tags=["Batch"])
 app.include_router(logs.router, prefix="/api/v1", tags=["Logs"])
 app.include_router(settings.router, prefix="/api/v1", tags=["Settings"])
-app.include_router(backups.router, prefix="/api/v1", tags=["Backups"])
+app.include_router(backups.router, prefix="/api/v1/backups", tags=["Backups"])
+app.include_router(backup.router, prefix="/api/v1", tags=["Backup"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 # app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(admin_routes.router, prefix="/admin", tags=["Admin UI"])
+
+
+# Root-level setup redirect for convenience
+@app.get("/setup", tags=["Setup"], include_in_schema=False)
+async def root_setup_redirect():
+    """Redirect /setup to /admin/setup"""
+    return RedirectResponse(url="/admin/setup", status_code=302)
 
 # Note: AI features require AI_ENABLED=true and valid API keys in .env
 
