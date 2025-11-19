@@ -89,6 +89,13 @@ class Collection(BaseModel):
         default=False,
     )
 
+    # View query for view collections (SQL SELECT statement)
+    view_query: Mapped[str] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+    )
+
     def __repr__(self) -> str:
         """String representation."""
         return f"<Collection(name={self.name}, type={self.type})>"

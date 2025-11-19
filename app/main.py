@@ -5,6 +5,7 @@ Main FastAPI application entry point.
 """
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI, Request, status
@@ -106,10 +107,25 @@ async def fastcms_exception_handler(
             "path": request.url.path,
         },
     )
+
+    # Create user-friendly message based on status code
+    user_message = exc.message
+    if exc.status_code == 404:
+        user_message = f"❌ {exc.message}. The resource you're looking for doesn't exist or you don't have permission to access it."
+    elif exc.status_code == 403:
+        user_message = f"❌ {exc.message}. Please check your permissions or contact an administrator if you believe this is an error."
+    elif exc.status_code == 409:
+        user_message = f"❌ {exc.message}. This resource already exists. Please try a different name or update the existing one."
+    elif exc.status_code >= 500:
+        user_message = f"❌ {exc.message}. Our team has been notified. Please try again later."
+    else:
+        user_message = f"❌ {exc.message}"
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
             "error": exc.message,
+            "message": user_message,
             "details": exc.details,
         },
     )
@@ -128,11 +144,29 @@ async def validation_exception_handler(
             "path": request.url.path,
         },
     )
+
+    # Format errors in a user-friendly way
+    formatted_errors = {}
+    for error in exc.errors():
+        field = ".".join(str(loc) for loc in error["loc"][1:])  # Skip 'body'
+        msg = error["msg"]
+
+        # Make error messages more user-friendly
+        if "required" in msg.lower():
+            formatted_errors[field] = "This field is required"
+        elif "invalid" in msg.lower():
+            formatted_errors[field] = f"Invalid value: {msg}"
+        elif "type" in msg.lower():
+            formatted_errors[field] = f"Invalid data type: {msg}"
+        else:
+            formatted_errors[field] = msg
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
             "error": "Validation failed",
-            "details": exc.errors(),
+            "message": "❌ Please check your input and try again. Some fields have errors.",
+            "details": formatted_errors,
         },
     )
 
@@ -151,6 +185,7 @@ async def general_exception_handler(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
             "error": "Internal server error",
+            "message": "❌ Something went wrong on our end. Our team has been notified and will fix this soon. Please try again later.",
             "details": str(exc) if settings.DEBUG else "An unexpected error occurred",
         },
     )
@@ -188,16 +223,31 @@ async def root() -> dict[str, str]:
     }
 
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="app/admin/static"), name="static")
+# Mount static files - use absolute path for cross-platform compatibility
+static_dir = Path(__file__).parent / "admin" / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+else:
+    logger.warning(f"Static directory not found at {static_dir}, skipping static files mount")
+
+# Add custom middleware
+from app.core.middleware import LoggingMiddleware, ReadOnlyMiddleware
+
+app.add_middleware(ReadOnlyMiddleware)
+app.add_middleware(LoggingMiddleware)
 
 # Include API routers
 from app.admin import routes as admin_routes
-from app.api.v1 import admin, auth, auth_collections, backup, collections, files, oauth, realtime, records, setup, views, webhooks
+from app.api.v1 import (
+    admin, auth, auth_collections, backup, backups, batch, collections, files,
+    health, logs, oauth, realtime, records, search,
+    settings, setup, views, webhooks
+)
 from fastapi.responses import RedirectResponse
 # Temporarily disable AI until langchain dependencies are installed
 # from app.api.v1 import ai
 
+app.include_router(health.router, tags=["Health"])
 app.include_router(setup.router, prefix="/api/v1/setup", tags=["Setup"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(auth_collections.router, prefix="/api/v1", tags=["Auth Collections"])
@@ -206,9 +256,14 @@ app.include_router(collections.router, prefix="/api/v1/collections", tags=["Coll
 app.include_router(views.router, prefix="/api/v1/views", tags=["View Collections"])
 app.include_router(records.router, prefix="/api/v1", tags=["Records"])
 app.include_router(files.router, prefix="/api/v1", tags=["Files"])
+app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
+app.include_router(batch.router, prefix="/api/v1", tags=["Batch"])
+app.include_router(logs.router, prefix="/api/v1", tags=["Logs"])
+app.include_router(settings.router, prefix="/api/v1", tags=["Settings"])
+app.include_router(backups.router, prefix="/api/v1/backups", tags=["Backups"])
+app.include_router(backup.router, prefix="/api/v1", tags=["Backup"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
-app.include_router(backup.router, prefix="/api/v1", tags=["Backup"])
 # app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(admin_routes.router, prefix="/admin", tags=["Admin UI"])
