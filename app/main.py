@@ -241,7 +241,7 @@ from app.admin import routes as admin_routes
 from app.api.v1 import (
     admin, auth, auth_collections, backup, backups, batch, collections, files,
     health, logs, oauth, realtime, records, search,
-    settings, setup, views, webhooks
+    settings as settings_router, setup, views, webhooks
 )
 from fastapi.responses import RedirectResponse
 # Temporarily disable AI until langchain dependencies are installed
@@ -259,7 +259,7 @@ app.include_router(files.router, prefix="/api/v1", tags=["Files"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
 app.include_router(batch.router, prefix="/api/v1", tags=["Batch"])
 app.include_router(logs.router, prefix="/api/v1", tags=["Logs"])
-app.include_router(settings.router, prefix="/api/v1", tags=["Settings"])
+app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["Settings"])
 app.include_router(backups.router, prefix="/api/v1/backups", tags=["Backups"])
 app.include_router(backup.router, prefix="/api/v1", tags=["Backup"])
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])

@@ -3,7 +3,7 @@ Admin API endpoints for managing users, collections, and system.
 Requires admin role for all operations.
 """
 
-from typing import Any
+from typing import Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
@@ -295,7 +295,7 @@ async def list_collections_admin(
         items.append(CollectionResponse(
             id=col.id,
             name=col.name,
-            type=col.type,
+            type=cast(Literal["base", "auth", "view"], col.type),
             schema=fields,
             options=col.options,
             list_rule=col.list_rule,
@@ -303,6 +303,7 @@ async def list_collections_admin(
             create_rule=col.create_rule,
             update_rule=col.update_rule,
             delete_rule=col.delete_rule,
+            view_query=col.view_query,
             system=col.system,
             created=col.created,
             updated=col.updated,

@@ -96,6 +96,21 @@ async def init_db() -> None:
     """
     from app.db.base import Base
 
+    # Import all models so they are registered with SQLAlchemy
+    from app.db.models import (  # noqa: F401
+        backup,
+        collection,
+        email_template,
+        file,
+        logs,
+        oauth,
+        search,
+        settings as settings_model,
+        user,
+        verification,
+        webhook,
+    )
+
     logger.info("Initializing database...")
 
     async with engine.begin() as conn:
