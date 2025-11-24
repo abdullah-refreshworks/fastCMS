@@ -104,7 +104,7 @@ class EventManager:
         Args:
             event: Event to broadcast
         """
-        # Send to collection-specific subscribers
+        # Send to collection-specific subscribers (SSE)
         if event.collection_name in self._subscribers:
             for queue in self._subscribers[event.collection_name].copy():
                 try:
@@ -113,13 +113,20 @@ class EventManager:
                     # Remove dead subscriber
                     self._subscribers[event.collection_name].discard(queue)
 
-        # Send to global subscribers
+        # Send to global subscribers (SSE)
         for queue in self._global_subscribers.copy():
             try:
                 await queue.put(event)
             except Exception:
                 # Remove dead subscriber
                 self._global_subscribers.discard(queue)
+        
+        # Broadcast to WebSocket connections
+        try:
+            from app.core.websocket_manager import connection_manager
+            await connection_manager.broadcast_event(event)
+        except Exception as e:
+            logger.error(f"Error broadcasting to WebSocket: {e}")
 
         # Trigger webhooks asynchronously (fire and forget)
         asyncio.create_task(self._trigger_webhooks(event))
