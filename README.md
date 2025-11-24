@@ -81,6 +81,18 @@ export PYTHONPATH=$PWD:$PYTHONPATH
 python app/main.py
 ```
 
+### 6. Database Migrations
+
+When you change the database models, you need to create and apply migrations:
+
+```bash
+# Create a new migration
+alembic revision --autogenerate -m "Description of changes"
+
+# Apply migrations
+alembic upgrade head
+```
+
 That's it! Your backend is running.
 
 ## Where to Go

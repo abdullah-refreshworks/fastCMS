@@ -41,7 +41,7 @@ class FieldValidation(BaseModel):
 class RelationOptions(BaseModel):
     """Options for relation fields."""
 
-    collection_id: str = Field(..., description="Target collection ID")
+    collection: str = Field(..., description="Target collection name")
     type: str = Field(
         default="one-to-many",
         description="Relationship type: one-to-many, many-to-one, many-to-many, one-to-one"

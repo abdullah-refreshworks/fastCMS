@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Authentication Documentation{% endblock %}
+
+{% block content %}
+<div class="bg-white shadow sm:rounded-lg">
+    <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-base font-semibold leading-6 text-gray-900">Authentication Documentation</h3>
+        <div class="mt-2 max-w-xl text-sm text-gray-500">
+            <p>Learn how to authenticate users in your application using the FastCMS API or JavaScript SDK.</p>
+        </div>
+
+        <div class="mt-6 space-y-12">
+
+            <!-- 1. Login with Password -->
+            <div>
+                <h4 class="text-lg font-medium text-gray-900">1. Login with Email & Password</h4>
+                <p class="mt-1 text-sm text-gray-500">Authenticate a user and receive an access token.</p>
+
+                <div class="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-700">cURL</h5>
+                        <pre class="mt-2 bg-gray-800 text-gray-100 p-4 rounded-md text-xs overflow-x-auto">curl -X POST "/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com",
+    "password": "password123"
+  }'</pre>
+                    </div>
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-700">JavaScript SDK</h5>
+                        <pre class="mt-2 bg-gray-800 text-gray-100 p-4 rounded-md text-xs overflow-x-auto">import FastCMS from 'fastcms';
+
+const cms = new FastCMS('http://localhost:8000');
+
+await cms.authWithPassword('user@example.com', 'password123');
+console.log(cms.token); // Access token</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Register -->
+            <div>
+                <h4 class="text-lg font-medium text-gray-900">2. Register New User</h4>
+                <p class="mt-1 text-sm text-gray-500">Create a new user account.</p>
+
+                <div class="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-700">cURL</h5>
+                        <pre class="mt-2 bg-gray-800 text-gray-100 p-4 rounded-md text-xs overflow-x-auto">curl -X POST "/api/v1/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "new@example.com",
+    "password": "password123",
+    "password_confirm": "password123",
+    "name": "New User"
+  }'</pre>
+                    </div>
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-700">JavaScript SDK</h5>
+                        <pre class="mt-2 bg-gray-800 text-gray-100 p-4 rounded-md text-xs overflow-x-auto">// SDK currently handles registration via collection create
+await cms.collection('users').create({
+    email: 'new@example.com',
+    password: 'password123',
+    passwordConfirm: 'password123',
+    name: 'New User'
+});</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. OAuth Login -->
+            <div>
+                <h4 class="text-lg font-medium text-gray-900">3. OAuth Login (Google, GitHub, etc.)</h4>
+                <p class="mt-1 text-sm text-gray-500">Initiate OAuth flow. Redirect the user to this URL.</p>
+
+                <div class="mt-4">
+                    <h5 class="text-sm font-medium text-gray-700">URL Pattern</h5>
+                    <pre
+                        class="mt-2 bg-gray-800 text-gray-100 p-4 rounded-md text-xs overflow-x-auto">GET /api/v1/oauth/login/{provider}?collection={collection_name}</pre>
+
+                    <div class="mt-4 text-sm text-gray-600">
+                        <p class="font-medium">Examples:</p>
+                        <ul class="list-disc pl-5 mt-1 space-y-1">
+                            <li><code class="bg-gray-100 px-1 rounded">/api/v1/oauth/login/google</code> (Login as
+                                system user)</li>
+                            <li><code
+                                    class="bg-gray-100 px-1 rounded">/api/v1/oauth/login/github?collection=customers</code>
+                                (Login as customer)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Refresh Token -->
+            <div>
+                <h4 class="text-lg font-medium text-gray-900">4. Refresh Token</h4>
+                <p class="mt-1 text-sm text-gray-500">Get a new access token using a refresh token.</p>
+
+                <div class="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div>
+                        <h5 class="text-sm font-medium text-gray-700">cURL</h5>
+                        <pre class="mt-2 bg-gray-800 text-gray-100 p-4 rounded-md text-xs overflow-x-auto">curl -X POST "/api/v1/auth/refresh" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "YOUR_REFRESH_TOKEN"
+  }'</pre>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

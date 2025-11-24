@@ -37,6 +37,7 @@ class RecordResponse(BaseModel):
     data: Dict[str, Any]
     created: datetime
     updated: datetime
+    expand: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

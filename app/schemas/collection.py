@@ -158,7 +158,7 @@ class CollectionSchemaExport(BaseModel):
 
     name: str
     type: str
-    schema: List[Dict[str, Any]]
+    fields: List[Dict[str, Any]] = Field(..., alias="schema")
     options: Dict[str, Any]
     list_rule: Optional[str]
     view_rule: Optional[str]

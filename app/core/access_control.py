@@ -23,10 +23,12 @@ class AccessContext:
         user_id: Optional[str] = None,
         user_role: str = "user",
         record_data: Optional[dict[str, Any]] = None,
+        request_data: Optional[dict[str, Any]] = None,
     ):
         self.user_id = user_id
         self.user_role = user_role
         self.record_data = record_data or {}
+        self.request_data = request_data or {}
 
     @property
     def is_authenticated(self) -> bool:
@@ -89,7 +91,7 @@ class AccessControlEngine:
 
         def replace_token(match: re.Match) -> str:
             scope = match.group(1)  # request or record
-            path = match.group(2)  # e.g., auth.id, user_id
+            path = match.group(2)  # e.g., auth.id, user_id, data.title
 
             if scope == "request":
                 return self._get_request_value(path, context)
@@ -107,12 +109,20 @@ class AccessControlEngine:
             return f"'{context.user_role}'"
         elif path == "auth.verified":
             return "True" if context.user_id else "False"
+        elif path.startswith("data."):
+            # Access request data fields
+            key = path[5:]  # remove "data."
+            return self._get_value_from_dict(context.request_data, key)
         return "None"
 
     def _get_record_value(self, path: str, context: AccessContext) -> str:
         """Get value from record data."""
+        return self._get_value_from_dict(context.record_data, path)
+
+    def _get_value_from_dict(self, data: dict, path: str) -> str:
+        """Helper to extract value from nested dict and format for expression."""
         keys = path.split(".")
-        value = context.record_data
+        value = data
 
         for key in keys:
             if isinstance(value, dict):
@@ -129,6 +139,8 @@ class AccessControlEngine:
         elif isinstance(value, (int, float)):
             return str(value)
         return "None"
+
+
 
     def _evaluate_expression(self, expression: str) -> bool:
         """
