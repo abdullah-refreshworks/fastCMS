@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.core.dependencies import require_auth
-from app.schemas.ai import AIGenerateRequest, AIGenerateResponse, AIAgentQueryRequest, AIAgentQueryResponse
+from app.schemas.ai import (
+    AIGenerateRequest, AIGenerateResponse, 
+    AIAgentQueryRequest, AIAgentQueryResponse,
+    AITaggingRequest, AITaggingResponse,
+    AIExtractionRequest, AIExtractionResponse
+)
 from app.services.ai_service import ai_service
 from app.services.ai_agent import ai_agent_service
 
@@ -53,4 +58,48 @@ async def query_data_agent(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
+        )
+
+
+@router.post("/generate/tags", response_model=AITaggingResponse)
+async def generate_tags(
+    request: AITaggingRequest,
+    current_user: dict = Depends(require_auth)
+):
+    """
+    Generate tags for content.
+    """
+    try:
+        return await ai_service.generate_tags(request)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI tagging failed"
+        )
+
+
+@router.post("/extract", response_model=AIExtractionResponse)
+async def extract_content(
+    request: AIExtractionRequest,
+    current_user: dict = Depends(require_auth)
+):
+    """
+    Extract structured data from text.
+    """
+    try:
+        return await ai_service.extract_content(request)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI extraction failed"
         )

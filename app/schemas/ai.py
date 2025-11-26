@@ -28,3 +28,26 @@ class AIAgentQueryResponse(BaseModel):
     sql_query: Optional[str] = None
     data: Optional[List[Dict[str, Any]]] = None
     error: Optional[str] = None
+
+
+class AITaggingRequest(BaseModel):
+    """Request schema for AI tagging."""
+    content: str = Field(..., description="Content to be tagged")
+    existing_tags: Optional[List[str]] = Field(None, description="List of existing tags to choose from")
+    max_tags: int = Field(5, description="Maximum number of tags to generate")
+
+
+class AITaggingResponse(BaseModel):
+    """Response schema for AI tagging."""
+    tags: List[str]
+
+
+class AIExtractionRequest(BaseModel):
+    """Request schema for AI content extraction."""
+    text: str = Field(..., description="Unstructured text to extract data from")
+    schema_description: Dict[str, str] = Field(..., description="Key-value pairs describing fields to extract (e.g., {'title': 'The title of the article'})")
+
+
+class AIExtractionResponse(BaseModel):
+    """Response schema for AI content extraction."""
+    data: Dict[str, Any]
