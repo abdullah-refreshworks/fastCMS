@@ -222,7 +222,7 @@
 
             async loadRecord() {
                 try {
-                    const response = await apiRequest(`/${this.collectionName}/records/${this.recordId}`);
+                    const response = await apiRequest(`/collections/${this.collectionName}/records/${this.recordId}`);
                     this.formData = { ...response.data };
                 } catch (error) {
                     console.error('Failed to load record:', error);
@@ -286,14 +286,14 @@
 
                     if (this.recordId) {
                         // Update existing record - use PATCH
-                        await apiRequest(`/${this.collectionName}/records/${this.recordId}`, {
+                        await apiRequest(`/collections/${this.collectionName}/records/${this.recordId}`, {
                             method: 'PATCH',
                             body: JSON.stringify({ data: processedData })
                         });
                         showToast('Record updated successfully', 'success');
                     } else {
                         // Create new record
-                        await apiRequest(`/${this.collectionName}/records`, {
+                        await apiRequest(`/collections/${this.collectionName}/records`, {
                             method: 'POST',
                             body: JSON.stringify({ data: processedData })
                         });

@@ -128,7 +128,7 @@ curl -X POST "http://localhost:8000/api/v1/collections" \
 ### Add Some Data
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/posts/records" \
+curl -X POST "http://localhost:8000/api/v1/collections/posts/records" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -142,13 +142,13 @@ curl -X POST "http://localhost:8000/api/v1/posts/records" \
 
 ```bash
 # Find published posts
-curl "http://localhost:8000/api/v1/posts/records?filter=published=true"
+curl "http://localhost:8000/api/v1/collections/posts/records?filter=published=true"
 
 # Text search
-curl "http://localhost:8000/api/v1/posts/records?filter=title~Hello"
+curl "http://localhost:8000/api/v1/collections/posts/records?filter=title~Hello"
 
 # Sort by newest first
-curl "http://localhost:8000/api/v1/posts/records?sort=-created"
+curl "http://localhost:8000/api/v1/collections/posts/records?sort=-created"
 ```
 
 ## Optional Features

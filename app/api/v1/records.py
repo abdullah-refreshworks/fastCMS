@@ -1,7 +1,8 @@
 """API endpoints for dynamic record CRUD operations."""
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, UploadFile, File
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import UserContext, get_optional_user, require_auth_context
@@ -13,13 +14,17 @@ from app.schemas.record import (
     RecordUpdate,
 )
 from app.services.record_service import RecordService
+from app.services.csv_service import CSVService
 from app.utils.query_parser import QueryParser
+from app.db.repositories.collection import CollectionRepository
+from app.utils.field_types import FieldSchema
+from app.core.exceptions import NotFoundException, ValidationException
 
 router = APIRouter()
 
 
 @router.post(
-    "/{collection_name}/records",
+    "/collections/{collection_name}/records",
     response_model=RecordResponse,
     status_code=201,
     summary="Create a record",
@@ -36,7 +41,7 @@ async def create_record(
 
 
 @router.get(
-    "/{collection_name}/records",
+    "/collections/{collection_name}/records",
     response_model=RecordListResponse,
     summary="List records",
 )
@@ -90,7 +95,133 @@ async def list_records(
 
 
 @router.get(
-    "/{collection_name}/records/{record_id}",
+    "/collections/{collection_name}/records/export/csv",
+    summary="Export records to CSV",
+    response_class=Response,
+)
+async def export_records_csv(
+    collection_name: str = Path(..., description="Collection name"),
+    filter: Optional[str] = Query(None, description="Filter expression"),
+    sort: Optional[str] = Query(None, description="Sort field"),
+    db: AsyncSession = Depends(get_db),
+    user_context: Optional[UserContext] = Depends(get_optional_user),
+):
+    """
+    Export all records from a collection to CSV format.
+
+    The CSV will include all fields defined in the collection schema plus system fields (id, created, updated).
+    """
+    # Get collection schema
+    collection_repo = CollectionRepository(db)
+    collection = await collection_repo.get_by_name(collection_name)
+    if not collection:
+        raise NotFoundException(f"Collection '{collection_name}' not found")
+
+    # Get records using record service
+    service = RecordService(db, collection_name, user_context)
+
+    # Parse filters and sort
+    filters = QueryParser.parse_filter(filter) if filter else None
+    sort_field, sort_order = QueryParser.parse_sort(sort) if sort else (None, "asc")
+
+    # Get all records (no pagination for export)
+    result = await service.list_records(
+        page=1,
+        per_page=10000,  # Max records to export
+        filters=filters,
+        sort=sort_field,
+        order=sort_order,
+    )
+
+    # Extract field schemas
+    fields = collection.schema.get("fields", [])
+    field_schemas = [FieldSchema(**field) for field in fields]
+
+    # Convert records to list of dicts
+    records_data = [record.data for record in result.items]
+
+    # Generate CSV
+    csv_content = CSVService.export_to_csv(records_data, field_schemas)
+
+    # Return as downloadable file
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename={collection_name}_export.csv"
+        },
+    )
+
+
+@router.post(
+    "/collections/{collection_name}/records/import/csv",
+    summary="Import records from CSV",
+    status_code=201,
+)
+async def import_records_csv(
+    collection_name: str = Path(..., description="Collection name"),
+    file: UploadFile = File(..., description="CSV file to import"),
+    skip_validation: bool = Query(
+        False, description="Skip type validation (import as strings)"
+    ),
+    db: AsyncSession = Depends(get_db),
+    user_context: UserContext = Depends(require_auth_context),
+):
+    """
+    Import records from a CSV file.
+
+    The CSV file should have headers matching the collection's field names.
+    System fields (id, created, updated) will be ignored if present.
+
+    Returns:
+        - imported: Number of records successfully imported
+        - errors: List of any errors encountered (if partial import)
+    """
+    # Validate file type
+    if not file.filename.endswith(".csv"):
+        raise ValidationException("File must be a CSV file")
+
+    # Get collection schema
+    collection_repo = CollectionRepository(db)
+    collection = await collection_repo.get_by_name(collection_name)
+    if not collection:
+        raise NotFoundException(f"Collection '{collection_name}' not found")
+
+    # Read CSV content
+    csv_content = await file.read()
+    csv_text = csv_content.decode("utf-8")
+
+    # Extract field schemas
+    fields = collection.schema.get("fields", [])
+    field_schemas = [FieldSchema(**field) for field in fields]
+
+    # Parse CSV
+    records_data = CSVService.parse_csv(csv_text, field_schemas, skip_validation)
+
+    # Import records using record service
+    service = RecordService(db, collection_name, user_context)
+    imported_count = 0
+    errors = []
+
+    for i, record_data in enumerate(records_data, start=1):
+        try:
+            from app.schemas.record import RecordCreate
+            await service.create_record(RecordCreate(data=record_data))
+            imported_count += 1
+        except Exception as e:
+            errors.append({"row": i, "error": str(e)})
+
+    await db.commit()
+
+    return {
+        "imported": imported_count,
+        "total": len(records_data),
+        "errors": errors if errors else None,
+    }
+
+
+@router.get(
+    "/collections/{collection_name}/records/{record_id}",
     response_model=RecordResponse,
     summary="Get a record",
 )
@@ -108,7 +239,7 @@ async def get_record(
 
 
 @router.patch(
-    "/{collection_name}/records/{record_id}",
+    "/collections/{collection_name}/records/{record_id}",
     response_model=RecordResponse,
     summary="Update a record",
 )
@@ -125,7 +256,7 @@ async def update_record(
 
 
 @router.delete(
-    "/{collection_name}/records/{record_id}",
+    "/collections/{collection_name}/records/{record_id}",
     status_code=204,
     summary="Delete a record",
 )

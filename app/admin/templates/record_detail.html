@@ -127,7 +127,7 @@
 
             async loadRecord() {
                 try {
-                    const response = await apiRequest(`/${this.collectionName}/records/${this.recordId}`);
+                    const response = await apiRequest(`/collections/${this.collectionName}/records/${this.recordId}`);
                     this.record = response;
                 } catch (error) {
                     console.error('Failed to load record:', error);

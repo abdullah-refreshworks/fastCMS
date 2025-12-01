@@ -54,13 +54,14 @@ async def create_collection(
     "",
     response_model=CollectionListResponse,
     summary="List all collections",
-    description="Get a paginated list of all collections.",
+    description="Get a paginated list of all collections. Requires authentication.",
 )
 async def list_collections(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(30, ge=1, le=200, description="Items per page"),
     include_system: bool = Query(False, description="Include system collections"),
     db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(require_auth),
 ) -> CollectionListResponse:
     """
     List all collections with pagination.

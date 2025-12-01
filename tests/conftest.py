@@ -3,11 +3,13 @@ Pytest configuration and fixtures.
 """
 
 import asyncio
+import os
 from typing import AsyncGenerator
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
@@ -16,8 +18,9 @@ from app.db.session import get_db
 from app.main import app
 
 
-# Use in-memory SQLite for tests
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+# Use file-based SQLite for tests to support dynamic table creation
+TEST_DATABASE_FILE = "/tmp/test_fastcms.db"
+TEST_DATABASE_URL = f"sqlite+aiosqlite:///{TEST_DATABASE_FILE}"
 
 
 @pytest.fixture(scope="session")
@@ -31,6 +34,10 @@ def event_loop():
 @pytest_asyncio.fixture
 async def db_engine():
     """Create test database engine."""
+    # Remove existing test database file
+    if os.path.exists(TEST_DATABASE_FILE):
+        os.remove(TEST_DATABASE_FILE)
+
     engine = create_async_engine(
         TEST_DATABASE_URL,
         echo=False,
@@ -46,6 +53,10 @@ async def db_engine():
 
     await engine.dispose()
 
+    # Clean up test database file
+    if os.path.exists(TEST_DATABASE_FILE):
+        os.remove(TEST_DATABASE_FILE)
+
 
 @pytest_asyncio.fixture
 async def db(db_engine) -> AsyncGenerator[AsyncSession, None]:
@@ -58,6 +69,16 @@ async def db(db_engine) -> AsyncGenerator[AsyncSession, None]:
 
     async with async_session() as session:
         yield session
+        # Clean up data to prevent UNIQUE constraint errors between tests
+        # This is needed because JWT tokens and UUIDs can collide in tests
+        try:
+            await session.execute(text("DELETE FROM refresh_tokens"))
+            await session.execute(text("DELETE FROM users"))
+            await session.execute(text("DELETE FROM request_logs"))
+            await session.commit()
+        except Exception:
+            # Ignore errors during cleanup
+            pass
         await session.rollback()
 
 

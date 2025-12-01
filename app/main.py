@@ -250,7 +250,7 @@ from fastapi.responses import RedirectResponse
 app.include_router(health.router, tags=["Health"])
 app.include_router(setup.router, prefix="/api/v1/setup", tags=["Setup"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(auth_collections.router, prefix="/api/v1", tags=["Auth Collections"])
+app.include_router(auth_collections.router, prefix="/api/v1/collections", tags=["Auth Collections"])
 app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
 app.include_router(views.router, prefix="/api/v1/views", tags=["View Collections"])

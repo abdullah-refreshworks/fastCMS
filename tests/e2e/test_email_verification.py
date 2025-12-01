@@ -229,6 +229,7 @@ class TestPasswordReset:
 class TestAuthCollectionEmail:
     """Test email functionality for auth collections."""
 
+    @pytest.mark.integration
     @patch("app.services.email_service.EmailService.send_verification_email")
     async def test_auth_collection_registration_sends_email(
         self, mock_send_email: AsyncMock, client: AsyncClient
@@ -271,6 +272,7 @@ class TestAuthCollectionEmail:
         if response.status_code == 201:
             mock_send_email.assert_called_once()
 
+    @pytest.mark.integration
     @patch("app.services.email_service.EmailService.send_password_reset_email")
     async def test_auth_collection_password_reset(
         self, mock_send_email: AsyncMock, client: AsyncClient
