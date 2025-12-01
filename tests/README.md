@@ -40,6 +40,7 @@ tests/
 ### E2E Tests (`tests/e2e/`)
 End-to-end tests that test the entire application through the API:
 - `test_fastcms_core.py` - Core features (auth, collections, records, access control)
+- `test_email_verification.py` - Email verification and password reset flows
 
 ### Integration Tests (`tests/integration/`)
 Tests that verify multiple components working together.
