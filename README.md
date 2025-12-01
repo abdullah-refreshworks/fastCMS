@@ -234,9 +234,9 @@ fastCMS/
 └── .env               # Your settings
 ```
 
-## New Features (vs PocketBase)
+## New Features
 
-FastCMS includes everything PocketBase has, PLUS:
+FastCMS includes:
 
 ### Core Improvements
 - **Automatic Image Thumbnails** - 3 sizes (100px, 300px, 500px) generated on upload
@@ -295,7 +295,6 @@ curl -X POST http://localhost:8000/api/v1/collections/import \
 - Check http://localhost:8000/docs for full API documentation
 - Look at the example curl commands above
 - Browse the code - it's well documented!
-- Read POCKETBASE_COMPARISON.md for detailed feature comparison
 
 ## License
 

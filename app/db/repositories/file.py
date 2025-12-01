@@ -35,8 +35,8 @@ class FileRepository:
         record_id: Optional[str] = None,
         user_id: Optional[str] = None,
     ) -> List[File]:
-        """Get all files with optional filtering."""
-        query = select(File).where(File.deleted == False)
+        """Get all files with optional filtering. Excludes thumbnails by default."""
+        query = select(File).where(File.deleted == False, File.is_thumbnail == False)
 
         if collection_name:
             query = query.where(File.collection_name == collection_name)
@@ -58,8 +58,8 @@ class FileRepository:
         record_id: Optional[str] = None,
         user_id: Optional[str] = None,
     ) -> int:
-        """Count files with optional filtering."""
-        query = select(func.count(File.id)).where(File.deleted == False)
+        """Count files with optional filtering. Excludes thumbnails by default."""
+        query = select(func.count(File.id)).where(File.deleted == False, File.is_thumbnail == False)
 
         if collection_name:
             query = query.where(File.collection_name == collection_name)
