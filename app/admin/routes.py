@@ -243,6 +243,18 @@ async def admin_profile(
     )
 
 
+@router.get("/realtime", response_class=HTMLResponse)
+async def admin_realtime(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Real-time features demo page."""
+    return templates.TemplateResponse(
+        "realtime.html",
+        {"request": request, "user": user, "active": "realtime"},
+    )
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def admin_login(request: Request, db: AsyncSession = Depends(get_db)):
     """Admin login page."""

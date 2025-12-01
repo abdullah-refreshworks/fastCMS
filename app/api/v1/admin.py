@@ -5,7 +5,7 @@ Requires admin role for all operations.
 
 from typing import Any, Literal, cast
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -217,6 +217,52 @@ async def get_user(
 
     if not user:
         raise NotFoundException(f"User {user_id} not found")
+
+    return UserResponse.model_validate(user)
+
+
+@router.patch("/users/{user_id}", response_model=UserResponse, summary="Update user")
+async def update_user(
+    user_id: str,
+    update_data: dict[str, Any] = Body(...),
+    db: AsyncSession = Depends(get_db),
+    admin: UserContext = Depends(require_admin),
+) -> UserResponse:
+    """
+    Update user details (admin only).
+
+    Args:
+        user_id: User ID
+        update_data: Fields to update (name, email, role, verified, password)
+        db: Database session
+        admin: Admin user context
+
+    Returns:
+        Updated user
+    """
+    from app.core.exceptions import NotFoundException
+    from app.core.security import hash_password
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+
+    if not user:
+        raise NotFoundException(f"User {user_id} not found")
+
+    # Update allowed fields
+    if "name" in update_data:
+        user.name = update_data["name"]
+    if "email" in update_data:
+        user.email = update_data["email"]
+    if "role" in update_data:
+        user.role = update_data["role"]
+    if "verified" in update_data:
+        user.verified = update_data["verified"]
+    if "password" in update_data and update_data["password"]:
+        user.password_hash = hash_password(update_data["password"])
+
+    await user_repo.update(user)
+    await db.commit()
 
     return UserResponse.model_validate(user)
 

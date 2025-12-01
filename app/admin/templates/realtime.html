@@ -1,0 +1,443 @@
+{% extends "base.html" %}
+
+{% block title %}Real-time Features{% endblock %}
+
+{% block content %}
+<div x-data="realtimeDemo()" x-init="init()" class="px-4 sm:px-6 lg:px-8">
+  <!-- Page Header -->
+  <div class="sm:flex sm:items-center">
+    <div class="sm:flex-auto">
+      <h1 class="text-2xl font-semibold text-gray-900">Real-time Features Demo</h1>
+      <p class="mt-2 text-sm text-gray-700">
+        Demonstrates Live Queries, Presence Tracking, and Real-time Collection Updates
+      </p>
+    </div>
+  </div>
+
+  <!-- Connection Status -->
+  <div class="mt-6">
+    <div class="flex items-center space-x-2">
+      <div class="flex items-center">
+        <div
+          :class="connected ? 'bg-green-500' : 'bg-red-500'"
+          class="h-3 w-3 rounded-full mr-2"
+        ></div>
+        <span class="text-sm font-medium text-gray-700">
+          <span x-text="connected ? 'Connected' : 'Disconnected'"></span>
+        </span>
+      </div>
+      <button
+        @click="toggleConnection"
+        class="ml-4 inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+      >
+        <span x-text="connected ? 'Disconnect' : 'Connect'"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Features Grid -->
+  <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <!-- Presence Tracking -->
+    <div class="bg-white shadow rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <i class="fas fa-users text-indigo-600 mr-2"></i>
+          Active Users (Presence)
+        </h3>
+
+        <div class="mb-4">
+          <p class="text-sm text-gray-600 mb-2">
+            Tracks who's currently online in real-time
+          </p>
+          <div class="flex items-center space-x-2">
+            <span class="text-2xl font-bold text-indigo-600" x-text="activeUsers.length"></span>
+            <span class="text-sm text-gray-500">users online</span>
+          </div>
+        </div>
+
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          <template x-for="user in activeUsers" :key="user.user_id">
+            <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+              <div class="flex items-center">
+                <div class="h-2 w-2 bg-green-500 rounded-full mr-2"></div>
+                <span class="text-sm font-medium text-gray-900" x-text="user.user_name || user.user_id"></span>
+              </div>
+              <div class="text-xs text-gray-500">
+                <span x-text="user.connections"></span> connection<span x-show="user.connections !== 1">s</span>
+              </div>
+            </div>
+          </template>
+
+          <div x-show="activeUsers.length === 0" class="text-center py-4 text-gray-500 text-sm">
+            No active users
+          </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <button
+            @click="fetchPresence"
+            class="text-sm text-indigo-600 hover:text-indigo-500"
+          >
+            <i class="fas fa-sync-alt mr-1"></i> Refresh
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Queries -->
+    <div class="bg-white shadow rounded-lg">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <i class="fas fa-filter text-purple-600 mr-2"></i>
+          Live Queries
+        </h3>
+
+        <div class="mb-4">
+          <p class="text-sm text-gray-600 mb-2">
+            Subscribe to filtered real-time updates
+          </p>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Query Filter
+              </label>
+              <input
+                x-model="queryFilter"
+                type="text"
+                placeholder="e.g., status=published or price>100"
+                class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              >
+              <p class="mt-1 text-xs text-gray-500">
+                Supports: field=value, field!=value, field>value, field&lt;value
+              </p>
+            </div>
+
+            <button
+              @click="applyQueryFilter"
+              :disabled="!connected"
+              class="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:bg-gray-300"
+            >
+              <i class="fas fa-play mr-2"></i>
+              Apply Filter
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t border-gray-200">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-sm font-medium text-gray-700">Filtered Events</h4>
+            <span class="text-xs text-gray-500" x-text="`${filteredEvents.length} events`"></span>
+          </div>
+          <div class="space-y-1 max-h-40 overflow-y-auto">
+            <template x-for="(event, index) in filteredEvents.slice(-10)" :key="index">
+              <div class="p-2 bg-purple-50 rounded text-xs">
+                <div class="font-medium text-purple-900" x-text="event.type"></div>
+                <div class="text-purple-700 truncate" x-text="JSON.stringify(event.data)"></div>
+              </div>
+            </template>
+
+            <div x-show="filteredEvents.length === 0" class="text-center py-4 text-gray-500 text-sm">
+              No events received
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Real-time Events Feed -->
+    <div class="bg-white shadow rounded-lg lg:col-span-2">
+      <div class="px-4 py-5 sm:p-6">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-medium text-gray-900">
+            <i class="fas fa-bolt text-yellow-600 mr-2"></i>
+            Real-time Events Feed
+          </h3>
+          <button
+            @click="events = []"
+            class="text-sm text-gray-600 hover:text-gray-500"
+          >
+            <i class="fas fa-trash mr-1"></i> Clear
+          </button>
+        </div>
+
+        <p class="text-sm text-gray-600 mb-4">
+          All events from collections in real-time. Create, update, or delete records to see live updates.
+        </p>
+
+        <div class="space-y-2 max-h-96 overflow-y-auto">
+          <template x-for="(event, index) in events.slice(-20).reverse()" :key="index">
+            <div class="p-3 border border-gray-200 rounded-lg">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span
+                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                    :class="{
+                      'bg-green-100 text-green-800': event.type.includes('created'),
+                      'bg-blue-100 text-blue-800': event.type.includes('updated'),
+                      'bg-red-100 text-red-800': event.type.includes('deleted'),
+                      'bg-purple-100 text-purple-800': event.type.includes('user')
+                    }"
+                    x-text="event.type"
+                  ></span>
+                  <span class="text-sm font-medium text-gray-900" x-text="event.collection"></span>
+                </div>
+                <span class="text-xs text-gray-500" x-text="formatTime(event.timestamp)"></span>
+              </div>
+
+              <div class="mt-2">
+                <details class="text-sm">
+                  <summary class="cursor-pointer text-gray-600 hover:text-gray-900">View Data</summary>
+                  <pre class="mt-2 p-2 bg-gray-50 rounded text-xs overflow-x-auto" x-text="JSON.stringify(event.data, null, 2)"></pre>
+                </details>
+              </div>
+            </div>
+          </template>
+
+          <div x-show="events.length === 0" class="text-center py-8 text-gray-500">
+            <i class="fas fa-inbox text-4xl mb-2"></i>
+            <p>No events yet. Start by creating, updating, or deleting records.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- API Examples -->
+    <div class="bg-white shadow rounded-lg lg:col-span-2">
+      <div class="px-4 py-5 sm:p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">
+          <i class="fas fa-code text-gray-600 mr-2"></i>
+          Code Examples
+        </h3>
+
+        <div class="space-y-4">
+          <!-- JavaScript Example -->
+          <div>
+            <h4 class="text-sm font-medium text-gray-700 mb-2">JavaScript (Browser)</h4>
+            <pre class="p-4 bg-gray-900 text-gray-100 rounded-lg text-xs overflow-x-auto"><code>// Basic connection
+const eventSource = new EventSource('/api/v1/realtime');
+
+// With presence tracking
+const eventSource = new EventSource('/api/v1/realtime?user_id={{ user.user_id }}');
+
+// With live query filter
+const eventSource = new EventSource('/api/v1/realtime?query=status=published');
+
+// Listen to events
+eventSource.addEventListener('record.created', (e) => {
+  const data = JSON.parse(e.data);
+  console.log('New record:', data);
+});
+
+eventSource.addEventListener('record.updated', (e) => {
+  const data = JSON.parse(e.data);
+  console.log('Record updated:', data);
+});
+
+eventSource.addEventListener('user.joined', (e) => {
+  const data = JSON.parse(e.data);
+  console.log('User joined:', data);
+});</code></pre>
+          </div>
+
+          <!-- Python Example -->
+          <div>
+            <h4 class="text-sm font-medium text-gray-700 mb-2">Python</h4>
+            <pre class="p-4 bg-gray-900 text-gray-100 rounded-lg text-xs overflow-x-auto"><code>import httpx
+
+# Subscribe to real-time updates
+async with httpx.AsyncClient() as client:
+    async with client.stream('GET', 'http://localhost:8000/api/v1/realtime') as response:
+        async for line in response.aiter_lines():
+            if line.startswith('data:'):
+                data = json.loads(line[5:])
+                print(f"Event: {data['type']}, Data: {data['data']}")</code></pre>
+          </div>
+
+          <!-- cURL Example -->
+          <div>
+            <h4 class="text-sm font-medium text-gray-700 mb-2">cURL</h4>
+            <pre class="p-4 bg-gray-900 text-gray-100 rounded-lg text-xs overflow-x-auto"><code># Subscribe to all events
+curl -N http://localhost:8000/api/v1/realtime
+
+# Subscribe with filter
+curl -N 'http://localhost:8000/api/v1/realtime?query=status=published'
+
+# Get active users
+curl http://localhost:8000/api/v1/presence</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div
+    x-show="toast.show"
+    x-transition
+    class="fixed bottom-4 right-4 bg-white shadow-lg rounded-lg px-4 py-3 max-w-sm"
+  >
+    <div class="flex items-center">
+      <div
+        :class="{
+          'text-green-500': toast.type === 'success',
+          'text-red-500': toast.type === 'error',
+          'text-blue-500': toast.type === 'info'
+        }"
+      >
+        <i class="fas fa-check-circle" x-show="toast.type === 'success'"></i>
+        <i class="fas fa-exclamation-circle" x-show="toast.type === 'error'"></i>
+        <i class="fas fa-info-circle" x-show="toast.type === 'info'"></i>
+      </div>
+      <p class="ml-3 text-sm font-medium text-gray-900" x-text="toast.message"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+  function realtimeDemo() {
+    return {
+      connected: false,
+      eventSource: null,
+      events: [],
+      filteredEvents: [],
+      activeUsers: [],
+      queryFilter: '',
+      currentQuery: '',
+      toast: {
+        show: false,
+        message: '',
+        type: 'info'
+      },
+
+      init() {
+        this.connect();
+        this.fetchPresence();
+        // Poll presence every 10 seconds
+        setInterval(() => {
+          if (this.connected) {
+            this.fetchPresence();
+          }
+        }, 10000);
+      },
+
+      connect() {
+        try {
+          // Connect with user tracking
+          const userId = '{{ user.user_id }}';
+          let url = '/api/v1/realtime';
+          if (userId) {
+            url += `?user_id=${userId}`;
+          }
+
+          if (this.currentQuery) {
+            url += (userId ? '&' : '?') + `query=${encodeURIComponent(this.currentQuery)}`;
+          }
+
+          this.eventSource = new EventSource(url);
+
+          this.eventSource.addEventListener('connected', () => {
+            this.connected = true;
+            this.showToast('Connected to real-time server', 'success');
+          });
+
+          this.eventSource.addEventListener('record.created', (e) => {
+            const data = JSON.parse(e.data);
+            this.events.push(data);
+            if (this.currentQuery) {
+              this.filteredEvents.push(data);
+            }
+          });
+
+          this.eventSource.addEventListener('record.updated', (e) => {
+            const data = JSON.parse(e.data);
+            this.events.push(data);
+            if (this.currentQuery) {
+              this.filteredEvents.push(data);
+            }
+          });
+
+          this.eventSource.addEventListener('record.deleted', (e) => {
+            const data = JSON.parse(e.data);
+            this.events.push(data);
+            if (this.currentQuery) {
+              this.filteredEvents.push(data);
+            }
+          });
+
+          this.eventSource.addEventListener('user.joined', (e) => {
+            const data = JSON.parse(e.data);
+            this.events.push(data);
+            this.fetchPresence();
+          });
+
+          this.eventSource.addEventListener('user.left', (e) => {
+            const data = JSON.parse(e.data);
+            this.events.push(data);
+            this.fetchPresence();
+          });
+
+          this.eventSource.onerror = () => {
+            this.connected = false;
+            this.showToast('Connection lost', 'error');
+          };
+
+        } catch (error) {
+          console.error('Connection error:', error);
+          this.showToast('Failed to connect', 'error');
+        }
+      },
+
+      disconnect() {
+        if (this.eventSource) {
+          this.eventSource.close();
+          this.eventSource = null;
+          this.connected = false;
+          this.showToast('Disconnected', 'info');
+        }
+      },
+
+      toggleConnection() {
+        if (this.connected) {
+          this.disconnect();
+        } else {
+          this.connect();
+        }
+      },
+
+      applyQueryFilter() {
+        this.currentQuery = this.queryFilter;
+        this.filteredEvents = [];
+
+        // Reconnect with new filter
+        this.disconnect();
+        setTimeout(() => this.connect(), 100);
+
+        this.showToast(`Applied filter: ${this.currentQuery || 'none'}`, 'success');
+      },
+
+      async fetchPresence() {
+        try {
+          const response = await fetch('/api/v1/presence');
+          const data = await response.json();
+          this.activeUsers = data.users || [];
+        } catch (error) {
+          console.error('Failed to fetch presence:', error);
+        }
+      },
+
+      formatTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString();
+      },
+
+      showToast(message, type = 'info') {
+        this.toast = { show: true, message, type };
+        setTimeout(() => {
+          this.toast.show = false;
+        }, 3000);
+      }
+    };
+  }
+</script>
+{% endblock %}
