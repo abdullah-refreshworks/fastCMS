@@ -535,6 +535,84 @@ class AuthService:
 
         logger.info(f"Password reset for user: {user.email}")
 
+    async def get_sessions(self, user_id: str) -> list[dict]:
+        """
+        Get all active sessions for a user.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            List of session dictionaries with id, user_agent, ip_address, and created
+        """
+        # Get all non-revoked refresh tokens for the user
+        tokens = await self.token_repo.get_all_for_user(user_id)
+
+        sessions = []
+        for token in tokens:
+            if not token.revoked:
+                sessions.append({
+                    "id": token.id,
+                    "user_agent": token.user_agent or "Unknown",
+                    "ip_address": token.ip_address or "Unknown",
+                    "created": token.created,
+                    "expires_at": token.expires_at,
+                })
+
+        return sessions
+
+    async def revoke_session(self, user_id: str, session_id: str) -> None:
+        """
+        Revoke a specific session (refresh token) for a user.
+
+        Args:
+            user_id: User ID
+            session_id: Session (refresh token) ID
+
+        Raises:
+            UnauthorizedException: If session not found or doesn't belong to user
+        """
+        # Get the refresh token
+        token = await self.token_repo.get_by_id(session_id)
+        if not token or token.user_id != user_id:
+            raise UnauthorizedException("Session not found")
+
+        # Revoke the token
+        await self.token_repo.revoke(token)
+        await self.db.commit()
+
+        logger.info(f"Session {session_id} revoked for user {user_id}")
+
+    async def delete_user(self, user_id: str) -> None:
+        """
+        Delete a user account and all associated data.
+
+        Args:
+            user_id: User ID to delete
+
+        Raises:
+            UnauthorizedException: If user not found
+        """
+        # Get the user
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise UnauthorizedException("User not found")
+
+        # Revoke all refresh tokens
+        await self.token_repo.revoke_all_for_user(user_id)
+
+        # Delete verification tokens
+        await self.verification_repo.delete_for_user(user_id)
+
+        # Delete password reset tokens
+        await self.reset_repo.delete_for_user(user_id)
+
+        # Delete the user
+        await self.user_repo.delete(user)
+        await self.db.commit()
+
+        logger.info(f"User account deleted: {user.email}")
+
     async def _send_verification_email(self, user: User) -> None:
         """
         Send verification email to user.

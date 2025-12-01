@@ -221,6 +221,27 @@ async def update_current_user(
     return await service.update_user(user_id, data)
 
 
+@router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete current user account",
+    description="Permanently delete the authenticated user's account and all associated data. Requires authentication.",
+)
+async def delete_current_user(
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Delete current user account.
+
+    Args:
+        user_id: Authenticated user ID
+        db: Database session
+    """
+    service = AuthService(db)
+    await service.delete_user(user_id)
+
+
 @router.post(
     "/change-password",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -326,3 +347,50 @@ async def reset_password(
     """
     service = AuthService(db)
     await service.reset_password(data.token, data.password)
+
+
+@router.get(
+    "/sessions",
+    summary="Get active sessions",
+    description="Get all active sessions for the authenticated user. Requires authentication.",
+)
+async def get_sessions(
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """
+    Get active sessions.
+
+    Args:
+        user_id: Authenticated user ID
+        db: Database session
+
+    Returns:
+        Dict with sessions list
+    """
+    service = AuthService(db)
+    sessions = await service.get_sessions(user_id)
+    return {"sessions": sessions}
+
+
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Revoke session",
+    description="Revoke a specific session (refresh token). Requires authentication.",
+)
+async def revoke_session(
+    session_id: str,
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    Revoke a session.
+
+    Args:
+        session_id: Session ID to revoke
+        user_id: Authenticated user ID
+        db: Database session
+    """
+    service = AuthService(db)
+    await service.revoke_session(user_id, session_id)
