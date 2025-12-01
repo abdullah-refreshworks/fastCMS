@@ -56,6 +56,24 @@
                     <i class="fas fa-file mr-2"></i>Files
                   </a>
                   <a
+                    href="/admin/webhooks"
+                    class="{% if active == 'webhooks' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium"
+                  >
+                    <i class="fas fa-webhook mr-2"></i>Webhooks
+                  </a>
+                  <a
+                    href="/admin/backups"
+                    class="{% if active == 'backups' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium"
+                  >
+                    <i class="fas fa-hdd mr-2"></i>Backups
+                  </a>
+                  <a
+                    href="/admin/settings"
+                    class="{% if active == 'settings' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium"
+                  >
+                    <i class="fas fa-cog mr-2"></i>Settings
+                  </a>
+                  <a
                     href="/admin/api"
                     class="{% if active == 'api' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} rounded-md px-3 py-2 text-sm font-medium"
                   >
@@ -66,10 +84,10 @@
             </div>
             <div class="hidden md:block">
               <div class="ml-4 flex items-center md:ml-6">
-                <span class="text-gray-300 text-sm mr-4">
-                  <i class="fas fa-user-shield mr-1"></i>
-                  {% if user %}{{ user.user_id }}{% else %}Guest{% endif %}
-                </span>
+                <a href="/admin/profile" class="text-gray-300 hover:text-white text-sm mr-4 flex items-center transition-colors">
+                  <i class="fas fa-user-circle mr-2 text-lg"></i>
+                  <span>{% if user %}{{ user.email if user.email else user.user_id }}{% else %}Guest{% endif %}</span>
+                </a>
               </div>
             </div>
           </div>

@@ -66,6 +66,32 @@
     <!-- Records Table -->
     <div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <!-- Search Box -->
+            <div class="mb-4">
+                <div class="relative">
+                    <input
+                        type="text"
+                        x-model="searchQuery"
+                        @input="searchRecords"
+                        placeholder="Search across all text fields..."
+                        class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                    <button
+                        x-show="searchQuery"
+                        @click="clearSearch"
+                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p x-show="searchQuery" class="mt-2 text-sm text-gray-600">
+                    Showing results for "<span x-text="searchQuery"></span>"
+                </p>
+            </div>
+
             <div class="flex justify-between items-center">
                 <div class="flex items-center space-x-4">
                     <div class="text-sm text-gray-500">
@@ -347,6 +373,8 @@
             showBulkUpdateModal: false,
             bulkUpdateField: '',
             bulkUpdateValue: '',
+            // Search state
+            searchQuery: '',
 
             async loadCollection() {
                 try {
@@ -374,6 +402,11 @@
                     } else {
                         console.log('Loading regular collection records');
                         endpoint = `/collections/${collectionName}/records?page=${this.pagination.page}&per_page=${this.pagination.per_page}`;
+                    }
+
+                    // Add search parameter if present
+                    if (this.searchQuery) {
+                        endpoint += `&search=${encodeURIComponent(this.searchQuery)}`;
                     }
 
                     const data = await apiRequest(endpoint);
@@ -427,6 +460,19 @@
                     this.pagination.page--;
                     await this.loadRecords();
                 }
+            },
+
+            // Search functionality
+            async searchRecords() {
+                // Reset to page 1 when searching
+                this.pagination.page = 1;
+                await this.loadRecords();
+            },
+
+            async clearSearch() {
+                this.searchQuery = '';
+                this.pagination.page = 1;
+                await this.loadRecords();
             },
 
             // CSV Export

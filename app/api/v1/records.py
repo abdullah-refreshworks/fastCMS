@@ -57,11 +57,16 @@ async def list_records(
     ),
     sort: Optional[str] = Query(None, description="Sort field (prefix with - for desc)"),
     expand: Optional[str] = Query(None, description="Comma-separated relation fields to expand"),
+    search: Optional[str] = Query(None, description="Search term to find in text fields"),
     db: AsyncSession = Depends(get_db),
     user_context: Optional[UserContext] = Depends(get_optional_user),
 ):
     """
-    List records with advanced filtering and sorting.
+    List records with advanced filtering, sorting, and full-text search.
+
+    Search examples:
+    - ?search=fastcms (searches across all text/editor fields)
+    - ?search=john&filter=status=active (combine search with filters)
 
     Filter examples:
     - ?filter=age>=18
@@ -94,6 +99,7 @@ async def list_records(
         sort=sort_field,
         order=sort_order,
         expand=expand_fields,
+        search=search,
     )
 
 

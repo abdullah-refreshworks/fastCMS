@@ -67,10 +67,16 @@ class RecordRepository:
         filters: Optional[List[RecordFilter]] = None,
         sort_field: Optional[str] = None,
         sort_order: str = "asc",
+        search: Optional[str] = None,
+        search_fields: Optional[List[str]] = None,
     ) -> List[BaseModel]:
-        """Get all records with optional filtering and sorting."""
+        """Get all records with optional filtering, sorting, and full-text search."""
         model = await self._get_model()
         query = select(model)
+
+        # Apply full-text search
+        if search and search_fields:
+            query = self._apply_search(query, model, search, search_fields)
 
         # Apply filters
         if filters:
@@ -90,10 +96,19 @@ class RecordRepository:
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
-    async def count(self, filters: Optional[List[RecordFilter]] = None) -> int:
-        """Count records with optional filtering."""
+    async def count(
+        self,
+        filters: Optional[List[RecordFilter]] = None,
+        search: Optional[str] = None,
+        search_fields: Optional[List[str]] = None,
+    ) -> int:
+        """Count records with optional filtering and search."""
         model = await self._get_model()
         query = select(func.count(model.id))
+
+        # Apply full-text search
+        if search and search_fields:
+            query = self._apply_search(query, model, search, search_fields)
 
         # Apply filters
         if filters:
@@ -156,5 +171,32 @@ class RecordRepository:
 
         if conditions:
             query = query.where(and_(*conditions))
+
+        return query
+
+    def _apply_search(self, query, model: Type[BaseModel], search_term: str, search_fields: List[str]):
+        """
+        Apply full-text search across multiple fields using OR conditions.
+
+        Args:
+            query: SQLAlchemy query
+            model: Dynamic model class
+            search_term: Search string
+            search_fields: List of field names to search
+
+        Returns:
+            Modified query with search conditions
+        """
+        search_conditions = []
+
+        for field_name in search_fields:
+            if hasattr(model, field_name):
+                field = getattr(model, field_name)
+                # Use case-insensitive LIKE search
+                search_conditions.append(field.like(f"%{search_term}%"))
+
+        if search_conditions:
+            # OR all search conditions together
+            query = query.where(or_(*search_conditions))
 
         return query

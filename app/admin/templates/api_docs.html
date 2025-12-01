@@ -51,6 +51,36 @@
                 </div>
             </div>
         </a>
+
+        <a href="#webhooks" class="bg-indigo-50 border-2 border-indigo-200 rounded-lg p-6 hover:bg-indigo-100 transition">
+            <div class="flex items-center">
+                <i class="fas fa-webhook text-3xl text-indigo-600 mr-4"></i>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Webhooks</h3>
+                    <p class="text-sm text-gray-600">Event Callbacks</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="#backups" class="bg-teal-50 border-2 border-teal-200 rounded-lg p-6 hover:bg-teal-100 transition">
+            <div class="flex items-center">
+                <i class="fas fa-hdd text-3xl text-teal-600 mr-4"></i>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Backups</h3>
+                    <p class="text-sm text-gray-600">Data Protection</p>
+                </div>
+            </div>
+        </a>
+
+        <a href="#oauth" class="bg-pink-50 border-2 border-pink-200 rounded-lg p-6 hover:bg-pink-100 transition">
+            <div class="flex items-center">
+                <i class="fas fa-shield-alt text-3xl text-pink-600 mr-4"></i>
+                <div>
+                    <h3 class="font-semibold text-gray-900">OAuth</h3>
+                    <p class="text-sm text-gray-600">Social Login</p>
+                </div>
+            </div>
+        </a>
     </div>
 
     <!-- Base URL -->
@@ -197,6 +227,29 @@
                     <code class="text-sm">/collections/{collection_name}/records</code>
                 </div>
                 <p class="text-sm text-gray-600">Create a new record</p>
+            </div>
+
+            <!-- Search Records -->
+            <div class="border-l-4 border-green-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded mr-2">GET</span>
+                        <code class="text-sm">/collections/{collection_name}/records?search={query}</code>
+                    </div>
+                    <button onclick="copyToClipboard('search-records')" class="text-gray-400 hover:text-gray-600 text-sm">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Full-text search across text fields (can combine with filters)</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto mb-3">
+                    <pre id="search-records">curl -X GET "<span x-text="baseUrl"></span>/collections/posts/records?search=fastcms" \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+                </div>
+                <p class="text-xs text-gray-500 mb-2">Combine search with filters:</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="search-with-filter">curl -X GET "<span x-text="baseUrl"></span>/collections/posts/records?search=fastcms&filter=status=published" \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+                </div>
             </div>
 
             <!-- Bulk Delete -->
@@ -349,6 +402,335 @@
                     <code class="text-sm">/files/{file_id}</code>
                 </div>
                 <p class="text-sm text-gray-600">Delete a file</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Webhooks Section -->
+    <div id="webhooks" class="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-webhook text-indigo-600 mr-3"></i>
+            Webhooks
+        </h2>
+        <p class="text-gray-600 mb-6">Subscribe to events and receive HTTP callbacks when records are created, updated, or deleted.</p>
+
+        <div class="space-y-6">
+            <!-- Create Webhook -->
+            <div class="border-l-4 border-indigo-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded mr-2">POST</span>
+                        <code class="text-sm">/webhooks</code>
+                    </div>
+                    <button onclick="copyToClipboard('webhook-create')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Create a new webhook subscription</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="webhook-create">curl -X POST "<span x-text="baseUrl"></span>/webhooks" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://your-server.com/webhook",
+    "collection_name": "posts",
+    "events": ["create", "update", "delete"],
+    "secret": "your-webhook-secret",
+    "retry_count": 3
+  }'</pre>
+                </div>
+            </div>
+
+            <!-- List Webhooks -->
+            <div class="border-l-4 border-indigo-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded mr-2">GET</span>
+                        <code class="text-sm">/webhooks</code>
+                    </div>
+                    <button onclick="copyToClipboard('webhook-list')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">List all webhooks</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="webhook-list">curl -X GET "<span x-text="baseUrl"></span>/webhooks" \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+                </div>
+            </div>
+
+            <!-- Delete Webhook -->
+            <div class="border-l-4 border-indigo-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded mr-2">DELETE</span>
+                        <code class="text-sm">/webhooks/{webhook_id}</code>
+                    </div>
+                    <button onclick="copyToClipboard('webhook-delete')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Delete a webhook</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="webhook-delete">curl -X DELETE "<span x-text="baseUrl"></span>/webhooks/WEBHOOK_ID" \
+  -H "Authorization: Bearer YOUR_TOKEN"</pre>
+                </div>
+            </div>
+
+            <div class="mt-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+                <p class="text-sm text-gray-700">
+                    <strong>Pro Tip:</strong> Webhooks include HMAC signatures for security. See the <a href="/admin/webhooks" class="text-indigo-600 hover:text-indigo-800">Webhooks page</a> for management or read <a href="https://github.com/anthropics/claude-code" class="text-indigo-600 hover:text-indigo-800">full documentation</a> for signature verification examples.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Backups Section -->
+    <div id="backups" class="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-hdd text-teal-600 mr-3"></i>
+            Backups
+        </h2>
+        <p class="text-gray-600 mb-6">Create and restore database backups for disaster recovery.</p>
+
+        <div class="space-y-6">
+            <!-- Create Backup -->
+            <div class="border-l-4 border-teal-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded mr-2">POST</span>
+                        <code class="text-sm">/backups</code>
+                    </div>
+                    <button onclick="copyToClipboard('backup-create')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Create a new database backup</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="backup-create">curl -X POST "<span x-text="baseUrl"></span>/backups" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"</pre>
+                </div>
+            </div>
+
+            <!-- List Backups -->
+            <div class="border-l-4 border-teal-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded mr-2">GET</span>
+                        <code class="text-sm">/backups</code>
+                    </div>
+                    <button onclick="copyToClipboard('backup-list')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">List all backups</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="backup-list">curl -X GET "<span x-text="baseUrl"></span>/backups" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"</pre>
+                </div>
+            </div>
+
+            <!-- Restore Backup -->
+            <div class="border-l-4 border-teal-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded mr-2">POST</span>
+                        <code class="text-sm">/backups/{backup_id}/restore</code>
+                    </div>
+                    <button onclick="copyToClipboard('backup-restore')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Restore a backup (overwrites current database)</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="backup-restore">curl -X POST "<span x-text="baseUrl"></span>/backups/BACKUP_ID/restore" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"</pre>
+                </div>
+            </div>
+
+            <!-- Delete Backup -->
+            <div class="border-l-4 border-teal-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded mr-2">DELETE</span>
+                        <code class="text-sm">/backups/{backup_id}</code>
+                    </div>
+                    <button onclick="copyToClipboard('backup-delete')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Delete a backup</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="backup-delete">curl -X DELETE "<span x-text="baseUrl"></span>/backups/BACKUP_ID" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"</pre>
+                </div>
+            </div>
+
+            <div class="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p class="text-sm text-gray-700">
+                    <strong>Warning:</strong> Backup operations require admin authentication. Visit the <a href="/admin/backups" class="text-yellow-700 hover:text-yellow-900 font-medium">Backups page</a> for a user-friendly interface or automate backups with cron jobs.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- OAuth Section -->
+    <div id="oauth" class="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-shield-alt text-pink-600 mr-3"></i>
+            OAuth Social Login
+        </h2>
+        <p class="text-gray-600 mb-6">Allow users to sign in with Google, GitHub, or Microsoft accounts.</p>
+
+        <div class="space-y-6">
+            <!-- OAuth Login Flow -->
+            <div class="border-l-4 border-pink-500 pl-4">
+                <h3 class="font-semibold text-gray-900 mb-2">Step 1: Redirect to OAuth Provider</h3>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded mr-2">GET</span>
+                        <code class="text-sm">/oauth/{provider}/login</code>
+                    </div>
+                    <button onclick="copyToClipboard('oauth-login')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Supported providers: google, github, microsoft</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto mb-3">
+                    <pre id="oauth-login">&lt;!-- Simple HTML Button --&gt;
+&lt;a href="<span x-text="baseUrl"></span>/oauth/google/login"&gt;
+  &lt;button&gt;Sign in with Google&lt;/button&gt;
+&lt;/a&gt;
+
+&lt;a href="<span x-text="baseUrl"></span>/oauth/github/login"&gt;
+  &lt;button&gt;Sign in with GitHub&lt;/button&gt;
+&lt;/a&gt;
+
+&lt;a href="<span x-text="baseUrl"></span>/oauth/microsoft/login"&gt;
+  &lt;button&gt;Sign in with Microsoft&lt;/button&gt;
+&lt;/a&gt;</pre>
+                </div>
+            </div>
+
+            <!-- JavaScript Integration -->
+            <div class="border-l-4 border-pink-500 pl-4">
+                <h3 class="font-semibold text-gray-900 mb-2">Step 2: Handle OAuth Callback</h3>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded mr-2">GET</span>
+                        <code class="text-sm">/oauth/{provider}/callback</code>
+                    </div>
+                    <button onclick="copyToClipboard('oauth-callback-js')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">OAuth provider redirects here with authorization code</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="oauth-callback-js">// JavaScript: Handle OAuth Redirect
+function loginWithGoogle() {
+  // Redirect to OAuth login
+  window.location.href = '<span x-text="baseUrl"></span>/oauth/google/login';
+}
+
+// On callback page (auto-handled by FastCMS)
+// FastCMS automatically:
+// 1. Exchanges code for access token
+// 2. Fetches user profile
+// 3. Creates/updates user account
+// 4. Returns JWT tokens
+
+// Response format:
+// {
+//   "access_token": "eyJhbGc...",
+//   "refresh_token": "eyJhbGc...",
+//   "token_type": "bearer",
+//   "user": {
+//     "id": "uuid",
+//     "email": "user@gmail.com",
+//     "name": "John Doe",
+//     "verified": true,
+//     "oauth_provider": "google"
+//   }
+// }</pre>
+                </div>
+            </div>
+
+            <!-- Complete Integration Example -->
+            <div class="border-l-4 border-pink-500 pl-4">
+                <h3 class="font-semibold text-gray-900 mb-2">Complete Frontend Integration</h3>
+                <div class="flex items-center justify-between mb-2">
+                    <button onclick="copyToClipboard('oauth-full-example')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Full example with token storage and redirect</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="oauth-full-example">// Complete OAuth Integration Example
+
+// 1. Add OAuth buttons to your login page
+&lt;div class="oauth-buttons"&gt;
+  &lt;button onclick="loginWithGoogle()"&gt;
+    &lt;img src="google-icon.svg"&gt; Sign in with Google
+  &lt;/button&gt;
+  &lt;button onclick="loginWithGitHub()"&gt;
+    &lt;img src="github-icon.svg"&gt; Sign in with GitHub
+  &lt;/button&gt;
+&lt;/div&gt;
+
+&lt;script&gt;
+// 2. Redirect functions
+function loginWithGoogle() {
+  window.location.href = '<span x-text="baseUrl"></span>/oauth/google/login';
+}
+
+function loginWithGitHub() {
+  window.location.href = '<span x-text="baseUrl"></span>/oauth/github/login';
+}
+
+// 3. Handle callback (optional manual handling)
+// FastCMS automatically handles the callback and returns tokens
+// If you need custom callback handling:
+const urlParams = new URLSearchParams(window.location.search);
+const code = urlParams.get('code');
+
+if (code) {
+  // Exchange code for tokens (handled automatically by FastCMS)
+  fetch('<span x-text="baseUrl"></span>/oauth/google/callback?code=' + code)
+    .then(res => res.json())
+    .then(data => {
+      // Store tokens
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
+    })
+    .catch(err => {
+      console.error('OAuth failed:', err);
+      alert('Login failed. Please try again.');
+    });
+}
+&lt;/script&gt;</pre>
+                </div>
+            </div>
+
+            <div class="mt-4 p-4 bg-pink-50 border border-pink-200 rounded-lg">
+                <p class="text-sm text-gray-700 mb-3">
+                    <strong>Setup Required:</strong> Configure OAuth providers in your .env file before use:
+                </p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre># .env file
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/oauth/google/callback
+
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_REDIRECT_URI=http://localhost:8000/api/v1/oauth/github/callback</pre>
+                </div>
+                <p class="text-sm text-gray-700 mt-3">
+                    See <a href="https://github.com/anthropics/claude-code" class="text-pink-600 hover:text-pink-800 font-medium">full documentation</a> for provider setup guides.
+                </p>
             </div>
         </div>
     </div>

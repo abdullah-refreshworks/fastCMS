@@ -32,6 +32,10 @@ async def get_stats(
     Returns:
         System statistics including user count, collection count, etc.
     """
+    from app.db.models.backup import Backup
+    from app.db.models.file import File
+    from datetime import datetime, timedelta
+
     user_repo = UserRepository(db)
     collection_repo = CollectionRepository(db)
 
@@ -46,13 +50,38 @@ async def get_stats(
     admin_users = result.scalar_one()
 
     # Get recent users (last 7 days)
-    from datetime import datetime, timedelta
-
     seven_days_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
     result = await db.execute(
         select(func.count(User.id)).where(User.created >= seven_days_ago)
     )
     recent_users = result.scalar_one()
+
+    # Count backups
+    result = await db.execute(select(func.count(Backup.id)))
+    total_backups = result.scalar_one()
+
+    # Get recent backups (last 5)
+    result = await db.execute(
+        select(Backup).order_by(Backup.created.desc()).limit(5)
+    )
+    recent_backups_list = result.scalars().all()
+    recent_backups = [
+        {
+            "id": b.id,
+            "filename": b.filename,
+            "size": b.size_bytes,
+            "created": b.created.isoformat(),
+        }
+        for b in recent_backups_list
+    ]
+
+    # Count files
+    result = await db.execute(select(func.count(File.id)).where(File.deleted == False))
+    total_files = result.scalar_one()
+
+    # Sum file sizes
+    result = await db.execute(select(func.sum(File.size)).where(File.deleted == False))
+    total_file_size = result.scalar_one() or 0
 
     return {
         "users": {
@@ -62,6 +91,14 @@ async def get_stats(
         },
         "collections": {
             "total": total_collections,
+        },
+        "backups": {
+            "total": total_backups,
+            "recent": recent_backups,
+        },
+        "files": {
+            "total": total_files,
+            "total_size": total_file_size,
         },
     }
 

@@ -10,9 +10,14 @@ FastCMS is a headless CMS built with FastAPI and SQLite. It provides dynamic col
 4. [Authentication System](#authentication-system)
 5. [Email Verification & Password Reset](#email-verification--password-reset)
 6. [CSV Import/Export](#csv-importexport)
-7. [Access Control Rules](#access-control-rules)
-8. [API Usage](#api-usage)
-9. [Field Types](#field-types)
+7. [Bulk Operations](#bulk-operations)
+8. [Access Control Rules](#access-control-rules)
+9. [API Usage](#api-usage)
+10. [Webhooks](#webhooks)
+11. [Backup & Restore](#backup--restore)
+12. [System Settings](#system-settings)
+13. [OAuth Authentication](#oauth-authentication)
+14. [Field Types](#field-types)
 
 ---
 
@@ -1122,11 +1127,51 @@ GET /api/v1/collections/{collection_name}/records
 - `per_page` - Records per page (default: 30, max: 100)
 - `sort` - Sort field (prefix with `-` for descending)
 - `filter` - Filter expression
+- `search` - Search term for full-text search across text fields
 
 **Example:**
 ```bash
 GET /api/v1/collections/products/records?page=1&per_page=20&sort=-created
 ```
+
+#### Search Records
+
+Full-text search allows you to search across all text, editor, email, and URL fields in a collection using a single search term.
+
+**Endpoint:**
+```bash
+GET /api/v1/collections/{collection_name}/records?search={query}
+```
+
+**How It Works:**
+- Searches across all text-based fields (text, editor, email, url)
+- Uses case-insensitive partial matching (LIKE operator)
+- Results match if the search term appears anywhere in any searchable field
+- Can be combined with filters and sorting
+
+**Basic Search Example:**
+```bash
+GET /api/v1/collections/posts/records?search=fastcms
+```
+
+**Search with Filters:**
+```bash
+GET /api/v1/collections/posts/records?search=fastcms&filter=status=published
+```
+
+**Search with Sorting:**
+```bash
+GET /api/v1/collections/posts/records?search=fastcms&sort=-created
+```
+
+**Searchable Field Types:**
+- `text` - Standard text fields
+- `editor` - Rich text editor content
+- `email` - Email address fields
+- `url` - URL fields
+
+**Non-Searchable Field Types:**
+- `number`, `bool`, `date`, `select`, `relation`, `file`, `json`
 
 #### Get Record
 ```bash
@@ -1431,6 +1476,920 @@ CORS_ORIGINS=http://localhost:3000,http://localhost:8000
 For issues and questions:
 - GitHub: https://github.com/yourusername/fastCMS
 - Issues: https://github.com/yourusername/fastCMS/issues
+
+---
+
+## Webhooks
+
+FastCMS includes a powerful webhook system that allows you to subscribe to events and receive HTTP callbacks when records are created, updated, or deleted in your collections.
+
+### What are Webhooks?
+
+Webhooks are HTTP POST requests sent to a URL you specify whenever certain events occur. This allows external systems to react to changes in your FastCMS data in real-time.
+
+**Use Cases:**
+- Send notifications when new users register
+- Sync data to external systems
+- Trigger workflows in other applications
+- Update search indexes when content changes
+- Send emails or SMS notifications
+- Log events to analytics platforms
+
+### Creating a Webhook
+
+**Endpoint:** `POST /api/v1/webhooks`
+
+**Request Body:**
+```json
+{
+  "url": "https://your-server.com/webhook",
+  "collection_name": "posts",
+  "events": ["create", "update", "delete"],
+  "secret": "your-webhook-secret",
+  "retry_count": 3
+}
+```
+
+**Parameters:**
+- `url` (required) - The endpoint that will receive webhook POSTs
+- `collection_name` (required) - Collection to watch for events
+- `events` (required) - Array of events to subscribe to: `["create", "update", "delete"]`
+- `secret` (optional) - Secret key for HMAC signature verification
+- `retry_count` (optional) - Number of retry attempts on failure (default: 3, max: 5)
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/webhooks" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "url": "https://myapp.com/api/webhook",
+    "collection_name": "posts",
+    "events": ["create", "update"],
+    "secret": "myWebhookSecret123",
+    "retry_count": 3
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": "webhook-uuid",
+  "url": "https://myapp.com/api/webhook",
+  "collection_name": "posts",
+  "events": ["create", "update"],
+  "active": true,
+  "retry_count": 3,
+  "created": "2025-01-15T10:00:00"
+}
+```
+
+### Webhook Payload
+
+When an event occurs, FastCMS sends a POST request to your webhook URL with this payload:
+
+```json
+{
+  "event": "create",
+  "collection": "posts",
+  "record_id": "record-uuid",
+  "data": {
+    "id": "record-uuid",
+    "title": "New Post",
+    "content": "Post content...",
+    "created": "2025-01-15T10:00:00",
+    "updated": "2025-01-15T10:00:00"
+  },
+  "timestamp": "2025-01-15T10:00:00"
+}
+```
+
+**Payload Fields:**
+- `event` - Event type: `create`, `update`, or `delete`
+- `collection` - Collection name where the event occurred
+- `record_id` - ID of the affected record
+- `data` - Full record data (empty for delete events)
+- `timestamp` - When the event occurred (ISO 8601)
+
+### Webhook Security
+
+**HMAC Signature Verification:**
+
+If you provided a `secret` when creating the webhook, FastCMS will sign each request with HMAC-SHA256 and include it in the `X-Webhook-Signature` header.
+
+**Verifying the signature (Python example):**
+```python
+import hmac
+import hashlib
+
+def verify_webhook(request_body, signature, secret):
+    expected = hmac.new(
+        secret.encode(),
+        request_body,
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+# In your webhook handler:
+signature = request.headers.get('X-Webhook-Signature')
+if not verify_webhook(request.body, signature, 'myWebhookSecret123'):
+    return 401  # Unauthorized
+```
+
+**Verifying the signature (Node.js example):**
+```javascript
+const crypto = require('crypto');
+
+function verifyWebhook(body, signature, secret) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(expected),
+    Buffer.from(signature)
+  );
+}
+
+// In your webhook handler:
+const signature = req.headers['x-webhook-signature'];
+if (!verifyWebhook(req.body, signature, 'myWebhookSecret123')) {
+  return res.status(401).send('Unauthorized');
+}
+```
+
+### Managing Webhooks
+
+#### List All Webhooks
+```bash
+GET /api/v1/webhooks
+```
+
+**Filter by collection:**
+```bash
+GET /api/v1/webhooks?collection_name=posts
+```
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/webhooks?collection_name=posts" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "webhook-1",
+      "url": "https://myapp.com/webhook",
+      "collection_name": "posts",
+      "events": ["create", "update"],
+      "active": true,
+      "retry_count": 3,
+      "created": "2025-01-15T10:00:00"
+    }
+  ],
+  "total": 1
+}
+```
+
+#### Get Single Webhook
+```bash
+GET /api/v1/webhooks/{webhook_id}
+```
+
+#### Update Webhook
+```bash
+PATCH /api/v1/webhooks/{webhook_id}
+```
+
+**Request Body (all fields optional):**
+```json
+{
+  "url": "https://new-url.com/webhook",
+  "events": ["create"],
+  "active": false,
+  "secret": "newSecret",
+  "retry_count": 5
+}
+```
+
+**Example - Disable a webhook:**
+```bash
+curl -X PATCH "http://localhost:8000/api/v1/webhooks/webhook-uuid" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"active": false}'
+```
+
+#### Delete Webhook
+```bash
+DELETE /api/v1/webhooks/{webhook_id}
+```
+
+**Example:**
+```bash
+curl -X DELETE "http://localhost:8000/api/v1/webhooks/webhook-uuid" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+### Webhook Retry Logic
+
+When your webhook endpoint fails or returns a non-2xx status code, FastCMS will automatically retry:
+
+**Retry Schedule:**
+- 1st retry: After 1 minute
+- 2nd retry: After 5 minutes
+- 3rd retry: After 15 minutes
+- 4th retry: After 30 minutes
+- 5th retry: After 1 hour
+
+**After all retries fail:**
+- Webhook is automatically disabled (`active: false`)
+- You must re-enable it manually after fixing the issue
+
+### Best Practices
+
+1. **Respond Quickly**: Return 200 OK immediately, process the webhook asynchronously
+2. **Verify Signatures**: Always verify HMAC signatures in production
+3. **Be Idempotent**: Handle duplicate webhook deliveries gracefully
+4. **Use HTTPS**: Only use HTTPS URLs for security
+5. **Monitor Failures**: Check webhook status regularly, re-enable if disabled
+
+### Troubleshooting
+
+**Webhook not firing:**
+- Check that the webhook is `active: true`
+- Verify the collection name is correct
+- Ensure events array includes the event type
+- Check that your URL is accessible from the internet
+
+**Webhook disabled automatically:**
+- All retry attempts failed
+- Check your endpoint logs for errors
+- Fix the issue and re-enable: `PATCH /webhooks/{id}` with `{"active": true}`
+
+**Signature verification fails:**
+- Ensure you're using the same secret
+- Verify you're hashing the raw request body
+- Check that your HMAC implementation is correct
+
+---
+
+## Backup & Restore
+
+FastCMS provides database backup and restore functionality to protect your data and enable disaster recovery.
+
+### What Gets Backed Up?
+
+A backup includes:
+- All collections and their schemas
+- All records across all collections
+- User accounts (admin users)
+- System settings
+- Webhooks and other configurations
+
+**Not included in backups:**
+- Uploaded files (store separately, e.g., S3)
+- Application logs
+- Temporary data
+
+### Creating a Backup
+
+**Endpoint:** `POST /api/v1/backups`
+
+**Requires:** Admin authentication
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/backups" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "id": "backup-uuid",
+  "filename": "backup_2025-01-15_100000.db",
+  "size_bytes": 1048576,
+  "status": "completed",
+  "created": "2025-01-15T10:00:00"
+}
+```
+
+**Backup Process:**
+1. Creates a snapshot of the entire SQLite database
+2. Stores the backup file in the `data/backups/` directory
+3. Returns backup metadata including file size and creation time
+
+### Listing Backups
+
+**Endpoint:** `GET /api/v1/backups`
+
+**Query Parameters:**
+- `limit` - Number of backups to return (default: 50, max: 100)
+- `offset` - Skip this many backups (for pagination)
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/backups?limit=10&offset=0" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "backup-1",
+      "filename": "backup_2025-01-15_100000.db",
+      "size_bytes": 1048576,
+      "status": "completed",
+      "location": "data/backups/backup_2025-01-15_100000.db",
+      "created": "2025-01-15T10:00:00"
+    },
+    {
+      "id": "backup-2",
+      "filename": "backup_2025-01-14_100000.db",
+      "size_bytes": 1024000,
+      "status": "completed",
+      "location": "data/backups/backup_2025-01-14_100000.db",
+      "created": "2025-01-14T10:00:00"
+    }
+  ],
+  "limit": 10,
+  "offset": 0
+}
+```
+
+### Restoring from a Backup
+
+**WARNING:** Restoring will **overwrite all current data**. This operation cannot be undone.
+
+**Endpoint:** `POST /api/v1/backups/{backup_id}/restore`
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/backups/backup-uuid/restore" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Backup restored successfully"
+}
+```
+
+**Restore Process:**
+1. Validates the backup file exists
+2. Stops all database operations
+3. Replaces the current database with the backup
+4. Restarts the database connection
+5. Verifies data integrity
+
+**After restore:**
+- All data returns to the state at backup time
+- Any changes made after the backup are lost
+- The application may need to be restarted for full effect
+
+### Deleting a Backup
+
+**Endpoint:** `DELETE /api/v1/backups/{backup_id}`
+
+**Example:**
+```bash
+curl -X DELETE "http://localhost:8000/api/v1/backups/backup-uuid" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "deleted": true
+}
+```
+
+### Backup Storage
+
+**Default Location:** `data/backups/`
+
+**Filename Format:** `backup_YYYY-MM-DD_HHMMSS.db`
+
+**Storage Recommendations:**
+1. **Keep multiple backups**: Don't delete old backups immediately
+2. **Off-site storage**: Copy backups to cloud storage (S3, Google Cloud Storage)
+3. **Test restores**: Periodically test restoration to verify backup integrity
+4. **Automate backups**: Schedule regular backups (daily/weekly)
+
+### Automated Backups
+
+While manual backups are available via API, you can automate them using cron or a task scheduler:
+
+**Linux/Mac (cron):**
+```bash
+# Add to crontab: Daily backup at 2 AM
+0 2 * * * curl -X POST http://localhost:8000/api/v1/backups \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+**Python script for automated backups:**
+```python
+import requests
+import schedule
+import time
+
+def create_backup():
+    response = requests.post(
+        'http://localhost:8000/api/v1/backups',
+        headers={'Authorization': 'Bearer YOUR_ADMIN_TOKEN'}
+    )
+    if response.status_code == 200:
+        print(f"Backup created: {response.json()['filename']}")
+    else:
+        print(f"Backup failed: {response.text}")
+
+# Run daily at 2 AM
+schedule.every().day.at("02:00").do(create_backup)
+
+while True:
+    schedule.run_pending()
+    time.sleep(60)
+```
+
+### Disaster Recovery
+
+**Scenario: Complete data loss**
+
+1. Stop the FastCMS application
+2. Locate your most recent backup file
+3. Replace `data/app.db` with the backup file:
+   ```bash
+   cp data/backups/backup_2025-01-15_100000.db data/app.db
+   ```
+4. Restart FastCMS
+5. Verify all data is restored
+
+**Scenario: Accidental deletion**
+
+1. Create a backup of current state (just in case)
+2. Identify the backup before the deletion occurred
+3. Use the restore API endpoint
+4. Verify the deleted data is back
+
+### Best Practices
+
+1. **Regular Schedule**: Backup daily or before major changes
+2. **Retention Policy**: Keep at least 7 daily, 4 weekly, 12 monthly backups
+3. **Test Restores**: Monthly test restore to verify backups work
+4. **Off-site Storage**: Don't rely only on local backups
+5. **Monitor Space**: Ensure adequate disk space for backups
+
+### Backup Size Management
+
+Backups can grow large over time. To manage size:
+
+1. **Delete old backups** programmatically:
+   ```bash
+   # List backups older than 30 days and delete them
+   curl "http://localhost:8000/api/v1/backups" \
+     -H "Authorization: Bearer ADMIN_TOKEN" | \
+     jq -r '.items[] | select(.created < "2024-12-15") | .id' | \
+     xargs -I {} curl -X DELETE \
+       "http://localhost:8000/api/v1/backups/{}" \
+       -H "Authorization: Bearer ADMIN_TOKEN"
+   ```
+
+2. **Compress backups**:
+   ```bash
+   gzip data/backups/backup_2025-01-15_100000.db
+   ```
+
+3. **Move to cold storage**: Archive old backups to S3 Glacier or equivalent
+
+---
+
+## System Settings
+
+FastCMS includes a settings system for storing application configuration values in the database.
+
+### What are System Settings?
+
+Settings are key-value pairs stored in the database that control application behavior. Unlike environment variables, settings can be changed at runtime without restarting the application.
+
+**Use Cases:**
+- Feature flags
+- Application-wide configuration
+- User preferences
+- API keys for third-party services
+- Rate limits
+- Default values
+
+### Setting Categories
+
+Settings are organized into categories:
+- `app` - General application settings
+- `email` - Email/SMTP configuration
+- `security` - Security and authentication settings
+- `storage` - File storage configuration
+- `custom` - Your custom settings
+
+### Get All Settings
+
+**Endpoint:** `GET /api/v1/settings`
+
+**Requires:** Admin authentication
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/settings" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "setting-1",
+    "key": "app_name",
+    "value": "My FastCMS",
+    "category": "app",
+    "description": "Application name"
+  },
+  {
+    "id": "setting-2",
+    "key": "max_upload_size",
+    "value": 10485760,
+    "category": "storage",
+    "description": "Maximum file upload size in bytes"
+  }
+]
+```
+
+### Get Settings by Category
+
+**Endpoint:** `GET /api/v1/settings/{category}`
+
+**Example:**
+```bash
+curl "http://localhost:8000/api/v1/settings/email" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "setting-3",
+    "key": "smtp_host",
+    "value": "smtp.gmail.com",
+    "category": "email",
+    "description": "SMTP server host"
+  },
+  {
+    "id": "setting-4",
+    "key": "smtp_port",
+    "value": 587,
+    "category": "email",
+    "description": "SMTP server port"
+  }
+]
+```
+
+### Update a Setting
+
+**Endpoint:** `POST /api/v1/settings`
+
+**Request Body:**
+```json
+{
+  "key": "app_name",
+  "value": "My FastCMS",
+  "category": "app",
+  "description": "Application name displayed in admin"
+}
+```
+
+**Example:**
+```bash
+curl -X POST "http://localhost:8000/api/v1/settings" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -d '{
+    "key": "maintenance_mode",
+    "value": false,
+    "category": "app",
+    "description": "Enable maintenance mode"
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": "setting-uuid",
+  "key": "maintenance_mode",
+  "value": false,
+  "category": "app"
+}
+```
+
+### Delete a Setting
+
+**Endpoint:** `DELETE /api/v1/settings/{key}`
+
+**Example:**
+```bash
+curl -X DELETE "http://localhost:8000/api/v1/settings/old_setting" \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "deleted": true
+}
+```
+
+### Common Settings Examples
+
+**Application Settings:**
+```json
+{
+  "key": "app_name",
+  "value": "My FastCMS",
+  "category": "app"
+}
+```
+
+**Feature Flags:**
+```json
+{
+  "key": "enable_ai_features",
+  "value": true,
+  "category": "app"
+}
+```
+
+**Rate Limiting:**
+```json
+{
+  "key": "api_rate_limit",
+  "value": 100,
+  "category": "security",
+  "description": "Max API requests per minute"
+}
+```
+
+**File Upload Limits:**
+```json
+{
+  "key": "max_file_size",
+  "value": 10485760,
+  "category": "storage",
+  "description": "Maximum file size in bytes (10MB)"
+}
+```
+
+### Using Settings in Code
+
+Settings are primarily managed via the API, but you can also access them programmatically in your application code.
+
+**Python example:**
+```python
+from app.services.settings_service import SettingsService
+
+# Get a setting
+settings = SettingsService(db)
+app_name = await settings.get("app_name", default="FastCMS")
+
+# Set a setting
+await settings.set(
+    key="maintenance_mode",
+    value=True,
+    category="app",
+    description="Site maintenance mode"
+)
+```
+
+### Best Practices
+
+1. **Use Categories**: Organize related settings together
+2. **Add Descriptions**: Always include helpful descriptions
+3. **Set Defaults**: Have sensible defaults in your code
+4. **Validate Values**: Check setting values before using them
+5. **Document Settings**: Keep a list of all available settings
+
+---
+
+## OAuth Authentication
+
+FastCMS supports OAuth authentication for popular providers, allowing users to sign in with their existing accounts from Google, GitHub, or Microsoft.
+
+### Supported Providers
+
+- **Google** - Google account authentication
+- **GitHub** - GitHub account authentication
+- **Microsoft** - Microsoft account authentication
+
+### Configuration
+
+OAuth providers are configured via environment variables in your `.env` file:
+
+**Google OAuth:**
+```env
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/api/v1/oauth/google/callback
+```
+
+**GitHub OAuth:**
+```env
+GITHUB_CLIENT_ID=your-github-client-id
+GITHUB_CLIENT_SECRET=your-github-client-secret
+GITHUB_REDIRECT_URI=http://localhost:8000/api/v1/oauth/github/callback
+```
+
+**Microsoft OAuth:**
+```env
+MICROSOFT_CLIENT_ID=your-microsoft-client-id
+MICROSOFT_CLIENT_SECRET=your-microsoft-client-secret
+MICROSOFT_REDIRECT_URI=http://localhost:8000/api/v1/oauth/microsoft/callback
+```
+
+### Setting Up OAuth Providers
+
+#### Google OAuth
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Navigate to "APIs & Services" > "Credentials"
+4. Click "Create Credentials" > "OAuth 2.0 Client ID"
+5. Select "Web application"
+6. Add authorized redirect URI: `http://localhost:8000/api/v1/oauth/google/callback`
+7. Copy the Client ID and Client Secret to your `.env` file
+
+#### GitHub OAuth
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Click "New OAuth App"
+3. Fill in:
+   - Application name: Your app name
+   - Homepage URL: `http://localhost:8000`
+   - Authorization callback URL: `http://localhost:8000/api/v1/oauth/github/callback`
+4. Copy the Client ID and Client Secret to your `.env` file
+
+#### Microsoft OAuth
+
+1. Go to [Azure Portal](https://portal.azure.com/)
+2. Navigate to "Azure Active Directory" > "App registrations"
+3. Click "New registration"
+4. Fill in:
+   - Name: Your app name
+   - Redirect URI: `http://localhost:8000/api/v1/oauth/microsoft/callback`
+5. Copy the Application (client) ID
+6. Create a new client secret under "Certificates & secrets"
+7. Copy both values to your `.env` file
+
+### OAuth Flow
+
+**1. Initiate OAuth Login**
+
+Redirect users to the OAuth authorization URL:
+
+```bash
+GET /api/v1/oauth/{provider}/login
+```
+
+**Example:**
+```
+http://localhost:8000/api/v1/oauth/google/login
+http://localhost:8000/api/v1/oauth/github/login
+http://localhost:8000/api/v1/oauth/microsoft/login
+```
+
+**2. User Authorization**
+
+The user is redirected to the provider's login page where they authorize your application.
+
+**3. Callback**
+
+After authorization, the provider redirects back to:
+```
+/api/v1/oauth/{provider}/callback?code=AUTHORIZATION_CODE
+```
+
+FastCMS automatically:
+- Exchanges the code for an access token
+- Fetches the user's profile information
+- Creates or updates the user account
+- Returns JWT tokens for your application
+
+**4. Response**
+
+```json
+{
+  "access_token": "eyJhbGc...",
+  "refresh_token": "eyJhbGc...",
+  "token_type": "bearer",
+  "user": {
+    "id": "user-uuid",
+    "email": "user@gmail.com",
+    "name": "John Doe",
+    "verified": true,
+    "oauth_provider": "google"
+  }
+}
+```
+
+### Using OAuth in Your Frontend
+
+**HTML Example:**
+```html
+<a href="http://localhost:8000/api/v1/oauth/google/login">
+  <button>Sign in with Google</button>
+</a>
+
+<a href="http://localhost:8000/api/v1/oauth/github/login">
+  <button>Sign in with GitHub</button>
+</a>
+```
+
+**JavaScript Example:**
+```javascript
+// Redirect to OAuth login
+function loginWithGoogle() {
+  window.location.href = 'http://localhost:8000/api/v1/oauth/google/login';
+}
+
+// Handle callback (if handling manually)
+const urlParams = new URLSearchParams(window.location.search);
+const code = urlParams.get('code');
+if (code) {
+  // Exchange code for tokens
+  fetch(`http://localhost:8000/api/v1/oauth/google/callback?code=${code}`)
+    .then(res => res.json())
+    .then(data => {
+      // Store tokens
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('refresh_token', data.refresh_token);
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
+    });
+}
+```
+
+### OAuth with Auth Collections
+
+OAuth works with both the main user system and auth collections (e.g., customers, vendors).
+
+**Collection-specific OAuth:**
+```bash
+GET /api/v1/oauth/{provider}/login?collection=customers
+```
+
+This allows customers to sign in with OAuth while keeping them separate from admin users.
+
+### Account Linking
+
+If a user signs in with OAuth and an account with that email already exists:
+- **Email verified**: Accounts are automatically linked
+- **Email not verified**: User must verify email first or use password login
+
+### Security Considerations
+
+1. **HTTPS in Production**: Always use HTTPS URLs for OAuth redirects in production
+2. **State Parameter**: FastCMS automatically includes CSRF protection via state parameter
+3. **Redirect URI Validation**: Ensure redirect URIs match exactly in provider settings
+4. **Scope Limitations**: OAuth only requests minimal required scopes (email, profile)
+
+### Troubleshooting
+
+**Redirect URI Mismatch:**
+- Ensure the redirect URI in your `.env` file exactly matches what's configured in the OAuth provider
+- Include the full URL: `http://localhost:8000/api/v1/oauth/google/callback`
+
+**Access Denied Error:**
+- User denied permission at the OAuth provider
+- User needs to retry the OAuth flow
+
+**Invalid Client Error:**
+- Client ID or Client Secret is incorrect
+- Verify credentials in `.env` file match provider settings
+
+**Email Already Exists:**
+- An account with this email already exists
+- User can sign in with password or request password reset
+- Or verify the existing account's email to enable linking
+
+### Best Practices
+
+1. **Production URLs**: Update redirect URIs to your production domain before deploying
+2. **Error Handling**: Implement proper error handling for OAuth failures
+3. **Email Verification**: Encourage users to verify email even with OAuth
+4. **Multiple Providers**: Allow users to link multiple OAuth providers to one account
+5. **Fallback**: Always provide traditional email/password login as backup
 
 ---
 

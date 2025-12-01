@@ -127,6 +127,22 @@
                         </div>
                     </div>
 
+                    <!-- Search Records -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded">GET</span>
+                                <span class="text-sm font-mono text-gray-700">Search Records</span>
+                            </div>
+                            <button @click="copyCode('search')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('search')"></pre>
+                        </div>
+                    </div>
+
                     <!-- Get Record -->
                     <div class="px-6 py-4">
                         <div class="flex items-center justify-between mb-2">
@@ -227,6 +243,8 @@
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -d '${this.getExampleData()}'`,
+                    search: `curl "${baseUrl}/collections/${collection}/records?search=fastcms" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
                     get: `curl "${baseUrl}/collections/${collection}/records/RECORD_ID" \\
   -H "Authorization: Bearer YOUR_TOKEN"`,
                     update: `curl -X PUT "${baseUrl}/collections/${collection}/records/RECORD_ID" \\
@@ -256,6 +274,13 @@ const response = await fetch('${baseUrl}/collections/${collection}/records', {
     'Authorization': 'Bearer YOUR_TOKEN'
   },
   body: JSON.stringify(${this.getExampleData()})
+});
+const data = await response.json();`,
+                    search: `// Search records
+const response = await fetch('${baseUrl}/collections/${collection}/records?search=fastcms', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
 });
 const data = await response.json();`,
                     get: `// Get record
@@ -303,6 +328,15 @@ data = response.json()`,
 response = requests.post(
     '${baseUrl}/collections/${collection}/records',
     json=${this.getExampleData()},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    search: `import requests
+
+# Search records
+response = requests.get(
+    '${baseUrl}/collections/${collection}/records',
+    params={'search': 'fastcms'},
     headers={'Authorization': 'Bearer YOUR_TOKEN'}
 )
 data = response.json()`,

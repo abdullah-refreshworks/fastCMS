@@ -31,13 +31,21 @@ async def create_backup(
 
 @router.get("/backups", dependencies=[Depends(require_admin)])
 async def list_backups(
-    limit: int = 50,
-    offset: int = 0,
+    page: int = 1,
+    per_page: int = 20,
     db: AsyncSession = Depends(get_db),
 ):
     """List all backups (admin only)"""
+    # Get total count
+    count_result = await db.execute(select(Backup))
+    total = len(count_result.scalars().all())
+
+    # Calculate pagination
+    offset = (page - 1) * per_page
+    total_pages = (total + per_page - 1) // per_page
+
     result = await db.execute(
-        select(Backup).order_by(Backup.created.desc()).limit(limit).offset(offset)
+        select(Backup).order_by(Backup.created.desc()).limit(per_page).offset(offset)
     )
     backups = result.scalars().all()
 
@@ -46,15 +54,17 @@ async def list_backups(
             {
                 "id": b.id,
                 "filename": b.filename,
-                "size_bytes": b.size_bytes,
+                "size": b.size_bytes,
+                "path": b.location,
                 "status": b.status,
-                "location": b.location,
                 "created": b.created.isoformat(),
             }
             for b in backups
         ],
-        "limit": limit,
-        "offset": offset,
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": total_pages,
     }
 
 
