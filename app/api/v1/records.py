@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import UserContext, get_optional_user, require_auth_context
 from app.db.session import get_db
 from app.schemas.record import (
+    BulkDeleteRequest,
+    BulkOperationResponse,
+    BulkUpdateRequest,
     RecordCreate,
     RecordListResponse,
     RecordResponse,
@@ -270,3 +273,91 @@ async def delete_record(
     service = RecordService(db, collection_name, user_context)
     await service.delete_record(record_id)
     return None
+
+
+@router.post(
+    "/collections/{collection_name}/records/bulk-delete",
+    response_model=BulkOperationResponse,
+    summary="Bulk delete records",
+)
+async def bulk_delete_records(
+    collection_name: str = Path(..., description="Collection name"),
+    request: BulkDeleteRequest = ...,
+    db: AsyncSession = Depends(get_db),
+    user_context: UserContext = Depends(require_auth_context),
+):
+    """
+    Delete multiple records at once.
+
+    Returns a summary of successful and failed deletions.
+    Maximum 100 records per request.
+    """
+    service = RecordService(db, collection_name, user_context)
+
+    success = 0
+    failed = 0
+    errors = []
+
+    for record_id in request.record_ids:
+        try:
+            await service.delete_record(record_id)
+            success += 1
+        except Exception as e:
+            failed += 1
+            errors.append({
+                "record_id": record_id,
+                "error": str(e)
+            })
+
+    await db.commit()
+
+    return BulkOperationResponse(
+        success=success,
+        failed=failed,
+        errors=errors if errors else None
+    )
+
+
+@router.post(
+    "/collections/{collection_name}/records/bulk-update",
+    response_model=BulkOperationResponse,
+    summary="Bulk update records",
+)
+async def bulk_update_records(
+    collection_name: str = Path(..., description="Collection name"),
+    request: BulkUpdateRequest = ...,
+    db: AsyncSession = Depends(get_db),
+    user_context: UserContext = Depends(require_auth_context),
+):
+    """
+    Update multiple records at once with the same data.
+
+    Returns a summary of successful and failed updates.
+    Maximum 100 records per request.
+    """
+    service = RecordService(db, collection_name, user_context)
+
+    success = 0
+    failed = 0
+    errors = []
+
+    update_data = RecordUpdate(data=request.data)
+
+    for record_id in request.record_ids:
+        try:
+            await service.update_record(record_id, update_data)
+            success += 1
+        except Exception as e:
+            failed += 1
+            errors.append({
+                "record_id": record_id,
+                "error": str(e)
+            })
+
+    await db.commit()
+
+    return BulkOperationResponse(
+        success=success,
+        failed=failed,
+        errors=errors if errors else None
+    )

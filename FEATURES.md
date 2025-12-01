@@ -106,12 +106,25 @@
 - [x] **Manual Backups** - Create backups via API (backup.py, backups.py)
 - [x] **Backup Management** - List and manage backups
 - [x] **Database Snapshots** - Create/restore snapshots
+- [x] **CSV Export** - Export records to CSV (records.py)
+- [x] **CSV Import** - Import records from CSV (records.py)
 - [ ] **Automated Backups** - Scheduled database backups
 - [ ] **Point-in-time Recovery** - Restore to specific time
-- [ ] **Collection Export** - Export as JSON/CSV
-- [ ] **Import Collections** - Import from JSON/CSV
+- [ ] **Collection Export** - Export collection schema as JSON
+- [ ] **Import Collections** - Import collection schema from JSON
 
-### 7. Advanced File Features
+### 7. Bulk Operations ✓ IMPLEMENTED
+- [x] **Bulk Delete** - Delete multiple records in one request (records.py)
+- [x] **Bulk Update** - Update multiple records with same data (records.py)
+- [x] **Partial Success Handling** - Continue processing even if some records fail
+- [x] **Error Reporting** - Detailed error messages per failed record
+- [x] **Admin UI Checkboxes** - Select records in admin interface
+- [x] **Bulk Action Buttons** - Delete/update selected records
+- [x] **Bulk Update Modal** - UI for selecting field and value to update
+- [ ] **Bulk Create** - Create multiple records in one request
+- [ ] **Async Processing** - Process bulk operations in background for large datasets
+
+### 8. Advanced File Features
 - [ ] **S3 Storage** - Store files in S3/compatible storage
 - [ ] **CDN Integration** - Serve files from CDN
 - [ ] **Image Transformations** - Resize/crop on-demand
@@ -188,8 +201,8 @@ Based on typical CMS usage, these would be highest priority:
 2. ✅ **Password Reset** - Required for user management (IMPLEMENTED)
 3. ✅ **Webhooks** - Common integration requirement (IMPLEMENTED)
 4. ✅ **Backup/Restore** - Critical for data safety (IMPLEMENTED)
-5. **Bulk Operations** - Efficiency in admin UI
-6. **CSV Import/Export** - Common data migration need
+5. ✅ **Bulk Operations** - Efficiency in admin UI (IMPLEMENTED)
+6. ✅ **CSV Import/Export** - Common data migration need (IMPLEMENTED)
 
 ### Medium Priority
 7. **Full-text Search** - Better search experience
