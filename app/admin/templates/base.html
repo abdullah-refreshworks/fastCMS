@@ -122,15 +122,6 @@
           API Reference
         </a>
 
-        <!-- AI Playground -->
-        <a
-          href="/admin/ai"
-          class="{% if active == 'ai' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors"
-        >
-          <i class="fas fa-robot w-5 text-center mr-3"></i>
-          AI Playground
-        </a>
-
         <!-- Auth Docs -->
         <a
           href="/admin/auth-docs"
@@ -181,6 +172,15 @@
         >
           <i class="fas fa-bolt w-5 text-center mr-3 text-yellow-400"></i>
           Realtime
+        </a>
+
+        <!-- LangGraph Plugin -->
+        <a
+          href="/admin/langgraph"
+          class="{% if active == 'langgraph' %}bg-gray-900 text-white{% else %}text-gray-300 hover:bg-gray-700 hover:text-white{% endif %} group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-colors"
+        >
+          <i class="fas fa-project-diagram w-5 text-center mr-3 text-purple-400"></i>
+          LangGraph
         </a>
       </nav>
 

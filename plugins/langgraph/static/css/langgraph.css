@@ -1,0 +1,38 @@
+/* LangGraph Plugin Styles */
+
+#rete-editor {
+  background: linear-gradient(90deg, rgba(200,200,200,0.1) 1px, transparent 1px),
+              linear-gradient(rgba(200,200,200,0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.rete-node {
+  background: white;
+  border: 2px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 12px;
+  min-width: 180px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: all 0.2s;
+}
+
+.rete-node:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+.rete-node.selected {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.rete-connection {
+  stroke: #94a3b8;
+  stroke-width: 2px;
+  fill: none;
+}
+
+.rete-connection.selected {
+  stroke: #6366f1;
+  stroke-width: 3px;
+}
