@@ -55,18 +55,6 @@ async def api_documentation(
     )
 
 
-@router.get("/ai", response_class=HTMLResponse)
-async def ai_playground(
-    request: Request,
-    user: UserContext = Depends(require_admin_ui),
-):
-    """AI Playground page."""
-    return templates.TemplateResponse(
-        "ai_playground.html",
-        {"request": request, "user": user, "active": "ai"},
-    )
-
-
 @router.get("/auth-docs", response_class=HTMLResponse)
 async def auth_docs(
     request: Request,
