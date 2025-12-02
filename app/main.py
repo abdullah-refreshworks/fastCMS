@@ -38,6 +38,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
 
+    # Check for pending backup restore (must happen before DB initialization)
+    from app.services.backup_service import BackupService
+    restore_performed = BackupService.perform_restore_on_startup()
+    if restore_performed:
+        logger.info("✅ Database restored from backup successfully")
+
     # Initialize database
     await init_db()
 

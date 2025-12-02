@@ -369,11 +369,21 @@ async def list_collections_admin(
     # Convert collections to response format
     items = []
     for col in collections:
-        # Extract fields from schema
-        fields = [
-            FieldSchema(**field_data)
-            for field_data in col.schema.get("fields", [])
-        ]
+        # Extract fields from schema and migrate old formats
+        fields = []
+        for field_data in col.schema.get("fields", []):
+            # Migrate old boolean cascade_delete to new enum format
+            if "relation" in field_data and field_data["relation"]:
+                relation_data = field_data["relation"]
+                if "cascade_delete" in relation_data:
+                    cascade_value = relation_data["cascade_delete"]
+                    # Convert old boolean format to new enum string
+                    if isinstance(cascade_value, bool):
+                        relation_data["cascade_delete"] = "cascade" if cascade_value else "restrict"
+                    elif cascade_value is None:
+                        relation_data["cascade_delete"] = "restrict"
+
+            fields.append(FieldSchema(**field_data))
 
         items.append(CollectionResponse(
             id=col.id,
