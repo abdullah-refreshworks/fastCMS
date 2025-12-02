@@ -65,6 +65,26 @@ curl "http://localhost:8000/api/v1/settings/email" \
   -H "Authorization: Bearer ADMIN_TOKEN"
 ```
 
+**Response:**
+```json
+[
+  {
+    "id": "setting-3",
+    "key": "smtp_host",
+    "value": "smtp.gmail.com",
+    "category": "email",
+    "description": "SMTP server host"
+  },
+  {
+    "id": "setting-4",
+    "key": "smtp_port",
+    "value": 587,
+    "category": "email",
+    "description": "SMTP server port"
+  }
+]
+```
+
 ## Update a Setting
 
 **Endpoint:** `POST /api/v1/settings`
@@ -92,6 +112,16 @@ curl -X POST "http://localhost:8000/api/v1/settings" \
   }'
 ```
 
+**Response:**
+```json
+{
+  "id": "setting-uuid",
+  "key": "maintenance_mode",
+  "value": false,
+  "category": "app"
+}
+```
+
 ## Delete a Setting
 
 **Endpoint:** `DELETE /api/v1/settings/{key}`
@@ -100,6 +130,13 @@ curl -X POST "http://localhost:8000/api/v1/settings" \
 ```bash
 curl -X DELETE "http://localhost:8000/api/v1/settings/old_setting" \
   -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "deleted": true
+}
 ```
 
 ## Common Settings Examples
@@ -140,6 +177,27 @@ curl -X DELETE "http://localhost:8000/api/v1/settings/old_setting" \
   "category": "storage",
   "description": "Maximum file size in bytes (10MB)"
 }
+```
+
+## Using Settings in Code
+
+Settings are primarily managed via the API, but you can also access them programmatically in your application code.
+
+**Python example:**
+```python
+from app.services.settings_service import SettingsService
+
+# Get a setting
+settings = SettingsService(db)
+app_name = await settings.get("app_name", default="FastCMS")
+
+# Set a setting
+await settings.set(
+    key="maintenance_mode",
+    value=True,
+    category="app",
+    description="Site maintenance mode"
+)
 ```
 
 ## Best Practices

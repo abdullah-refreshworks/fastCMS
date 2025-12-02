@@ -3,7 +3,7 @@ Field type definitions and validators for dynamic collections.
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -59,6 +59,11 @@ class RelationOptions(BaseModel):
     """Options for relation fields."""
 
     collection: str = Field(..., description="Target collection name")
+    collection_id: Optional[str] = Field(None, description="Target collection ID (legacy)")
+    cascade_delete: Optional[Union[bool, RelationCascade]] = Field(
+        default=RelationCascade.RESTRICT,
+        description="Action on parent deletion: restrict, cascade, set_null, no_action"
+    )
     type: str = Field(
         default="one-to-many",
         description="Relationship type: one-to-many, many-to-one, many-to-many, one-to-one"
@@ -106,7 +111,7 @@ class RelationOptions(BaseModel):
 
     @field_validator("collection_id")
     @classmethod
-    def validate_collection_id(cls, v: Optional[str], info: Any) -> Optional[str]:
+    def validate_collection_id(cls, v: Optional[str]) -> Optional[str]:
         """Ensure collection_id or collection_ids is provided."""
         # At least one must be provided, but validation is lenient for existing data
         return v
@@ -170,7 +175,7 @@ class FieldSchema(BaseModel):
 
     @field_validator("relation", mode="after")
     @classmethod
-    def validate_relation(cls, v: Optional[RelationOptions], info: Any) -> Optional[RelationOptions]:
+    def validate_relation(cls, v: Optional[RelationOptions]) -> Optional[RelationOptions]:
         """Ensure relation options are provided for relation fields."""
         # Only validate on new creations, be lenient with existing data to avoid breaking
         # Users should provide relation options, but we won't block loading existing data
@@ -178,7 +183,7 @@ class FieldSchema(BaseModel):
 
     @field_validator("select", mode="after")
     @classmethod
-    def validate_select(cls, v: Optional[SelectOptions], info: Any) -> Optional[SelectOptions]:
+    def validate_select(cls, v: Optional[SelectOptions]) -> Optional[SelectOptions]:
         """Ensure select options are provided for select fields."""
         # Only validate on new creations, be lenient with existing data to avoid breaking
         # Users should provide select options, but we won't block loading existing data
