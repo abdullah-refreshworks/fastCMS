@@ -13,9 +13,8 @@ class OAuthAccount(BaseModel):
 
     __tablename__ = "oauth_accounts"
 
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
-    )
+    user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    collection_name: Mapped[str] = mapped_column(String(50), nullable=True)
     provider: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     provider_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
     access_token: Mapped[str] = mapped_column(Text, nullable=True)

@@ -58,15 +58,10 @@ class RelationType(str, Enum):
 class RelationOptions(BaseModel):
     """Options for relation fields."""
 
-    collection_id: Optional[str] = Field(None, description="Target collection ID (single collection)")
-    collection_ids: Optional[List[str]] = Field(None, description="Target collection IDs (for polymorphic)")
-    type: RelationType = Field(
-        default=RelationType.ONE_TO_MANY,
-        description="Relationship type"
-    )
-    cascade_delete: Optional[RelationCascade] = Field(
-        default=RelationCascade.RESTRICT,
-        description="Cascade action on delete"
+    collection: str = Field(..., description="Target collection name")
+    type: str = Field(
+        default="one-to-many",
+        description="Relationship type: one-to-many, many-to-one, many-to-many, one-to-one"
     )
     display_fields: List[str] = Field(
         default_factory=lambda: ["id"],

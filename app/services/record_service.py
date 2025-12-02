@@ -48,7 +48,7 @@ class RecordService:
             raise BadRequestException(f"Cannot create records in view collection '{self.collection_name}'")
 
         # Check create permission
-        context = self._create_access_context()
+        context = self._create_access_context(request_data=data.data)
         access_control.check(collection.create_rule, context, "create")
 
         # Extract fields from schema
@@ -149,9 +149,7 @@ class RecordService:
 
         # Expand relations if requested
         if expand:
-            items = [
-                await self._expand_relations(item, collection, expand) for item in items
-            ]
+            items = await self._expand_relations(items, collection, expand)
 
         total_pages = math.ceil(total / per_page) if total > 0 else 0
 
@@ -181,7 +179,7 @@ class RecordService:
 
         # Check update permission
         record_data = self._record_to_dict(existing)
-        context = self._create_access_context(record_data)
+        context = self._create_access_context(record_data=record_data, request_data=data.data)
         access_control.check(collection.update_rule, context, "update")
 
         # Extract fields from schema
@@ -389,59 +387,117 @@ class RecordService:
         return data
 
     async def _expand_relations(
-        self, response: RecordResponse, collection: Any, expand_fields: List[str]
-    ) -> RecordResponse:
-        """Expand relation fields in a record response."""
+        self,
+        responses: List[RecordResponse] | RecordResponse,
+        collection: Any,
+        expand_fields: List[str],
+    ) -> List[RecordResponse] | RecordResponse:
+        """
+        Expand relation fields in record responses using batch fetching.
+        
+        Args:
+            responses: Single RecordResponse or list of RecordResponses
+            collection: Collection model containing schema
+            expand_fields: List of field names to expand
+            
+        Returns:
+            Same type as input (single or list) with 'expand' field populated
+        """
+        is_single = isinstance(responses, RecordResponse)
+        items = [responses] if is_single else responses
+        
+        if not items or not expand_fields:
+            return responses
+
         # Get relation fields from collection schema
         fields = collection.schema.get("fields", [])
         relation_fields = {
             f["name"]: f for f in fields if f.get("type") == "relation"
         }
 
-        # Expand requested fields
-        for field_name in expand_fields:
-            if field_name not in relation_fields:
-                continue
+        # Filter valid expand fields
+        valid_expand = [f for f in expand_fields if f in relation_fields]
+        if not valid_expand:
+            return responses
 
-            field_value = response.data.get(field_name)
-            if not field_value:
-                continue
-
+        # Process each expand field
+        for field_name in valid_expand:
             field_config = relation_fields[field_name]
-            target_collection = field_config.get("validation", {}).get("collection_name")
+            # Try to get collection from relation options, fallback to validation for backward compat
+            target_collection_name = (
+                field_config.get("relation", {}).get("collection") or 
+                field_config.get("validation", {}).get("collection_name")
+            )
 
-            if not target_collection:
+            if not target_collection_name:
                 continue
 
-            # Fetch related record(s)
-            try:
-                target_repo = RecordRepository(self.db, target_collection)
+            # Collect all IDs to fetch
+            ids_to_fetch = set()
+            for item in items:
+                value = item.data.get(field_name)
+                if value:
+                    if isinstance(value, list):
+                        ids_to_fetch.update(value)
+                    else:
+                        ids_to_fetch.add(value)
 
-                if isinstance(field_value, list):
-                    # Multiple relations
-                    expanded = []
-                    for record_id in field_value:
-                        related = await target_repo.get_by_id(record_id)
-                        if related:
-                            expanded.append(self._to_response(related).model_dump())
-                    response.data[field_name] = expanded
-                else:
-                    # Single relation
-                    related = await target_repo.get_by_id(field_value)
-                    if related:
-                        response.data[field_name] = self._to_response(
-                            related
-                        ).model_dump()
-            except Exception:
-                # If expansion fails, keep original value
+            if not ids_to_fetch:
+                continue
+
+            # Batch fetch related records
+            try:
+                target_repo = RecordRepository(self.db, target_collection_name)
+                # We need a way to fetch multiple IDs. 
+                # Since get_all supports filters, we can use 'id in [...]'
+                
+                # Chunk IDs to avoid query limits (e.g. 100 at a time)
+                fetched_records = {}
+                id_list = list(ids_to_fetch)
+                chunk_size = 100
+                
+                for i in range(0, len(id_list), chunk_size):
+                    chunk = id_list[i : i + chunk_size]
+                    records = await target_repo.get_all(
+                        limit=len(chunk),
+                        filters=[RecordFilter(field="id", operator="in", value=chunk)]
+                    )
+                    for r in records:
+                        fetched_records[r.id] = self._to_response(r).model_dump()
+
+                # Map back to items
+                for item in items:
+                    value = item.data.get(field_name)
+                    if not value:
+                        continue
+
+                    if item.expand is None:
+                        item.expand = {}
+
+                    if isinstance(value, list):
+                        item.expand[field_name] = [
+                            fetched_records[rid] for rid in value if rid in fetched_records
+                        ]
+                    else:
+                        if value in fetched_records:
+                            item.expand[field_name] = fetched_records[value]
+
+            except Exception as e:
+                # Log error but don't fail the request
+                # logger.warning(f"Failed to expand field {field_name}: {e}")
                 pass
 
-        return response
+        return items[0] if is_single else items
 
-    def _create_access_context(self, record_data: Optional[Dict[str, Any]] = None) -> AccessContext:
+    def _create_access_context(
+        self, 
+        record_data: Optional[Dict[str, Any]] = None,
+        request_data: Optional[Dict[str, Any]] = None
+    ) -> AccessContext:
         """Create access context for permission evaluation."""
         return AccessContext(
             user_id=self.user_context.user_id if self.user_context else None,
             user_role=self.user_context.role if self.user_context else "user",
             record_data=record_data,
+            request_data=request_data,
         )

@@ -1,12 +1,18 @@
-"""Real-time updates API using Server-Sent Events (SSE)."""
+"""Real-time updates API using Server-Sent Events (SSE) and WebSockets."""
 import asyncio
+import uuid
 import json
-from typing import Optional, Dict, Any
-from fastapi import APIRouter, Request, Query, Depends
-from fastapi.responses import StreamingResponse, JSONResponse
+from typing import Optional
+from fastapi import APIRouter, Request, Query, WebSocket, WebSocketDisconnect, Depends
+from fastapi.responses import StreamingResponse
 
 from app.core.events import event_manager, Event
 from app.core.dependencies import get_optional_user_id
+from app.core.websocket_manager import connection_manager
+from app.core.security import decode_token
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 router = APIRouter()
@@ -233,64 +239,155 @@ async def realtime_collection(
     )
 
 
-@router.get(
-    "/presence",
-    summary="Get active users",
-    response_model=Dict[str, Any],
-)
-async def get_presence():
+@router.websocket("/ws/realtime")
+async def websocket_realtime(websocket: WebSocket, token: Optional[str] = Query(None)):
     """
-    Get all currently active users.
-
-    Returns list of users currently connected to real-time endpoints.
-
-    Example usage (JavaScript):
-    ```javascript
-    const response = await fetch('/api/v1/presence');
-    const data = await response.json();
-    console.log('Active users:', data.users);
-    ```
-
-    Example usage (curl):
-    ```bash
-    curl http://localhost:8000/api/v1/presence
-    ```
+    WebSocket endpoint for real-time updates.
+    
+    Supports bidirectional communication for subscriptions, presence, and events.
+    
+    Authentication:
+    - Pass token as query parameter: /ws/realtime?token=YOUR_TOKEN
+    - Or send auth message after connection: {"action": "auth", "token": "YOUR_TOKEN"}
+    
+    Client Messages:
+    - Subscribe: {"action": "subscribe", "collection": "posts", "filter": {...}}
+    - Unsubscribe: {"action": "unsubscribe", "collection": "posts"}
+    - Auth: {"action": "auth", "token": "YOUR_TOKEN"}
+    - Presence: {"action": "presence", "collection": "posts", "status": "typing"}
+    - Ping: {"action": "ping"}
+    
+    Server Messages:
+    - Connected: {"type": "connected", "data": {...}}
+    - Event: {"type": "event", "data": {...}}
+    - Presence: {"type": "presence", "data": {...}}
+    - Error: {"type": "error", "data": {"message": "..."}}
+    - Pong: {"type": "pong", "data": {}}
     """
-    presence = event_manager.get_presence()
-    return {
-        "users": presence,
-        "count": len(presence),
-    }
+    connection_id = str(uuid.uuid4())
+    connection = None
+    
+    try:
+        # Connect
+        connection = await connection_manager.connect(websocket, connection_id)
+        
+        # Authenticate if token provided in query
+        if token:
+            payload = decode_token(token)
+            if payload and "sub" in payload:
+                user_id = payload["sub"]
+                await connection_manager.authenticate(connection_id, user_id)
+                await connection.send_json({
+                    "type": "authenticated",
+                    "data": {"user_id": user_id},
+                    "timestamp": asyncio.get_event_loop().time()
+                })
+        
+        # Message handling loop
+        while True:
+            try:
+                # Receive message from client
+                data = await websocket.receive_text()
+                message = json.loads(data)
+                action = message.get("action")
+                
+                if action == "ping":
+                    # Heartbeat
+                    connection.last_heartbeat = asyncio.get_event_loop().time()
+                    await connection.send_json({"type": "pong", "data": {}})
+                
+                elif action == "auth":
+                    # Authenticate connection
+                    auth_token = message.get("token")
+                    if auth_token:
+                        payload = decode_token(auth_token)
+                        if payload and "sub" in payload:
+                            user_id = payload["sub"]
+                            await connection_manager.authenticate(connection_id, user_id)
+                            await connection.send_json({
+                                "type": "authenticated",
+                                "data": {"user_id": user_id}
+                            })
+                        else:
+                            await connection.send_json({
+                                "type": "error",
+                                "data": {"message": "Invalid token"}
+                            })
+                
+                elif action == "subscribe":
+                    # Subscribe to collection
+                    collection = message.get("collection")
+                    filter_dict = message.get("filter")
+                    
+                    if collection:
+                        await connection_manager.subscribe(
+                            connection_id,
+                            collection,
+                            filter_dict
+                        )
+                        await connection.send_json({
+                            "type": "subscribed",
+                            "data": {
+                                "collection": collection,
+                                "filter": filter_dict
+                            }
+                        })
+                    else:
+                        # Subscribe globally
+                        await connection_manager.subscribe_global(connection_id)
+                        await connection.send_json({
+                            "type": "subscribed",
+                            "data": {"collection": "*"}
+                        })
+                
+                elif action == "unsubscribe":
+                    # Unsubscribe from collection
+                    collection = message.get("collection")
+                    if collection:
+                        await connection_manager.unsubscribe(connection_id, collection)
+                        await connection.send_json({
+                            "type": "unsubscribed",
+                            "data": {"collection": collection}
+                        })
+                
+                elif action == "presence":
+                    # Handle presence update (will be implemented with presence service)
+                    await connection.send_json({
+                        "type": "error",
+                        "data": {"message": "Presence not yet implemented"}
+                    })
+                
+                else:
+                    await connection.send_json({
+                        "type": "error",
+                        "data": {"message": f"Unknown action: {action}"}
+                    })
+            
+            except WebSocketDisconnect:
+                break
+            except json.JSONDecodeError:
+                await connection.send_json({
+                    "type": "error",
+                    "data": {"message": "Invalid JSON"}
+                })
+            except Exception as e:
+                logger.error(f"Error handling message: {e}")
+                await connection.send_json({
+                    "type": "error",
+                    "data": {"message": str(e)}
+                })
+    
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket disconnected: {connection_id}")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+    finally:
+        # Cleanup
+        if connection:
+            await connection_manager.disconnect(connection_id)
 
 
-@router.get(
-    "/presence/{user_id}",
-    summary="Get user presence",
-    response_model=Dict[str, Any],
-)
-async def get_user_presence(user_id: str):
-    """
-    Get presence information for a specific user.
-
-    Args:
-        user_id: User ID to check
-
-    Returns user presence info if user is active, otherwise null.
-
-    Example usage (JavaScript):
-    ```javascript
-    const response = await fetch('/api/v1/presence/user123');
-    const data = await response.json();
-    if (data.presence) {
-        console.log('User is online:', data.presence);
-    } else {
-        console.log('User is offline');
-    }
-    ```
-    """
-    presence = event_manager.get_user_presence(user_id)
-    return {
-        "user_id": user_id,
-        "presence": presence,
-        "online": presence is not None,
-    }
+@router.get("/stats")
+async def get_realtime_stats():
+    """Get realtime connection statistics."""
+    return connection_manager.get_stats()

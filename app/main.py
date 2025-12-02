@@ -247,11 +247,9 @@ from app.admin import routes as admin_routes
 from app.api.v1 import (
     admin, auth, auth_collections, backup, backups, batch, collections, files,
     health, logs, oauth, realtime, records, search,
-    settings as settings_router, setup, views, webhooks
+    settings as settings_router, setup, views, webhooks, ai
 )
 from fastapi.responses import RedirectResponse
-# Temporarily disable AI until langchain dependencies are installed
-# from app.api.v1 import ai
 
 app.include_router(health.router, tags=["Health"])
 app.include_router(setup.router, prefix="/api/v1/setup", tags=["Setup"])
@@ -270,7 +268,7 @@ app.include_router(backups.router, prefix="/api/v1", tags=["Backups"])
 # app.include_router(backup.router, prefix="/api/v1", tags=["Backup"])  # Disabled: conflicts with backups.router which provides paginated response
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
-# app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
+app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(admin_routes.router, prefix="/admin", tags=["Admin UI"])
 

@@ -153,23 +153,29 @@ class EventManager:
         Args:
             event: Event to broadcast
         """
-        # Send to all matching subscriptions
-        dead_subscriptions = []
+        # Send to collection-specific subscribers (SSE)
+        if event.collection_name in self._subscribers:
+            for queue in self._subscribers[event.collection_name].copy():
+                try:
+                    await queue.put(event)
+                except Exception:
+                    # Remove dead subscriber
+                    self._subscribers[event.collection_name].discard(queue)
 
-        for sub in self._subscriptions.copy():
+        # Send to global subscribers (SSE)
+        for queue in self._global_subscribers.copy():
             try:
-                # Check if subscription matches this event
-                matches = self._subscription_matches(sub, event)
-                if matches:
-                    await sub.queue.put(event)
-            except Exception as e:
-                # Mark dead subscriber for removal
-                dead_subscriptions.append(sub)
-                logger.debug(f"Removing dead subscriber: {e}")
-
-        # Remove dead subscriptions
-        for sub in dead_subscriptions:
-            self._subscriptions.discard(sub)
+                await queue.put(event)
+            except Exception:
+                # Remove dead subscriber
+                self._global_subscribers.discard(queue)
+        
+        # Broadcast to WebSocket connections
+        try:
+            from app.core.websocket_manager import connection_manager
+            await connection_manager.broadcast_event(event)
+        except Exception as e:
+            logger.error(f"Error broadcasting to WebSocket: {e}")
 
         # Trigger webhooks asynchronously (fire and forget)
         asyncio.create_task(self._trigger_webhooks(event))

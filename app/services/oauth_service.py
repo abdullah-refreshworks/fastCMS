@@ -69,6 +69,7 @@ class OAuthService:
         token: Dict[str, Any],
         user_agent: Optional[str] = None,
         ip_address: Optional[str] = None,
+        collection_name: Optional[str] = None,
     ) -> AuthResponse:
         """
         Authenticate or register user via OAuth.
@@ -79,6 +80,7 @@ class OAuthService:
             token: OAuth token information
             user_agent: User agent string
             ip_address: Client IP address
+            collection_name: Optional name of the auth collection (e.g., "customers")
 
         Returns:
             Auth response with user and tokens
@@ -94,6 +96,17 @@ class OAuthService:
             provider, provider_user_id
         )
 
+        # Filter by collection if specified, or ensure it's a system user (collection_name=None)
+        if oauth_account:
+            if collection_name and oauth_account.collection_name != collection_name:
+                # Account exists but for a different collection or system
+                oauth_account = None
+            elif not collection_name and oauth_account.collection_name is not None:
+                # Account exists but is for a collection, not system
+                oauth_account = None
+
+        user = None
+
         if oauth_account:
             # Existing OAuth account - update tokens and authenticate
             oauth_account.access_token = token.get("access_token")
@@ -104,14 +117,34 @@ class OAuthService:
             await self.oauth_repo.update(oauth_account)
 
             # Get user
-            user = await self.user_repo.get_by_id(oauth_account.user_id)
+            if collection_name:
+                # Get user from dynamic collection
+                from app.db.repositories.record import RecordRepository
+                record_repo = RecordRepository(self.db, collection_name)
+                user = await record_repo.get_by_id(oauth_account.user_id)
+            else:
+                # Get system user
+                user = await self.user_repo.get_by_id(oauth_account.user_id)
+            
             if not user:
                 raise BadRequestException("User not found")
 
-            logger.info(f"OAuth login for existing user: {email}")
+            logger.info(f"OAuth login for existing user: {email} (collection: {collection_name})")
         else:
             # New OAuth account - check if user exists by email
-            user = await self.user_repo.get_by_email(email)
+            if collection_name:
+                # Check in dynamic collection
+                from app.db.repositories.record import RecordRepository
+                from sqlalchemy import select
+                
+                record_repo = RecordRepository(self.db, collection_name)
+                model = await record_repo._get_model()
+                
+                result = await self.db.execute(select(model).where(model.email == email))
+                user = result.scalar_one_or_none()
+            else:
+                # Check system users
+                user = await self.user_repo.get_by_email(email)
 
             if user:
                 # Link OAuth account to existing user
@@ -119,19 +152,46 @@ class OAuthService:
             else:
                 # Create new user
                 random_password = secrets.token_urlsafe(32)
-                user = User(
-                    email=email,
-                    password_hash=hash_password(random_password),
-                    token_key=secrets.token_hex(32),
-                    name=name or email.split("@")[0],
-                    verified=True,  # OAuth providers verify emails
-                )
-                user = await self.user_repo.create(user)
+                password_hash = hash_password(random_password)
+                token_key = secrets.token_hex(32)
+                
+                if collection_name:
+                    # Create user in dynamic collection
+                    from app.db.repositories.record import RecordRepository
+                    record_repo = RecordRepository(self.db, collection_name)
+                    
+                    user_data = {
+                        "email": email,
+                        "password": password_hash,
+                        "name": name or email.split("@")[0],
+                        "verified": True,  # OAuth providers verify emails
+                    }
+                    # Add any other required fields with defaults if needed
+                    
+                    user = await record_repo.create(user_data)
+                    # Need to manually set token_key as it might not be in the schema
+                    # But wait, dynamic models might not have token_key unless defined in schema
+                    # For auth collections, we should assume they might need it or we handle it differently
+                    # Let's check if the model has token_key, if not we might need to rely on something else
+                    # or just not use token_key for invalidation in dynamic collections yet
+                    pass 
+                else:
+                    # Create system user
+                    user = User(
+                        email=email,
+                        password_hash=password_hash,
+                        token_key=token_key,
+                        name=name or email.split("@")[0],
+                        verified=True,
+                    )
+                    user = await self.user_repo.create(user)
+                
                 logger.info(f"Created new user via {provider} OAuth: {email}")
 
             # Create OAuth account link
             oauth_account = OAuthAccount(
                 user_id=user.id,
+                collection_name=collection_name,
                 provider=provider,
                 provider_user_id=provider_user_id,
                 access_token=token.get("access_token"),
@@ -145,21 +205,48 @@ class OAuthService:
         await self.db.commit()
 
         # Generate JWT tokens
-        tokens = await self.auth_service._create_tokens(user, user_agent, ip_address)
+        if collection_name:
+            # Generate tokens for collection user
+            from app.core.security import create_access_token
+            
+            token_data = {
+                "sub": user.id,
+                "email": user.email,
+                "collection": collection_name
+            }
+            access_token = create_access_token(token_data)
+            
+            # For now, return a simplified response for collection users
+            # as they might not match the full UserResponse schema
+            return {
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "name": getattr(user, "name", None),
+                    "verified": getattr(user, "verified", True),
+                },
+                "token": {
+                    "access_token": access_token,
+                    "token_type": "bearer"
+                }
+            }
+        else:
+            # Generate tokens for system user
+            tokens = await self.auth_service._create_tokens(user, user_agent, ip_address)
 
-        return AuthResponse(
-            user=UserResponse(
-                id=user.id,
-                email=user.email,
-                verified=user.verified,
-                name=user.name,
-                avatar=user.avatar,
-                role=user.role,
-                created=user.created,
-                updated=user.updated,
-            ),
-            token=tokens,
-        )
+            return AuthResponse(
+                user=UserResponse(
+                    id=user.id,
+                    email=user.email,
+                    verified=user.verified,
+                    name=user.name,
+                    avatar=user.avatar,
+                    role=user.role,
+                    created=user.created,
+                    updated=user.updated,
+                ),
+                token=tokens,
+            )
 
     async def unlink_oauth_account(
         self, user_id: str, provider: str

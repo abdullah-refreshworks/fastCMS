@@ -1,125 +1,53 @@
-"""Pydantic schemas for AI endpoints."""
-
-from typing import Any, Dict, List, Optional
-
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 
 
-class GenerateContentRequest(BaseModel):
-    """Request schema for content generation."""
-
-    prompt: str = Field(..., description="Generation prompt", min_length=1)
-    context: Optional[Dict[str, Any]] = Field(
-        None, description="Optional context data"
-    )
-    max_tokens: int = Field(
-        default=500, ge=1, le=2000, description="Maximum tokens to generate"
-    )
-    stream: bool = Field(default=False, description="Stream response tokens")
+class AIGenerateRequest(BaseModel):
+    """Request schema for AI content generation."""
+    prompt: str = Field(..., description="The main prompt or content to process")
+    context: Optional[str] = Field(None, description="Additional context or background info")
+    task: str = Field(..., description="Task type: summarize, expand, seo, tone, custom")
+    tone: Optional[str] = Field(None, description="Desired tone (e.g., professional, friendly)")
+    max_length: Optional[int] = Field(None, description="Max length of the output")
 
 
-class GenerateContentResponse(BaseModel):
-    """Response schema for content generation."""
-
-    content: str = Field(..., description="Generated content")
-
-
-class NaturalLanguageQueryRequest(BaseModel):
-    """Request schema for natural language to filter conversion."""
-
-    query: str = Field(..., description="Natural language query", min_length=1)
-    collection_name: str = Field(..., description="Collection to query")
+class AIGenerateResponse(BaseModel):
+    """Response schema for AI content generation."""
+    result: str
+    usage: Optional[Dict[str, int]] = None
 
 
-class NaturalLanguageQueryResponse(BaseModel):
-    """Response schema for natural language query."""
-
-    filter_expression: Optional[str] = Field(
-        None, description="Generated filter expression"
-    )
-    explanation: Optional[str] = Field(None, description="Query explanation")
+class AIAgentQueryRequest(BaseModel):
+    """Request schema for AI Data Agent."""
+    query: str = Field(..., description="Natural language query about the data")
 
 
-class EnrichDataRequest(BaseModel):
-    """Request schema for data enrichment."""
-
-    data: Dict[str, Any] = Field(..., description="Data to enrich")
-    instructions: str = Field(..., description="Enrichment instructions", min_length=1)
-
-
-class EnrichDataResponse(BaseModel):
-    """Response schema for data enrichment."""
-
-    enriched_data: Dict[str, Any] = Field(..., description="Enriched data")
+class AIAgentQueryResponse(BaseModel):
+    """Response schema for AI Data Agent."""
+    answer: str
+    sql_query: Optional[str] = None
+    data: Optional[List[Dict[str, Any]]] = None
+    error: Optional[str] = None
 
 
-class GenerateSchemaRequest(BaseModel):
-    """Request schema for schema generation."""
-
-    description: str = Field(
-        ..., description="Description of the collection", min_length=1
-    )
-
-
-class GenerateSchemaResponse(BaseModel):
-    """Response schema for schema generation."""
-
-    schema: List[Dict[str, Any]] = Field(..., description="Generated schema fields")
+class AITaggingRequest(BaseModel):
+    """Request schema for AI tagging."""
+    content: str = Field(..., description="Content to be tagged")
+    existing_tags: Optional[List[str]] = Field(None, description="List of existing tags to choose from")
+    max_tags: int = Field(5, description="Maximum number of tags to generate")
 
 
-class SemanticSearchRequest(BaseModel):
-    """Request schema for semantic search."""
-
-    query: str = Field(..., description="Search query", min_length=1)
-    collection_name: str = Field(..., description="Collection to search")
-    k: int = Field(default=5, ge=1, le=50, description="Number of results")
-    score_threshold: float = Field(
-        default=0.0, ge=0.0, le=1.0, description="Minimum similarity score"
-    )
+class AITaggingResponse(BaseModel):
+    """Response schema for AI tagging."""
+    tags: List[str]
 
 
-class SemanticSearchResult(BaseModel):
-    """Single semantic search result."""
-
-    metadata: Dict[str, Any] = Field(..., description="Document metadata")
-    similarity: float = Field(..., description="Similarity score (0-1)")
-
-
-class SemanticSearchResponse(BaseModel):
-    """Response schema for semantic search."""
-
-    results: List[SemanticSearchResult] = Field(..., description="Search results")
-    total: int = Field(..., description="Total number of results")
+class AIExtractionRequest(BaseModel):
+    """Request schema for AI content extraction."""
+    text: str = Field(..., description="Unstructured text to extract data from")
+    schema_description: Dict[str, str] = Field(..., description="Key-value pairs describing fields to extract (e.g., {'title': 'The title of the article'})")
 
 
-class IndexCollectionRequest(BaseModel):
-    """Request schema for indexing a collection."""
-
-    collection_name: str = Field(..., description="Collection to index")
-    rebuild: bool = Field(
-        default=False, description="Rebuild index from scratch"
-    )
-
-
-class IndexCollectionResponse(BaseModel):
-    """Response schema for collection indexing."""
-
-    success: bool = Field(..., description="Whether indexing succeeded")
-    message: str = Field(..., description="Status message")
-    documents_indexed: int = Field(..., description="Number of documents indexed")
-
-
-class ChatRequest(BaseModel):
-    """Request schema for AI chat."""
-
-    message: str = Field(..., description="User message", min_length=1)
-    history: Optional[List[Dict[str, str]]] = Field(
-        None, description="Conversation history"
-    )
-
-
-class ChatResponse(BaseModel):
-    """Response schema for AI chat."""
-
-    message: str = Field(..., description="AI response")
-    model: str = Field(..., description="Model used")
+class AIExtractionResponse(BaseModel):
+    """Response schema for AI content extraction."""
+    data: Dict[str, Any]

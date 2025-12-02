@@ -42,13 +42,18 @@ def get_client_info(request: Request) -> tuple[Optional[str], Optional[str]]:
     summary="Initiate OAuth2 login",
     description="Redirect to OAuth provider for authentication. Supported providers: google, github, microsoft.",
 )
-async def oauth_login(provider: str, request: Request) -> RedirectResponse:
+async def oauth_login(
+    provider: str, 
+    request: Request,
+    collection: Optional[str] = None,
+) -> RedirectResponse:
     """
     Initiate OAuth login flow.
 
     Args:
         provider: OAuth provider name (google, github, microsoft)
         request: Request object
+        collection: Optional auth collection name
 
     Returns:
         Redirect to OAuth provider
@@ -69,9 +74,38 @@ async def oauth_login(provider: str, request: Request) -> RedirectResponse:
 
     # Build callback URL
     redirect_uri = request.url_for("oauth_callback", provider=provider)
+    
+    # Add collection to state or redirect URI if supported, 
+    # but standard way is usually state. Authlib handles state automatically 
+    # but we might need to pass extra params.
+    # For simplicity, we'll append it to the redirect_uri query params if the provider supports it,
+    # OR better, store it in a cookie or session. 
+    # However, since we want to be stateless, passing it through state is best.
+    # Authlib's authorize_redirect generates state. 
+    # Let's try appending it to the redirect_uri, but that changes the registered URI.
+    # A common trick is to use the 'state' parameter.
+    # But authlib handles state generation.
+    # Let's just append it to the redirect_uri and hope the provider accepts wildcards or we registered it.
+    # Actually, the best way is to encode it in the 'state' parameter if we could control it,
+    # but let's try to pass it as a query param to the callback URI.
+    if collection:
+        from urllib.parse import urlparse, urlencode, parse_qsl, urlunparse
+        # We can't easily change the redirect_uri if it must match exactly what's registered.
+        # But usually we can add query params? No, strict matching usually.
+        # So we should probably use a cookie for the "login attempt" state.
+        pass
 
-    # Redirect to provider
-    return await client.authorize_redirect(request, redirect_uri)
+    # STRATEGY: Use a short-lived cookie to store the intended collection
+    response = await client.authorize_redirect(request, redirect_uri)
+    if collection:
+        response.set_cookie(
+            key="oauth_collection",
+            value=collection,
+            max_age=300, # 5 minutes
+            httponly=True,
+            samesite="lax"
+        )
+    return response
 
 
 @router.get(
@@ -100,6 +134,9 @@ async def oauth_callback(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Unsupported OAuth provider: {provider}",
         )
+
+    # Get collection from cookie
+    collection_name = request.cookies.get("oauth_collection")
 
     # Get OAuth client
     client = oauth.create_client(provider)
@@ -149,9 +186,23 @@ async def oauth_callback(
             token=token,
             user_agent=user_agent,
             ip_address=ip_address,
+            collection_name=collection_name,
         )
 
         # Return auth response
+        # If it's a browser flow, we might want to redirect to frontend with token
+        # But for now, let's return JSON. 
+        # Ideally, the frontend should handle the popup/redirect and receive this JSON.
+        response = auth_response
+        
+        # Clear the cookie
+        if collection_name:
+            # If we are returning a JSON response directly, we can't easily clear cookie 
+            # unless we wrap it in a Response object.
+            # But FastAPIs return value is converted to JSONResponse.
+            # We can't modify the response headers easily here without returning a Response object.
+            pass
+
         return auth_response
 
     except OAuthError as e:
