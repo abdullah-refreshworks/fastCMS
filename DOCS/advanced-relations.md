@@ -176,6 +176,33 @@ Relate to records from multiple different collections. Useful for comments, atta
 
 **Note:** Runtime support for polymorphic queries is pending.
 
+## Nested Relations (Expansion Depth)
+
+Control how deeply related records are loaded when expanding relations.
+
+**Example:** Load author with their company and company's location
+
+```json
+{
+  "name": "author",
+  "type": "relation",
+  "relation": {
+    "collection_id": "users",
+    "type": "many-to-one",
+    "max_depth": 3,
+    "display_fields": ["name", "company"]
+  }
+}
+```
+
+**max_depth Values:**
+- `0` - No expansion (only ID)
+- `1` - Load immediate relation (default)
+- `2` - Load relation and its relations
+- `3-5` - Deeper nesting (use cautiously for performance)
+
+**Note:** Runtime support for recursive loading beyond depth 1 is pending.
+
 ## Cascade Actions
 
 Control what happens to related records when a parent is deleted.
@@ -290,4 +317,57 @@ For strict referential integrity:
 
 // Bad: Too many fields
 {"display_fields": ["id", "name", "email", "bio", "created", "updated"]}
+```
+
+## Future Implementation Plan
+
+When runtime support is added, the following will be implemented:
+
+**Phase 1: Junction Tables**
+- Automatic creation/management of junction tables
+- Many-to-many record insertion/deletion
+- Bi-directional relation queries
+
+**Phase 2: Polymorphic Relations**
+- Multi-collection query resolution
+- Type-safe polymorphic fetching
+- Eager loading for polymorphic relations
+
+**Phase 3: Nested Loading**
+- Recursive relation expansion
+- Cycle detection and prevention
+- Optimized N+1 query handling
+
+**Phase 4: Cascade Actions**
+- Database-level foreign key constraints
+- Cascade delete implementation
+- Transaction-safe cascade operations
+
+## Migration Guide
+
+When runtime support is added, existing schemas will continue to work. No migration required for:
+- Existing one-to-many relations
+- Basic relation expansion (depth 1)
+
+You'll be able to upgrade relations by updating the schema:
+
+```bash
+# Upgrade existing relation to many-to-many
+curl -X PATCH "http://localhost:8000/api/v1/collections/posts" \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "schema": {
+      "fields": [
+        {
+          "name": "tags",
+          "type": "relation",
+          "relation": {
+            "type": "many-to-many",
+            "junction_table": "posts_tags"
+          }
+        }
+      ]
+    }
+  }'
 ```

@@ -64,6 +64,57 @@ This interface allows you to:
 - View request/response schemas
 - Authenticate and test protected endpoints
 
+## Best Practices
+
+### Security
+
+1. Always use strong SECRET_KEY in production
+2. Use HTTPS in production
+3. Set appropriate access control rules on collections
+4. Validate user input on the client side
+5. Use refresh tokens for long-lived sessions
+
+### Performance
+
+1. Add indexes to frequently queried fields
+2. Use pagination for large datasets
+3. Set appropriate cache TTL for view collections
+4. Use view collections for complex queries instead of client-side joins
+
+### Data Modeling
+
+1. Use auth collections for any user type requiring authentication
+2. Use base collections for standard data
+3. Use view collections for reports and aggregations
+4. Use relation fields to link collections
+5. Set cascade_delete appropriately on relations
+
+## Troubleshooting
+
+### Collection Creation Fails
+
+**Issue:** "An invalid form control with name='' is not focusable"
+
+**Solution:** This occurs when hidden required fields (relation/view fields) are present. Ensure you're creating the correct collection type and all visible required fields are filled.
+
+### Authentication Fails
+
+**Issue:** 401 Unauthorized
+
+**Solution:**
+- Ensure access token is included in Authorization header
+- Check if token has expired (access tokens expire in 15 minutes by default)
+- Use refresh token to get a new access token
+
+### Access Denied to Records
+
+**Issue:** Cannot view/edit records despite being authenticated
+
+**Solution:**
+- Check the access control rules on the collection
+- Ensure your user meets the rule criteria
+- Verify the record data matches the rules (e.g., user_id field)
+
 ## Next Steps
 
 - [Learn about Collections](collections.md)

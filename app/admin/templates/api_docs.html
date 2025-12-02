@@ -81,6 +81,16 @@
                 </div>
             </div>
         </a>
+
+        <a href="#settings" class="bg-gray-50 border-2 border-gray-200 rounded-lg p-6 hover:bg-gray-100 transition">
+            <div class="flex items-center">
+                <i class="fas fa-cog text-3xl text-gray-600 mr-4"></i>
+                <div>
+                    <h3 class="font-semibold text-gray-900">Settings</h3>
+                    <p class="text-sm text-gray-600">Configuration</p>
+                </div>
+            </div>
+        </a>
     </div>
 
     <!-- Base URL -->
@@ -730,6 +740,147 @@ GITHUB_REDIRECT_URI=http://localhost:8000/api/v1/oauth/github/callback</pre>
                 </div>
                 <p class="text-sm text-gray-700 mt-3">
                     See <a href="https://github.com/anthropics/claude-code" class="text-pink-600 hover:text-pink-800 font-medium">full documentation</a> for provider setup guides.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Settings Section -->
+    <div id="settings" class="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center">
+            <i class="fas fa-cog text-gray-600 mr-3"></i>
+            System Settings
+        </h2>
+        <p class="text-gray-600 mb-6">Manage application configuration values stored in the database.</p>
+
+        <div class="space-y-6">
+            <!-- Get All Settings -->
+            <div class="border-l-4 border-gray-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded mr-2">GET</span>
+                        <code class="text-sm">/settings</code>
+                    </div>
+                    <button onclick="copyToClipboard('settings-get-all')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Get all settings across all categories</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="settings-get-all">curl -X GET "<span x-text="baseUrl"></span>/settings" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"</pre>
+                </div>
+            </div>
+
+            <!-- Get Settings by Category -->
+            <div class="border-l-4 border-gray-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded mr-2">GET</span>
+                        <code class="text-sm">/settings/{category}</code>
+                    </div>
+                    <button onclick="copyToClipboard('settings-get-category')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Get settings for a specific category (e.g., app, email, security)</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="settings-get-category">curl -X GET "<span x-text="baseUrl"></span>/settings/app" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"</pre>
+                </div>
+            </div>
+
+            <!-- Create/Update Setting -->
+            <div class="border-l-4 border-gray-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded mr-2">POST</span>
+                        <code class="text-sm">/settings</code>
+                    </div>
+                    <button onclick="copyToClipboard('settings-create')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Create or update a setting</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="settings-create">curl -X POST "<span x-text="baseUrl"></span>/settings" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "maintenance_mode",
+    "value": false,
+    "category": "app",
+    "description": "Enable maintenance mode"
+  }'</pre>
+                </div>
+            </div>
+
+            <!-- Delete Setting -->
+            <div class="border-l-4 border-gray-500 pl-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded mr-2">DELETE</span>
+                        <code class="text-sm">/settings/{key}</code>
+                    </div>
+                    <button onclick="copyToClipboard('settings-delete')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Delete a setting by key</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="settings-delete">curl -X DELETE "<span x-text="baseUrl"></span>/settings/old_setting" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN"</pre>
+                </div>
+            </div>
+
+            <!-- Common Settings Examples -->
+            <div class="border-l-4 border-gray-500 pl-4">
+                <h3 class="font-semibold text-gray-900 mb-2">Common Settings Examples</h3>
+                <div class="flex items-center justify-between mb-2">
+                    <button onclick="copyToClipboard('settings-examples')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-sm text-gray-600 mb-2">Feature flags, rate limits, and configuration</p>
+                <div class="bg-gray-900 rounded-lg p-3 text-xs text-gray-100 overflow-x-auto">
+                    <pre id="settings-examples"># Feature Flag Example
+curl -X POST "<span x-text="baseUrl"></span>/settings" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "enable_ai_features",
+    "value": true,
+    "category": "app",
+    "description": "Enable AI features"
+  }'
+
+# Rate Limiting Example
+curl -X POST "<span x-text="baseUrl"></span>/settings" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "api_rate_limit",
+    "value": 100,
+    "category": "security",
+    "description": "Max API requests per minute"
+  }'
+
+# File Upload Limit Example
+curl -X POST "<span x-text="baseUrl"></span>/settings" \
+  -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "key": "max_file_size",
+    "value": 10485760,
+    "category": "storage",
+    "description": "Maximum file size in bytes (10MB)"
+  }'</pre>
+                </div>
+            </div>
+
+            <div class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <p class="text-sm text-gray-700">
+                    <strong>Categories:</strong> Settings are organized into categories like <code class="bg-gray-200 px-2 py-1 rounded text-xs">app</code>, <code class="bg-gray-200 px-2 py-1 rounded text-xs">email</code>, <code class="bg-gray-200 px-2 py-1 rounded text-xs">security</code>, <code class="bg-gray-200 px-2 py-1 rounded text-xs">storage</code>, and <code class="bg-gray-200 px-2 py-1 rounded text-xs">custom</code> for easy management.
                 </p>
             </div>
         </div>

@@ -193,5 +193,26 @@ while True:
 1. Create a backup of current state (just in case)
 2. Identify the backup before the deletion occurred
 3. Use the restore API endpoint
-4. Restart the server
-5. Verify the deleted data is back
+4. Verify the deleted data is back
+
+## Backup Size Management
+
+Backups can grow large over time. To manage size:
+
+1. **Delete old backups** programmatically:
+   ```bash
+   # List backups older than 30 days and delete them
+   curl "http://localhost:8000/api/v1/backups" \
+     -H "Authorization: Bearer ADMIN_TOKEN" | \
+     jq -r '.items[] | select(.created < "2024-12-15") | .id' | \
+     xargs -I {} curl -X DELETE \
+       "http://localhost:8000/api/v1/backups/{}" \
+       -H "Authorization: Bearer ADMIN_TOKEN"
+   ```
+
+2. **Compress backups**:
+   ```bash
+   gzip data/backups/backup_2025-01-15_100000.db
+   ```
+
+3. **Move to cold storage**: Archive old backups to S3 Glacier or equivalent

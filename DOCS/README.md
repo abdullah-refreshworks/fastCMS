@@ -6,6 +6,7 @@ FastCMS is a headless CMS built with FastAPI and SQLite. It provides dynamic col
 
 ### Getting Started
 - [Installation & Setup](getting-started.md) - Install FastCMS and get up and running
+- [Command Line Interface](cli.md) - Manage FastCMS from the terminal
 
 ### Core Concepts
 - [Collections](collections.md) - Understanding collection types (Base, Auth, View)
