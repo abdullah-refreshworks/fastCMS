@@ -117,9 +117,10 @@ class BackupService:
 
     async def restore_backup(self, filename: str) -> dict:
         """
-        Restore database and files from a backup.
+        Prepare backup for restoration on next server restart.
 
-        WARNING: This will overwrite the current database and files!
+        This creates a staging area and marker file. The actual restore
+        happens on server startup to avoid database lock issues.
 
         Args:
             filename: Name of the backup file to restore
@@ -133,36 +134,89 @@ class BackupService:
             raise NotFoundException(f"Backup file '{filename}' not found")
 
         try:
-            # Create temporary restore directory
-            temp_dir = self.backup_dir / "temp_restore"
-            temp_dir.mkdir(exist_ok=True)
+            # Create restore staging directory
+            restore_staging = self.backup_dir / "restore_staging"
+            if restore_staging.exists():
+                shutil.rmtree(restore_staging)
+            restore_staging.mkdir(exist_ok=True)
 
-            # Extract backup
+            # Extract backup to staging
             with zipfile.ZipFile(backup_path, "r") as zipf:
-                zipf.extractall(temp_dir)
+                zipf.extractall(restore_staging)
 
-            # Close database connections (important!)
-            # This should be handled by the caller before calling restore
+            # Create marker file with restore metadata
+            marker_file = self.backup_dir / ".restore_pending"
+            marker_data = {
+                "backup_filename": filename,
+                "requested_at": datetime.utcnow().isoformat(),
+                "staging_path": str(restore_staging),
+            }
+            marker_file.write_text(json.dumps(marker_data, indent=2))
+
+            return {
+                "status": "pending_restart",
+                "message": f"Backup '{filename}' staged for restore. Please restart the server to complete restoration.",
+                "backup_filename": filename,
+                "requested_at": marker_data["requested_at"],
+            }
+
+        except Exception as e:
+            # Clean up on failure
+            restore_staging = self.backup_dir / "restore_staging"
+            if restore_staging.exists():
+                shutil.rmtree(restore_staging)
+
+            marker_file = self.backup_dir / ".restore_pending"
+            if marker_file.exists():
+                marker_file.unlink()
+
+            raise BadRequestException(f"Failed to prepare backup for restore: {str(e)}")
+
+    @staticmethod
+    def perform_restore_on_startup() -> bool:
+        """
+        Check for pending restore and perform it if found.
+        This should be called during app startup BEFORE initializing the database.
+
+        Returns:
+            bool: True if restore was performed, False otherwise
+        """
+        backup_dir = Path("data/backups")
+        marker_file = backup_dir / ".restore_pending"
+
+        if not marker_file.exists():
+            return False
+
+        try:
+            # Read marker file
+            marker_data = json.loads(marker_file.read_text())
+            restore_staging = Path(marker_data["staging_path"])
+
+            if not restore_staging.exists():
+                marker_file.unlink()
+                return False
+
+            # Get database path
+            db_path = Path(settings.DATABASE_URL.replace("sqlite+aiosqlite:///./", ""))
+
+            # Backup current database
+            if db_path.exists():
+                backup_path = db_path.with_suffix(".db.before_restore")
+                shutil.copy2(db_path, backup_path)
 
             # Restore database
-            db_backup = temp_dir / "database.db"
+            db_backup = restore_staging / "database.db"
             if db_backup.exists():
-                # Backup current database first
-                if self.db_path.exists():
-                    current_backup = self.db_path.with_suffix(".db.bak")
-                    shutil.copy2(self.db_path, current_backup)
-
-                # Replace with backup
-                shutil.copy2(db_backup, self.db_path)
+                shutil.copy2(db_backup, db_path)
 
             # Restore files
-            files_backup = temp_dir / "files"
+            files_backup = restore_staging / "files"
             if files_backup.exists():
                 files_dir = Path(settings.LOCAL_STORAGE_PATH)
 
                 # Backup current files
                 if files_dir.exists():
-                    current_files_backup = files_dir.parent / f"{files_dir.name}_bak"
+                    current_files_backup = files_dir.parent / f"{files_dir.name}_before_restore"
                     if current_files_backup.exists():
                         shutil.rmtree(current_files_backup)
                     shutil.copytree(files_dir, current_files_backup)
@@ -171,22 +225,19 @@ class BackupService:
                 # Restore from backup
                 shutil.copytree(files_backup, files_dir)
 
-            # Clean up temp directory
-            shutil.rmtree(temp_dir)
+            # Clean up
+            shutil.rmtree(restore_staging)
+            marker_file.unlink()
 
-            return {
-                "status": "success",
-                "message": f"Successfully restored backup '{filename}'",
-                "restored_at": datetime.utcnow().isoformat(),
-            }
+            return True
 
         except Exception as e:
-            # Clean up temp directory on failure
-            temp_dir = self.backup_dir / "temp_restore"
-            if temp_dir.exists():
-                shutil.rmtree(temp_dir)
-
-            raise BadRequestException(f"Failed to restore backup: {str(e)}")
+            # Log error but don't fail startup
+            print(f"Failed to restore backup on startup: {str(e)}")
+            # Clean up marker to avoid infinite loop
+            if marker_file.exists():
+                marker_file.unlink()
+            return False
 
     async def delete_backup(self, filename: str) -> None:
         """

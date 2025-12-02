@@ -47,7 +47,7 @@
                     </div>
                     <div>
                         <span class="text-sm font-medium text-gray-500">Base URL:</span>
-                        <code class="ml-2 text-xs bg-gray-100 px-2 py-1 rounded" x-text="`${baseUrl}/{{ collection_name }}`"></code>
+                        <code class="ml-2 text-xs bg-gray-100 px-2 py-1 rounded" x-text="`${baseUrl}/collections/{{ collection_name }}`"></code>
                     </div>
                 </div>
             </div>
@@ -124,6 +124,22 @@
                         </div>
                         <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
                             <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('create')"></pre>
+                        </div>
+                    </div>
+
+                    <!-- Search Records -->
+                    <div class="px-6 py-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded">GET</span>
+                                <span class="text-sm font-mono text-gray-700">Search Records</span>
+                            </div>
+                            <button @click="copyCode('search')" class="text-gray-400 hover:text-gray-600">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                            <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getCode('search')"></pre>
                         </div>
                     </div>
 
@@ -221,19 +237,21 @@
 
             getCurlCode(operation, collection, baseUrl) {
                 const examples = {
-                    list: `curl "${baseUrl}/${collection}/records?page=1&per_page=20" \\
+                    list: `curl "${baseUrl}/collections/${collection}/records?page=1&per_page=20" \\
   -H "Authorization: Bearer YOUR_TOKEN"`,
-                    create: `curl -X POST "${baseUrl}/${collection}/records" \\
+                    create: `curl -X POST "${baseUrl}/collections/${collection}/records" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -d '${this.getExampleData()}'`,
-                    get: `curl "${baseUrl}/${collection}/records/RECORD_ID" \\
+                    search: `curl "${baseUrl}/collections/${collection}/records?search=fastcms" \\
   -H "Authorization: Bearer YOUR_TOKEN"`,
-                    update: `curl -X PUT "${baseUrl}/${collection}/records/RECORD_ID" \\
+                    get: `curl "${baseUrl}/collections/${collection}/records/RECORD_ID" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+                    update: `curl -X PUT "${baseUrl}/collections/${collection}/records/RECORD_ID" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
   -d '${this.getExampleData()}'`,
-                    delete: `curl -X DELETE "${baseUrl}/${collection}/records/RECORD_ID" \\
+                    delete: `curl -X DELETE "${baseUrl}/collections/${collection}/records/RECORD_ID" \\
   -H "Authorization: Bearer YOUR_TOKEN"`
                 };
                 return examples[operation];
@@ -242,14 +260,14 @@
             getJavaScriptCode(operation, collection, baseUrl) {
                 const examples = {
                     list: `// List records
-const response = await fetch('${baseUrl}/${collection}/records?page=1&per_page=20', {
+const response = await fetch('${baseUrl}/collections/${collection}/records?page=1&per_page=20', {
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN'
   }
 });
 const data = await response.json();`,
                     create: `// Create record
-const response = await fetch('${baseUrl}/${collection}/records', {
+const response = await fetch('${baseUrl}/collections/${collection}/records', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -258,15 +276,22 @@ const response = await fetch('${baseUrl}/${collection}/records', {
   body: JSON.stringify(${this.getExampleData()})
 });
 const data = await response.json();`,
+                    search: `// Search records
+const response = await fetch('${baseUrl}/collections/${collection}/records?search=fastcms', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const data = await response.json();`,
                     get: `// Get record
-const response = await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+const response = await fetch('${baseUrl}/collections/${collection}/records/RECORD_ID', {
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN'
   }
 });
 const data = await response.json();`,
                     update: `// Update record
-const response = await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+const response = await fetch('${baseUrl}/collections/${collection}/records/RECORD_ID', {
   method: 'PUT',
   headers: {
     'Content-Type': 'application/json',
@@ -276,7 +301,7 @@ const response = await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
 });
 const data = await response.json();`,
                     delete: `// Delete record
-await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
+await fetch('${baseUrl}/collections/${collection}/records/RECORD_ID', {
   method: 'DELETE',
   headers: {
     'Authorization': 'Bearer YOUR_TOKEN'
@@ -292,7 +317,7 @@ await fetch('${baseUrl}/${collection}/records/RECORD_ID', {
 
 # List records
 response = requests.get(
-    '${baseUrl}/${collection}/records',
+    '${baseUrl}/collections/${collection}/records',
     params={'page': 1, 'per_page': 20},
     headers={'Authorization': 'Bearer YOUR_TOKEN'}
 )
@@ -301,8 +326,17 @@ data = response.json()`,
 
 # Create record
 response = requests.post(
-    '${baseUrl}/${collection}/records',
+    '${baseUrl}/collections/${collection}/records',
     json=${this.getExampleData()},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()`,
+                    search: `import requests
+
+# Search records
+response = requests.get(
+    '${baseUrl}/collections/${collection}/records',
+    params={'search': 'fastcms'},
     headers={'Authorization': 'Bearer YOUR_TOKEN'}
 )
 data = response.json()`,
@@ -310,7 +344,7 @@ data = response.json()`,
 
 # Get record
 response = requests.get(
-    '${baseUrl}/${collection}/records/RECORD_ID',
+    '${baseUrl}/collections/${collection}/records/RECORD_ID',
     headers={'Authorization': 'Bearer YOUR_TOKEN'}
 )
 data = response.json()`,
@@ -318,7 +352,7 @@ data = response.json()`,
 
 # Update record
 response = requests.put(
-    '${baseUrl}/${collection}/records/RECORD_ID',
+    '${baseUrl}/collections/${collection}/records/RECORD_ID',
     json=${this.getExampleData()},
     headers={'Authorization': 'Bearer YOUR_TOKEN'}
 )
@@ -327,7 +361,7 @@ data = response.json()`,
 
 # Delete record
 requests.delete(
-    '${baseUrl}/${collection}/records/RECORD_ID',
+    '${baseUrl}/collections/${collection}/records/RECORD_ID',
     headers={'Authorization': 'Bearer YOUR_TOKEN'}
 )`
                 };

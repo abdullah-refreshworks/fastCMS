@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% block title %}Webhooks{% endblock %}
+
+{% block content %}
+<div x-data="webhooksData()" x-init="loadWebhooks()">
+    <div class="px-4 sm:px-0 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Webhooks</h1>
+            <p class="mt-2 text-sm text-gray-700">Manage webhook subscriptions for collection events</p>
+        </div>
+        <div class="flex space-x-3">
+            <button @click="openCreateModal()"
+                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                <i class="fas fa-plus mr-2"></i>Create Webhook
+            </button>
+            <a href="/admin/api#webhooks"
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                <i class="fas fa-code mr-2"></i>View API
+            </a>
+        </div>
+    </div>
+
+    <!-- Webhooks Table -->
+    <div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
+        <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    Total: <span class="font-medium text-gray-900" x-text="pagination.total"></span> webhooks
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button @click="prevPage" :disabled="pagination.page === 1"
+                        class="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">
+                        Previous
+                    </button>
+                    <span class="text-sm text-gray-600">
+                        Page <span x-text="pagination.page"></span> of <span x-text="pagination.total_pages"></span>
+                    </span>
+                    <button @click="nextPage" :disabled="pagination.page >= pagination.total_pages"
+                        class="px-3 py-1 text-sm bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50">
+                        Next
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Collection</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Events</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Retries</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                <template x-for="webhook in webhooks" :key="webhook.id">
+                    <tr>
+                        <td class="px-6 py-4">
+                            <div class="text-sm text-gray-900 max-w-xs truncate" :title="webhook.url" x-text="webhook.url"></div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900" x-text="webhook.collection_name"></div>
+                        </td>
+                        <td class="px-6 py-4">
+                            <div class="flex flex-wrap gap-1">
+                                <template x-for="event in webhook.events" :key="event">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800" x-text="event"></span>
+                                </template>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span :class="webhook.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                                class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
+                                <span x-text="webhook.enabled ? 'Enabled' : 'Disabled'"></span>
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span x-text="webhook.retry_count || 0"></span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span x-text="new Date(webhook.created).toLocaleDateString()"></span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button @click="toggleWebhook(webhook)"
+                                class="text-indigo-600 hover:text-indigo-900 mr-3"
+                                x-text="webhook.enabled ? 'Disable' : 'Enable'">
+                            </button>
+                            <button @click="openEditModal(webhook)" class="text-blue-600 hover:text-blue-900 mr-3">
+                                Edit
+                            </button>
+                            <button @click="showDeleteModal(webhook)" class="text-red-600 hover:text-red-900">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                </template>
+                <tr x-show="webhooks.length === 0">
+                    <td colspan="7" class="px-6 py-4 text-center text-gray-500">
+                        No webhooks found. Create one to get started!
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Create/Edit Webhook Modal -->
+    <div x-show="showModal"
+         x-cloak
+         class="fixed z-10 inset-0 overflow-y-auto"
+         @keydown.escape.window="showModal = false">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showModal = false"></div>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <form @submit.prevent="saveWebhook">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                    <span x-text="isEditing ? 'Edit Webhook' : 'Create Webhook'"></span>
+                                </h3>
+
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Webhook URL *</label>
+                                        <input type="url" x-model="formData.url" required
+                                               placeholder="https://your-server.com/webhook"
+                                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                        <p class="mt-1 text-xs text-gray-500">The URL that will receive POST requests when events occur</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Collection *</label>
+                                        <select x-model="formData.collection_name" required
+                                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                            <option value="">Select a collection...</option>
+                                            <template x-for="collection in collections" :key="collection.name">
+                                                <option :value="collection.name" x-text="collection.name"></option>
+                                            </template>
+                                        </select>
+                                        <p class="mt-1 text-xs text-gray-500">The collection to watch for events</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Events *</label>
+                                        <div class="space-y-2">
+                                            <label class="inline-flex items-center mr-4">
+                                                <input type="checkbox" value="create" x-model="formData.events"
+                                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                <span class="ml-2 text-sm text-gray-700">Create</span>
+                                            </label>
+                                            <label class="inline-flex items-center mr-4">
+                                                <input type="checkbox" value="update" x-model="formData.events"
+                                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                <span class="ml-2 text-sm text-gray-700">Update</span>
+                                            </label>
+                                            <label class="inline-flex items-center">
+                                                <input type="checkbox" value="delete" x-model="formData.events"
+                                                       class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                                <span class="ml-2 text-sm text-gray-700">Delete</span>
+                                            </label>
+                                        </div>
+                                        <p class="mt-1 text-xs text-gray-500">Select which events should trigger this webhook</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Secret (Optional)</label>
+                                        <input type="text" x-model="formData.secret"
+                                               placeholder="your-webhook-secret"
+                                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                        <p class="mt-1 text-xs text-gray-500">Used to sign webhook payloads with HMAC-SHA256 for security</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Retry Count</label>
+                                        <input type="number" x-model.number="formData.retry_count" min="0" max="10"
+                                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                        <p class="mt-1 text-xs text-gray-500">Number of retry attempts if webhook delivery fails (0-10)</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="inline-flex items-center">
+                                            <input type="checkbox" x-model="formData.enabled"
+                                                   class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                            <span class="ml-2 text-sm text-gray-700">Enable webhook immediately</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="submit"
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            <span x-text="isEditing ? 'Update Webhook' : 'Create Webhook'"></span>
+                        </button>
+                        <button type="button" @click="showModal = false"
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div x-show="showDeleteModal"
+         x-cloak
+         class="fixed z-10 inset-0 overflow-y-auto"
+         @keydown.escape.window="showDeleteModal = false">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showDeleteModal = false"></div>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-trash text-red-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                Delete Webhook
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">
+                                    Are you sure you want to delete this webhook? This action cannot be undone.
+                                </p>
+                                <div class="mt-3 bg-gray-50 p-3 rounded">
+                                    <p class="text-sm text-gray-700">
+                                        <strong>Collection:</strong> <span x-text="deleteTarget?.collection_name"></span><br>
+                                        <strong>URL:</strong> <span x-text="deleteTarget?.url" class="break-all"></span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="confirmDelete()"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        <i class="fas fa-trash mr-2"></i>Delete Webhook
+                    </button>
+                    <button type="button" @click="showDeleteModal = false"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function webhooksData() {
+        return {
+            webhooks: [],
+            collections: [],
+            pagination: {
+                page: 1,
+                per_page: 20,
+                total: 0,
+                total_pages: 0
+            },
+            showModal: false,
+            showDeleteModal: false,
+            isEditing: false,
+            editingId: null,
+            deleteTarget: null,
+            formData: {
+                url: '',
+                collection_name: '',
+                events: [],
+                secret: '',
+                retry_count: 3,
+                enabled: true
+            },
+
+            async loadWebhooks() {
+                try {
+                    const data = await apiRequest(`/webhooks?page=${this.pagination.page}&per_page=${this.pagination.per_page}`);
+                    this.webhooks = data.items;
+                    this.pagination = {
+                        page: data.page,
+                        per_page: data.per_page,
+                        total: data.total,
+                        total_pages: data.total_pages
+                    };
+                } catch (error) {
+                    console.error('Failed to load webhooks:', error);
+                    showToast('Failed to load webhooks', 'error');
+                }
+            },
+
+            async loadCollections() {
+                try {
+                    const data = await apiRequest('/collections?per_page=100');
+                    this.collections = data.items;
+                } catch (error) {
+                    console.error('Failed to load collections:', error);
+                }
+            },
+
+            openCreateModal() {
+                this.isEditing = false;
+                this.editingId = null;
+                this.formData = {
+                    url: '',
+                    collection_name: '',
+                    events: [],
+                    secret: '',
+                    retry_count: 3,
+                    enabled: true
+                };
+                this.loadCollections();
+                this.showModal = true;
+            },
+
+            openEditModal(webhook) {
+                this.isEditing = true;
+                this.editingId = webhook.id;
+                this.formData = {
+                    url: webhook.url,
+                    collection_name: webhook.collection_name,
+                    events: [...webhook.events],
+                    secret: webhook.secret || '',
+                    retry_count: webhook.retry_count || 3,
+                    enabled: webhook.enabled
+                };
+                this.loadCollections();
+                this.showModal = true;
+            },
+
+            async saveWebhook() {
+                // Validate at least one event is selected
+                if (this.formData.events.length === 0) {
+                    showToast('Please select at least one event', 'error');
+                    return;
+                }
+
+                try {
+                    const payload = {
+                        url: this.formData.url,
+                        collection_name: this.formData.collection_name,
+                        events: this.formData.events,
+                        retry_count: this.formData.retry_count,
+                        enabled: this.formData.enabled
+                    };
+
+                    // Only include secret if it's not empty
+                    if (this.formData.secret) {
+                        payload.secret = this.formData.secret;
+                    }
+
+                    if (this.isEditing) {
+                        await apiRequest(`/webhooks/${this.editingId}`, {
+                            method: 'PATCH',
+                            body: JSON.stringify(payload)
+                        });
+                        showToast('Webhook updated successfully', 'success');
+                    } else {
+                        await apiRequest('/webhooks', {
+                            method: 'POST',
+                            body: JSON.stringify(payload)
+                        });
+                        showToast('Webhook created successfully', 'success');
+                    }
+
+                    this.showModal = false;
+                    await this.loadWebhooks();
+                } catch (error) {
+                    console.error('Failed to save webhook:', error);
+                    showToast(error.message || 'Failed to save webhook', 'error');
+                }
+            },
+
+            async toggleWebhook(webhook) {
+                const newStatus = !webhook.enabled;
+                const action = newStatus ? 'enable' : 'disable';
+
+                try {
+                    await apiRequest(`/webhooks/${webhook.id}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify({ enabled: newStatus })
+                    });
+                    showToast(`Webhook ${action}d successfully`, 'success');
+                    await this.loadWebhooks();
+                } catch (error) {
+                    console.error(`Failed to ${action} webhook:`, error);
+                    showToast(`Failed to ${action} webhook`, 'error');
+                }
+            },
+
+            showDeleteModal(webhook) {
+                this.deleteTarget = webhook;
+                this.showDeleteModal = true;
+            },
+
+            async confirmDelete() {
+                if (!this.deleteTarget) return;
+
+                try {
+                    await apiRequest(`/webhooks/${this.deleteTarget.id}`, {
+                        method: 'DELETE'
+                    });
+                    showToast('Webhook deleted successfully', 'success');
+                    this.showDeleteModal = false;
+                    this.deleteTarget = null;
+                    await this.loadWebhooks();
+                } catch (error) {
+                    console.error('Failed to delete webhook:', error);
+                    showToast('Failed to delete webhook', 'error');
+                }
+            },
+
+            async nextPage() {
+                if (this.pagination.page < this.pagination.total_pages) {
+                    this.pagination.page++;
+                    await this.loadWebhooks();
+                }
+            },
+
+            async prevPage() {
+                if (this.pagination.page > 1) {
+                    this.pagination.page--;
+                    await this.loadWebhooks();
+                }
+            }
+        };
+    }
+</script>
+{% endblock %}

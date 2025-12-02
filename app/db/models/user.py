@@ -44,7 +44,7 @@ class User(BaseModel):
     email_visibility: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
-        default=False,
+        default=True,
     )
 
     # Token key for invalidating all sessions

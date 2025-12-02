@@ -219,6 +219,66 @@ async def file_manager(
     )
 
 
+@router.get("/webhooks", response_class=HTMLResponse)
+async def admin_webhooks(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Webhook management page."""
+    return templates.TemplateResponse(
+        "webhooks.html",
+        {"request": request, "user": user, "active": "webhooks"},
+    )
+
+
+@router.get("/backups", response_class=HTMLResponse)
+async def admin_backups(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Backup management page."""
+    return templates.TemplateResponse(
+        "backups.html",
+        {"request": request, "user": user, "active": "backups"},
+    )
+
+
+@router.get("/settings", response_class=HTMLResponse)
+async def admin_settings(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """System settings page."""
+    return templates.TemplateResponse(
+        "settings.html",
+        {"request": request, "user": user, "active": "settings"},
+    )
+
+
+@router.get("/profile", response_class=HTMLResponse)
+async def admin_profile(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """User profile page."""
+    return templates.TemplateResponse(
+        "profile.html",
+        {"request": request, "user": user, "active": "profile"},
+    )
+
+
+@router.get("/realtime", response_class=HTMLResponse)
+async def admin_realtime(
+    request: Request,
+    user: UserContext = Depends(require_admin_ui),
+):
+    """Real-time features demo page."""
+    return templates.TemplateResponse(
+        "realtime.html",
+        {"request": request, "user": user, "active": "realtime"},
+    )
+
+
 @router.get("/login", response_class=HTMLResponse)
 async def admin_login(request: Request, db: AsyncSession = Depends(get_db)):
     """Admin login page."""

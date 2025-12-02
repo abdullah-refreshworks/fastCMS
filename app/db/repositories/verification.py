@@ -52,6 +52,17 @@ class VerificationTokenRepository:
         expires_at = datetime.fromisoformat(token.expires_at)
         return expires_at > datetime.now(timezone.utc)
 
+    async def delete_for_user(self, user_id: str) -> None:
+        """Delete all verification tokens for a user."""
+        stmt = select(VerificationToken).where(VerificationToken.user_id == user_id)
+        result = await self.db.execute(stmt)
+        tokens = result.scalars().all()
+
+        for token in tokens:
+            await self.db.delete(token)
+
+        await self.db.flush()
+
 
 class PasswordResetTokenRepository:
     """Repository for password reset tokens."""
@@ -95,3 +106,14 @@ class PasswordResetTokenRepository:
 
         expires_at = datetime.fromisoformat(token.expires_at)
         return expires_at > datetime.now(timezone.utc)
+
+    async def delete_for_user(self, user_id: str) -> None:
+        """Delete all password reset tokens for a user."""
+        stmt = select(PasswordResetToken).where(PasswordResetToken.user_id == user_id)
+        result = await self.db.execute(stmt)
+        tokens = result.scalars().all()
+
+        for token in tokens:
+            await self.db.delete(token)
+
+        await self.db.flush()

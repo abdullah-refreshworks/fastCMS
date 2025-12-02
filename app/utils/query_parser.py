@@ -1,6 +1,6 @@
 """
 Query parser for advanced filtering and sorting.
-Supports PocketBase-like filter syntax with AND (&&) and OR (||) operators.
+Supports filter syntax with AND (&&) and OR (||) operators.
 """
 
 import re

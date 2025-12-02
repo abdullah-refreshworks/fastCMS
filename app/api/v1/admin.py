@@ -5,7 +5,7 @@ Requires admin role for all operations.
 
 from typing import Any, Literal, cast
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,10 @@ async def get_stats(
     Returns:
         System statistics including user count, collection count, etc.
     """
+    from app.db.models.backup import Backup
+    from app.db.models.file import File
+    from datetime import datetime, timedelta
+
     user_repo = UserRepository(db)
     collection_repo = CollectionRepository(db)
 
@@ -46,13 +50,38 @@ async def get_stats(
     admin_users = result.scalar_one()
 
     # Get recent users (last 7 days)
-    from datetime import datetime, timedelta
-
     seven_days_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
     result = await db.execute(
         select(func.count(User.id)).where(User.created >= seven_days_ago)
     )
     recent_users = result.scalar_one()
+
+    # Count backups
+    result = await db.execute(select(func.count(Backup.id)))
+    total_backups = result.scalar_one()
+
+    # Get recent backups (last 5)
+    result = await db.execute(
+        select(Backup).order_by(Backup.created.desc()).limit(5)
+    )
+    recent_backups_list = result.scalars().all()
+    recent_backups = [
+        {
+            "id": b.id,
+            "filename": b.filename,
+            "size": b.size_bytes,
+            "created": b.created.isoformat(),
+        }
+        for b in recent_backups_list
+    ]
+
+    # Count files
+    result = await db.execute(select(func.count(File.id)).where(File.deleted == False))
+    total_files = result.scalar_one()
+
+    # Sum file sizes
+    result = await db.execute(select(func.sum(File.size)).where(File.deleted == False))
+    total_file_size = result.scalar_one() or 0
 
     return {
         "users": {
@@ -62,6 +91,14 @@ async def get_stats(
         },
         "collections": {
             "total": total_collections,
+        },
+        "backups": {
+            "total": total_backups,
+            "recent": recent_backups,
+        },
+        "files": {
+            "total": total_files,
+            "total_size": total_file_size,
         },
     }
 
@@ -184,6 +221,52 @@ async def get_user(
     return UserResponse.model_validate(user)
 
 
+@router.patch("/users/{user_id}", response_model=UserResponse, summary="Update user")
+async def update_user(
+    user_id: str,
+    update_data: dict[str, Any] = Body(...),
+    db: AsyncSession = Depends(get_db),
+    admin: UserContext = Depends(require_admin),
+) -> UserResponse:
+    """
+    Update user details (admin only).
+
+    Args:
+        user_id: User ID
+        update_data: Fields to update (name, email, role, verified, password)
+        db: Database session
+        admin: Admin user context
+
+    Returns:
+        Updated user
+    """
+    from app.core.exceptions import NotFoundException
+    from app.core.security import hash_password
+
+    user_repo = UserRepository(db)
+    user = await user_repo.get_by_id(user_id)
+
+    if not user:
+        raise NotFoundException(f"User {user_id} not found")
+
+    # Update allowed fields
+    if "name" in update_data:
+        user.name = update_data["name"]
+    if "email" in update_data:
+        user.email = update_data["email"]
+    if "role" in update_data:
+        user.role = update_data["role"]
+    if "verified" in update_data:
+        user.verified = update_data["verified"]
+    if "password" in update_data and update_data["password"]:
+        user.password_hash = hash_password(update_data["password"])
+
+    await user_repo.update(user)
+    await db.commit()
+
+    return UserResponse.model_validate(user)
+
+
 @router.patch("/users/{user_id}/role", response_model=UserResponse, summary="Update user role")
 async def update_user_role(
     user_id: str,
@@ -286,11 +369,21 @@ async def list_collections_admin(
     # Convert collections to response format
     items = []
     for col in collections:
-        # Extract fields from schema
-        fields = [
-            FieldSchema(**field_data)
-            for field_data in col.schema.get("fields", [])
-        ]
+        # Extract fields from schema and migrate old formats
+        fields = []
+        for field_data in col.schema.get("fields", []):
+            # Migrate old boolean cascade_delete to new enum format
+            if "relation" in field_data and field_data["relation"]:
+                relation_data = field_data["relation"]
+                if "cascade_delete" in relation_data:
+                    cascade_value = relation_data["cascade_delete"]
+                    # Convert old boolean format to new enum string
+                    if isinstance(cascade_value, bool):
+                        relation_data["cascade_delete"] = "cascade" if cascade_value else "restrict"
+                    elif cascade_value is None:
+                        relation_data["cascade_delete"] = "restrict"
+
+            fields.append(FieldSchema(**field_data))
 
         items.append(CollectionResponse(
             id=col.id,

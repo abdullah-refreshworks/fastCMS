@@ -76,3 +76,49 @@ class RecordQuery(BaseModel):
         if v and v not in ["asc", "desc"]:
             raise ValueError("Order must be 'asc' or 'desc'")
         return v
+
+
+class BulkDeleteRequest(BaseModel):
+    """Schema for bulk deleting records."""
+
+    record_ids: List[str] = Field(..., description="List of record IDs to delete", min_length=1)
+
+    @field_validator("record_ids")
+    @classmethod
+    def validate_record_ids(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("At least one record ID is required")
+        if len(v) > 100:
+            raise ValueError("Cannot delete more than 100 records at once")
+        return v
+
+
+class BulkUpdateRequest(BaseModel):
+    """Schema for bulk updating records."""
+
+    record_ids: List[str] = Field(..., description="List of record IDs to update", min_length=1)
+    data: Dict[str, Any] = Field(..., description="Fields to update on all records")
+
+    @field_validator("record_ids")
+    @classmethod
+    def validate_record_ids(cls, v: List[str]) -> List[str]:
+        if not v:
+            raise ValueError("At least one record ID is required")
+        if len(v) > 100:
+            raise ValueError("Cannot update more than 100 records at once")
+        return v
+
+    @field_validator("data")
+    @classmethod
+    def validate_data(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        if not v:
+            raise ValueError("Update data cannot be empty")
+        return v
+
+
+class BulkOperationResponse(BaseModel):
+    """Schema for bulk operation response."""
+
+    success: int = Field(..., description="Number of successfully processed records")
+    failed: int = Field(..., description="Number of failed records")
+    errors: Optional[List[Dict[str, str]]] = Field(default=None, description="List of errors for failed records")

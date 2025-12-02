@@ -1,11 +1,9 @@
 """Backups API endpoints"""
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from app.db.session import get_db
 from app.core.dependencies import require_admin, get_current_user
 from app.services.backup_service import BackupService
-from app.db.models.backup import Backup
 from app.db.models.user import User
 
 router = APIRouter()
@@ -18,43 +16,51 @@ async def create_backup(
 ):
     """Create a new backup (admin only)"""
     service = BackupService(db)
-    backup = await service.create_backup(created_by=user.id)
+    backup = await service.create_backup()
 
     return {
-        "id": backup.id,
-        "filename": backup.filename,
-        "size_bytes": backup.size_bytes,
-        "status": backup.status,
-        "created": backup.created.isoformat(),
+        "id": backup["name"],
+        "filename": backup["filename"],
+        "size_bytes": backup["size"],
+        "status": "completed",
+        "created": backup["created"],
     }
 
 
 @router.get("/backups", dependencies=[Depends(require_admin)])
 async def list_backups(
-    limit: int = 50,
-    offset: int = 0,
+    page: int = 1,
+    per_page: int = 20,
     db: AsyncSession = Depends(get_db),
 ):
     """List all backups (admin only)"""
-    result = await db.execute(
-        select(Backup).order_by(Backup.created.desc()).limit(limit).offset(offset)
-    )
-    backups = result.scalars().all()
+    service = BackupService(db)
+    all_backups = await service.list_backups()
+
+    # Calculate pagination
+    total = len(all_backups)
+    total_pages = (total + per_page - 1) // per_page if total > 0 else 1
+    offset = (page - 1) * per_page
+
+    # Get page of backups
+    backups = all_backups[offset:offset + per_page]
 
     return {
         "items": [
             {
-                "id": b.id,
-                "filename": b.filename,
-                "size_bytes": b.size_bytes,
-                "status": b.status,
-                "location": b.location,
-                "created": b.created.isoformat(),
+                "id": b["name"],
+                "filename": b["filename"],
+                "size": b["size"],
+                "path": b["filename"],
+                "status": "completed",
+                "created": b["created"],
             }
             for b in backups
         ],
-        "limit": limit,
-        "offset": offset,
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": total_pages,
     }
 
 
@@ -66,10 +72,10 @@ async def restore_backup(
     """Restore from a backup (admin only)"""
     service = BackupService(db)
     try:
-        success = await service.restore_backup(backup_id)
-        return {"success": success, "message": "Backup restored successfully"}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # backup_id is the filename (without .zip or with .zip)
+        filename = backup_id if backup_id.endswith(".zip") else f"{backup_id}.zip"
+        result = await service.restore_backup(filename)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Restore failed: {str(e)}")
 
@@ -81,9 +87,10 @@ async def delete_backup(
 ):
     """Delete a backup (admin only)"""
     service = BackupService(db)
-    deleted = await service.delete_backup(backup_id)
-
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Backup not found")
-
-    return {"deleted": True}
+    try:
+        # backup_id is the filename (without .zip or with .zip)
+        filename = backup_id if backup_id.endswith(".zip") else f"{backup_id}.zip"
+        await service.delete_backup(filename)
+        return {"deleted": True}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))

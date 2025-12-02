@@ -108,7 +108,7 @@
                         <label class="block text-sm font-medium text-gray-700">Source Collection *</label>
                         <select
                             x-model="formData.options.query.source"
-                            required
+                            :required="formData.type === 'view'"
                             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                         >
                             <option value="">Select primary source collection...</option>
@@ -274,7 +274,7 @@
                                             <label class="block text-sm font-medium text-gray-700">Target Collection *</label>
                                             <select
                                                 x-model="field.relation.collection_id"
-                                                required
+                                                :required="field.type === 'relation'"
                                                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                                             >
                                                 <option value="">Select a collection...</option>

@@ -1,0 +1,542 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div x-data="profileData()" x-init="loadProfile()">
+    <div class="px-4 sm:px-0">
+        <h1 class="text-3xl font-bold text-gray-900">My Profile</h1>
+        <p class="mt-2 text-sm text-gray-700">Manage your account settings and preferences</p>
+    </div>
+
+    <!-- Profile Header Card -->
+    <div class="mt-6 bg-white shadow sm:rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-start space-x-6">
+                <!-- Avatar -->
+                <div class="flex-shrink-0">
+                    <div class="relative group">
+                        <template x-if="profileData.avatar">
+                            <img :src="profileData.avatar" alt="Profile" class="h-24 w-24 rounded-full object-cover border-4 border-gray-200">
+                        </template>
+                        <template x-if="!profileData.avatar">
+                            <div class="h-24 w-24 rounded-full bg-indigo-600 flex items-center justify-center border-4 border-gray-200">
+                                <span class="text-3xl font-bold text-white" x-text="getInitials(profileData.name || profileData.email)"></span>
+                            </div>
+                        </template>
+                        <button @click="$refs.avatarInput.click()"
+                                class="absolute bottom-0 right-0 bg-indigo-600 text-white p-2 rounded-full hover:bg-indigo-700 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i class="fas fa-camera text-xs"></i>
+                        </button>
+                        <input type="file" x-ref="avatarInput" @change="uploadAvatar" accept="image/*" class="hidden">
+                    </div>
+                </div>
+
+                <!-- Profile Info -->
+                <div class="flex-1">
+                    <h2 class="text-2xl font-bold text-gray-900" x-text="profileData.name || 'No Name'"></h2>
+                    <p class="text-sm text-gray-500" x-text="profileData.email"></p>
+                    <div class="mt-3 flex items-center space-x-4">
+                        <span :class="profileData.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'"
+                              class="px-3 py-1 text-xs font-semibold rounded-full">
+                            <i class="fas fa-user-shield mr-1" x-show="profileData.role === 'admin'"></i>
+                            <i class="fas fa-user mr-1" x-show="profileData.role !== 'admin'"></i>
+                            <span x-text="profileData.role ? profileData.role.toUpperCase() : 'USER'"></span>
+                        </span>
+                        <span :class="profileData.verified ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'"
+                              class="px-3 py-1 text-xs font-semibold rounded-full">
+                            <i :class="profileData.verified ? 'fas fa-check-circle' : 'fas fa-exclamation-circle'" class="mr-1"></i>
+                            <span x-text="profileData.verified ? 'VERIFIED' : 'UNVERIFIED'"></span>
+                        </span>
+                    </div>
+                    <p class="mt-2 text-sm text-gray-600">
+                        <i class="fas fa-calendar mr-1"></i>
+                        Member since <span x-text="formatDate(profileData.created)"></span>
+                    </p>
+                </div>
+
+                <!-- Logout Button -->
+                <div class="flex-shrink-0">
+                    <button @click="logout()"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                        <i class="fas fa-sign-out-alt mr-2"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Sections Grid -->
+    <div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Edit Profile -->
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    <i class="fas fa-user-edit text-indigo-600 mr-2"></i>Personal Information
+                </h3>
+                <form @submit.prevent="updateProfile()" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input type="text" x-model="profileData.name"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                               placeholder="Enter your full name">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input type="email" x-model="profileData.email"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                               placeholder="your@email.com">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email Visibility</label>
+                        <div class="mt-2 space-y-2">
+                            <label class="inline-flex items-center">
+                                <input type="radio" x-model="profileData.email_visibility" value="true" class="form-radio h-4 w-4 text-indigo-600">
+                                <span class="ml-2 text-sm text-gray-700">Public - Anyone can see my email</span>
+                            </label>
+                            <br>
+                            <label class="inline-flex items-center">
+                                <input type="radio" x-model="profileData.email_visibility" value="false" class="form-radio h-4 w-4 text-indigo-600">
+                                <span class="ml-2 text-sm text-gray-700">Private - Hide my email from others</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            <i class="fas fa-save mr-2"></i>Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Change Password -->
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    <i class="fas fa-lock text-indigo-600 mr-2"></i>Change Password
+                </h3>
+                <form @submit.prevent="changePassword()" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Current Password</label>
+                        <input type="password" x-model="passwordData.currentPassword"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                               placeholder="Enter current password">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">New Password</label>
+                        <input type="password" x-model="passwordData.newPassword"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                               placeholder="Enter new password">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                        <input type="password" x-model="passwordData.confirmPassword"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                               placeholder="Confirm new password">
+                    </div>
+                    <div class="flex justify-end">
+                        <button type="submit"
+                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                            <i class="fas fa-key mr-2"></i>Update Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Account Information -->
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    <i class="fas fa-info-circle text-indigo-600 mr-2"></i>Account Information
+                </h3>
+                <dl class="space-y-3">
+                    <div class="flex justify-between">
+                        <dt class="text-sm font-medium text-gray-500">User ID</dt>
+                        <dd class="text-sm text-gray-900 font-mono" x-text="profileData.id"></dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-sm font-medium text-gray-500">Account Created</dt>
+                        <dd class="text-sm text-gray-900" x-text="formatDateTime(profileData.created)"></dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
+                        <dd class="text-sm text-gray-900" x-text="formatDateTime(profileData.updated)"></dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-sm font-medium text-gray-500">Account Status</dt>
+                        <dd class="text-sm">
+                            <span :class="profileData.verified ? 'text-green-600' : 'text-yellow-600'" class="font-semibold">
+                                <span x-text="profileData.verified ? 'Active & Verified' : 'Active (Unverified)'"></span>
+                            </span>
+                        </dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-sm font-medium text-gray-500">Role</dt>
+                        <dd class="text-sm text-gray-900 capitalize" x-text="profileData.role"></dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+
+        <!-- Security Settings -->
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    <i class="fas fa-shield-alt text-indigo-600 mr-2"></i>Security
+                </h3>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between py-3 border-b border-gray-200">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Email Verification</p>
+                            <p class="text-xs text-gray-500">Verify your email address for security</p>
+                        </div>
+                        <template x-if="profileData.verified">
+                            <span class="text-green-600">
+                                <i class="fas fa-check-circle mr-1"></i>
+                                Verified
+                            </span>
+                        </template>
+                        <template x-if="!profileData.verified">
+                            <button @click="sendVerificationEmail()"
+                                    class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                                Send Verification Email
+                            </button>
+                        </template>
+                    </div>
+                    <div class="flex items-center justify-between py-3 border-b border-gray-200">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Active Sessions</p>
+                            <p class="text-xs text-gray-500">Manage your login sessions</p>
+                        </div>
+                        <button @click="viewSessions()"
+                                class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                            View Sessions
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between py-3">
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">Delete Account</p>
+                            <p class="text-xs text-gray-500">Permanently delete your account</p>
+                        </div>
+                        <button @click="confirmDeleteAccount()"
+                                class="text-red-600 hover:text-red-700 text-sm font-medium">
+                            Delete Account
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions Modal -->
+    <div x-show="showSessionsModal" x-cloak
+         class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+         @click.self="showSessionsModal = false">
+        <div class="bg-white rounded-lg max-w-2xl w-full mx-4 p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Active Sessions</h3>
+                <button @click="showSessionsModal = false" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-3">
+                <template x-for="session in sessions" :key="session.id">
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-laptop text-gray-400 text-xl"></i>
+                            <div>
+                                <p class="text-sm font-medium text-gray-900" x-text="session.user_agent || 'Unknown Device'"></p>
+                                <p class="text-xs text-gray-500" x-text="'Last active: ' + formatDateTime(session.created)"></p>
+                            </div>
+                        </div>
+                        <button @click="revokeSession(session.id)"
+                                class="text-red-600 hover:text-red-700 text-sm font-medium">
+                            Revoke
+                        </button>
+                    </div>
+                </template>
+                <div x-show="sessions.length === 0" class="text-center py-8 text-gray-500">
+                    No active sessions found
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Account Confirmation Modal -->
+    <div x-show="showDeleteModal" x-cloak
+         class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50"
+         @click.self="showDeleteModal = false">
+        <div class="bg-white rounded-lg max-w-md w-full mx-4 p-6">
+            <div class="flex items-start mb-4">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                </div>
+                <div class="ml-3 flex-1">
+                    <h3 class="text-lg font-medium text-gray-900">Delete Account</h3>
+                    <p class="mt-2 text-sm text-gray-500">
+                        Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.
+                    </p>
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Type your email to confirm:
+                        </label>
+                        <input type="email" x-model="deleteConfirmEmail"
+                               :placeholder="profileData.email"
+                               class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm">
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end space-x-3">
+                <button @click="showDeleteModal = false; deleteConfirmEmail = ''"
+                        class="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button @click="deleteAccount()"
+                        :disabled="deleteConfirmEmail !== profileData.email"
+                        class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Delete My Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function profileData() {
+        return {
+            profileData: {
+                id: '',
+                email: '',
+                name: '',
+                avatar: null,
+                role: 'user',
+                verified: false,
+                email_visibility: 'false',
+                created: '',
+                updated: ''
+            },
+            passwordData: {
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: ''
+            },
+            sessions: [],
+            showSessionsModal: false,
+            showDeleteModal: false,
+            deleteConfirmEmail: '',
+
+            async loadProfile() {
+                try {
+                    const data = await apiRequest('/auth/me');
+                    this.profileData = {
+                        ...data,
+                        email_visibility: data.email_visibility ? 'true' : 'false'
+                    };
+                } catch (error) {
+                    console.error('Failed to load profile:', error);
+                    showToast('Failed to load profile', 'error');
+                }
+            },
+
+            async updateProfile() {
+                try {
+                    showToast('Updating profile...', 'info');
+                    await apiRequest('/auth/me', {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            name: this.profileData.name,
+                            email: this.profileData.email,
+                            email_visibility: this.profileData.email_visibility === 'true'
+                        })
+                    });
+                    showToast('Profile updated successfully', 'success');
+                    await this.loadProfile();
+                } catch (error) {
+                    console.error('Failed to update profile:', error);
+                    showToast(error.message || 'Failed to update profile', 'error');
+                }
+            },
+
+            async changePassword() {
+                if (this.passwordData.newPassword !== this.passwordData.confirmPassword) {
+                    showToast('Passwords do not match', 'error');
+                    return;
+                }
+
+                if (this.passwordData.newPassword.length < 8) {
+                    showToast('Password must be at least 8 characters', 'error');
+                    return;
+                }
+
+                try {
+                    showToast('Changing password...', 'info');
+                    await apiRequest('/auth/change-password', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            old_password: this.passwordData.currentPassword,
+                            new_password: this.passwordData.newPassword
+                        })
+                    });
+                    showToast('Password changed successfully', 'success');
+                    this.passwordData = {
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: ''
+                    };
+                } catch (error) {
+                    console.error('Failed to change password:', error);
+                    showToast(error.message || 'Failed to change password', 'error');
+                }
+            },
+
+            async uploadAvatar(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (!file.type.startsWith('image/')) {
+                    showToast('Please select an image file', 'error');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    showToast('Uploading avatar...', 'info');
+                    const token = localStorage.getItem('access_token');
+                    const response = await fetch('/api/v1/files', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Upload failed');
+                    }
+
+                    const fileData = await response.json();
+
+                    // Update user avatar
+                    await apiRequest('/auth/me', {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            avatar: `/api/v1/files/${fileData.id}`
+                        })
+                    });
+
+                    showToast('Avatar updated successfully', 'success');
+                    await this.loadProfile();
+                } catch (error) {
+                    console.error('Failed to upload avatar:', error);
+                    showToast('Failed to upload avatar', 'error');
+                }
+            },
+
+            async viewSessions() {
+                try {
+                    const data = await apiRequest('/auth/sessions');
+                    this.sessions = data.sessions || [];
+                    this.showSessionsModal = true;
+                } catch (error) {
+                    console.error('Failed to load sessions:', error);
+                    showToast('Failed to load sessions', 'error');
+                }
+            },
+
+            async revokeSession(sessionId) {
+                try {
+                    await apiRequest(`/auth/sessions/${sessionId}`, {
+                        method: 'DELETE'
+                    });
+                    showToast('Session revoked successfully', 'success');
+                    await this.viewSessions();
+                } catch (error) {
+                    console.error('Failed to revoke session:', error);
+                    showToast('Failed to revoke session', 'error');
+                }
+            },
+
+            async sendVerificationEmail() {
+                try {
+                    showToast('Sending verification email...', 'info');
+                    await apiRequest('/auth/resend-verification', {
+                        method: 'POST'
+                    });
+                    showToast('Verification email sent! Please check your inbox', 'success');
+                } catch (error) {
+                    console.error('Failed to send verification email:', error);
+                    showToast(error.message || 'Failed to send verification email', 'error');
+                }
+            },
+
+            confirmDeleteAccount() {
+                this.showDeleteModal = true;
+            },
+
+            async deleteAccount() {
+                if (this.deleteConfirmEmail !== this.profileData.email) {
+                    showToast('Email does not match', 'error');
+                    return;
+                }
+
+                try {
+                    showToast('Deleting account...', 'info');
+                    await apiRequest('/auth/me', {
+                        method: 'DELETE'
+                    });
+                    showToast('Account deleted successfully', 'success');
+                    setTimeout(() => {
+                        localStorage.removeItem('access_token');
+                        window.location.href = '/admin/login';
+                    }, 1500);
+                } catch (error) {
+                    console.error('Failed to delete account:', error);
+                    showToast(error.message || 'Failed to delete account', 'error');
+                }
+            },
+
+            logout() {
+                localStorage.removeItem('access_token');
+                window.location.href = '/admin/login';
+            },
+
+            getInitials(name) {
+                if (!name) return '?';
+                const parts = name.split(' ');
+                if (parts.length >= 2) {
+                    return (parts[0][0] + parts[1][0]).toUpperCase();
+                }
+                return name.substring(0, 2).toUpperCase();
+            },
+
+            formatDate(dateString) {
+                if (!dateString) return 'N/A';
+                return new Date(dateString).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+            },
+
+            formatDateTime(dateString) {
+                if (!dateString) return 'N/A';
+                return new Date(dateString).toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+        };
+    }
+</script>
+{% endblock %}

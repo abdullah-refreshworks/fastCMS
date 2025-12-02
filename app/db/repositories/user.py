@@ -161,6 +161,38 @@ class RefreshTokenRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_id(self, token_id: str) -> Optional[RefreshToken]:
+        """
+        Get refresh token by ID.
+
+        Args:
+            token_id: Token ID
+
+        Returns:
+            RefreshToken or None if not found
+        """
+        result = await self.db.execute(
+            select(RefreshToken).where(RefreshToken.id == token_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_all_for_user(self, user_id: str) -> list[RefreshToken]:
+        """
+        Get all refresh tokens for a user.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            List of refresh tokens
+        """
+        result = await self.db.execute(
+            select(RefreshToken)
+            .where(RefreshToken.user_id == user_id)
+            .order_by(RefreshToken.created.desc())
+        )
+        return list(result.scalars().all())
+
     async def revoke(self, refresh_token: RefreshToken) -> RefreshToken:
         """
         Revoke a refresh token.

@@ -140,7 +140,7 @@ curl -X POST "http://localhost:8000/api/v1/collections" \
 ### Add Some Data
 
 ```bash
-curl -X POST "http://localhost:8000/api/v1/posts/records" \
+curl -X POST "http://localhost:8000/api/v1/collections/posts/records" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -154,13 +154,13 @@ curl -X POST "http://localhost:8000/api/v1/posts/records" \
 
 ```bash
 # Find published posts
-curl "http://localhost:8000/api/v1/posts/records?filter=published=true"
+curl "http://localhost:8000/api/v1/collections/posts/records?filter=published=true"
 
 # Text search
-curl "http://localhost:8000/api/v1/posts/records?filter=title~Hello"
+curl "http://localhost:8000/api/v1/collections/posts/records?filter=title~Hello"
 
 # Sort by newest first
-curl "http://localhost:8000/api/v1/posts/records?sort=-created"
+curl "http://localhost:8000/api/v1/collections/posts/records?sort=-created"
 ```
 
 ## Optional Features
@@ -246,9 +246,9 @@ fastCMS/
 └── .env               # Your settings
 ```
 
-## New Features (vs PocketBase)
+## New Features
 
-FastCMS includes everything PocketBase has, PLUS:
+FastCMS includes:
 
 ### Core Improvements
 - **Automatic Image Thumbnails** - 3 sizes (100px, 300px, 500px) generated on upload
@@ -307,7 +307,6 @@ curl -X POST http://localhost:8000/api/v1/collections/import \
 - Check http://localhost:8000/docs for full API documentation
 - Look at the example curl commands above
 - Browse the code - it's well documented!
-- Read POCKETBASE_COMPARISON.md for detailed feature comparison
 
 ## License
 

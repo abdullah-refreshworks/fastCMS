@@ -38,6 +38,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
 
+    # Check for pending backup restore (must happen before DB initialization)
+    from app.services.backup_service import BackupService
+    restore_performed = BackupService.perform_restore_on_startup()
+    if restore_performed:
+        logger.info("✅ Database restored from backup successfully")
+
     # Initialize database
     await init_db()
 
@@ -248,7 +254,7 @@ from fastapi.responses import RedirectResponse
 app.include_router(health.router, tags=["Health"])
 app.include_router(setup.router, prefix="/api/v1/setup", tags=["Setup"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(auth_collections.router, prefix="/api/v1", tags=["Auth Collections"])
+app.include_router(auth_collections.router, prefix="/api/v1/collections", tags=["Auth Collections"])
 app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
 app.include_router(collections.router, prefix="/api/v1/collections", tags=["Collections"])
 app.include_router(views.router, prefix="/api/v1/views", tags=["View Collections"])
@@ -258,8 +264,8 @@ app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
 app.include_router(batch.router, prefix="/api/v1", tags=["Batch"])
 app.include_router(logs.router, prefix="/api/v1", tags=["Logs"])
 app.include_router(settings_router.router, prefix="/api/v1/settings", tags=["Settings"])
-app.include_router(backups.router, prefix="/api/v1/backups", tags=["Backups"])
-app.include_router(backup.router, prefix="/api/v1", tags=["Backup"])
+app.include_router(backups.router, prefix="/api/v1", tags=["Backups"])
+# app.include_router(backup.router, prefix="/api/v1", tags=["Backup"])  # Disabled: conflicts with backups.router which provides paginated response
 app.include_router(realtime.router, prefix="/api/v1", tags=["Real-time"])
 app.include_router(webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(ai.router, prefix="/api/v1/ai", tags=["AI"])

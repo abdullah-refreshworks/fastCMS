@@ -2,6 +2,7 @@
 Security utilities for password hashing and JWT token management.
 """
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -90,7 +91,7 @@ def create_refresh_token(
     expires_delta: Optional[timedelta] = None,
 ) -> str:
     """
-    Create a JWT refresh token.
+    Create a JWT refresh token with unique jti.
 
     Args:
         data: Dictionary of data to encode in token
@@ -108,7 +109,8 @@ def create_refresh_token(
             days=settings.REFRESH_TOKEN_EXPIRE_DAYS
         )
 
-    to_encode.update({"exp": expire, "type": "refresh"})
+    # Add unique jti (JWT ID) to prevent token collisions
+    to_encode.update({"exp": expire, "type": "refresh", "jti": str(uuid.uuid4())})
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 

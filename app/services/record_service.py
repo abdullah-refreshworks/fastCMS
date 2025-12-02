@@ -106,8 +106,9 @@ class RecordService:
         sort: Optional[str] = None,
         order: str = "asc",
         expand: Optional[List[str]] = None,
+        search: Optional[str] = None,
     ) -> RecordListResponse:
-        """List records with pagination, filtering, sorting, and relation expansion."""
+        """List records with pagination, filtering, sorting, search, and relation expansion."""
         # Validate collection exists
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if not collection:
@@ -119,6 +120,15 @@ class RecordService:
 
         skip = (page - 1) * per_page
 
+        # Identify searchable fields (text and editor types)
+        search_fields = None
+        if search:
+            fields = collection.schema.get("fields", [])
+            search_fields = [
+                f["name"] for f in fields
+                if f.get("type") in ["text", "editor", "email", "url"]
+            ]
+
         # Get records and total count
         records = await self.repo.get_all(
             skip=skip,
@@ -126,8 +136,14 @@ class RecordService:
             filters=filters,
             sort_field=sort,
             sort_order=order,
+            search=search,
+            search_fields=search_fields,
         )
-        total = await self.repo.count(filters=filters)
+        total = await self.repo.count(
+            filters=filters,
+            search=search,
+            search_fields=search_fields,
+        )
 
         items = [self._to_response(record) for record in records]
 

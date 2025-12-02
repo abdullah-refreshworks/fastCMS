@@ -18,9 +18,56 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+def parse_query_filter(query: Optional[str]) -> Optional[callable]:
+    """
+    Parse a simple query filter into a callable.
+
+    Supports simple filters like:
+    - field=value (equality)
+    - field>value (greater than)
+    - field<value (less than)
+    - field!=value (not equal)
+
+    Args:
+        query: Query string
+
+    Returns:
+        Callable filter function or None
+    """
+    if not query:
+        return None
+
+    try:
+        # Parse simple query format: field operator value
+        if "!=" in query:
+            field, value = query.split("!=", 1)
+            return lambda data: str(data.get(field.strip())) != value.strip()
+        elif ">=" in query:
+            field, value = query.split(">=", 1)
+            return lambda data: float(data.get(field.strip(), 0)) >= float(value.strip())
+        elif "<=" in query:
+            field, value = query.split("<=", 1)
+            return lambda data: float(data.get(field.strip(), 0)) <= float(value.strip())
+        elif ">" in query:
+            field, value = query.split(">", 1)
+            return lambda data: float(data.get(field.strip(), 0)) > float(value.strip())
+        elif "<" in query:
+            field, value = query.split("<", 1)
+            return lambda data: float(data.get(field.strip(), 0)) < float(value.strip())
+        elif "=" in query:
+            field, value = query.split("=", 1)
+            return lambda data: str(data.get(field.strip())) == value.strip()
+    except Exception:
+        pass
+
+    return None
+
+
 async def event_generator(
     request: Request,
     collection_name: Optional[str] = None,
+    query_filter: Optional[callable] = None,
+    user_id: Optional[str] = None,
 ):
     """
     Generate Server-Sent Events.
@@ -28,12 +75,14 @@ async def event_generator(
     Args:
         request: FastAPI request (to detect client disconnect)
         collection_name: Optional collection to subscribe to
+        query_filter: Optional filter function
+        user_id: Optional user ID for presence tracking
 
     Yields:
         SSE formatted messages
     """
     # Subscribe to events
-    queue = await event_manager.subscribe(collection_name)
+    queue = await event_manager.subscribe(collection_name, query_filter, user_id)
 
     try:
         # Send initial connection message
@@ -55,7 +104,7 @@ async def event_generator(
 
     finally:
         # Cleanup on disconnect
-        await event_manager.unsubscribe(queue, collection_name)
+        await event_manager.unsubscribe(queue, user_id)
 
 
 @router.get(
@@ -64,16 +113,29 @@ async def event_generator(
 )
 async def realtime_all(
     request: Request,
-    user_id: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None, description="Optional user ID for presence tracking"),
+    query: Optional[str] = Query(None, description="Optional query filter (e.g., status=published)"),
 ):
     """
-    Subscribe to real-time updates for all collections.
+    Subscribe to real-time updates for all collections with optional Live Query filtering.
 
     This endpoint uses Server-Sent Events (SSE) to push updates to the client.
 
+    Args:
+        user_id: Optional user ID for presence tracking
+        query: Optional query filter to receive only matching events
+               Supports: field=value, field!=value, field>value, field<value
+
     Example usage (JavaScript):
     ```javascript
+    // Basic subscription
     const eventSource = new EventSource('/api/v1/realtime');
+
+    // With user tracking
+    const eventSource = new EventSource('/api/v1/realtime?user_id=user123');
+
+    // With live query filter (only published posts)
+    const eventSource = new EventSource('/api/v1/realtime?query=status=published');
 
     eventSource.addEventListener('record.created', (e) => {
         const data = JSON.parse(e.data);
@@ -89,10 +151,22 @@ async def realtime_all(
         const data = JSON.parse(e.data);
         console.log('Record deleted:', data);
     });
+
+    // Listen to presence events
+    eventSource.addEventListener('user.joined', (e) => {
+        const data = JSON.parse(e.data);
+        console.log('User joined:', data);
+    });
+
+    eventSource.addEventListener('user.left', (e) => {
+        const data = JSON.parse(e.data);
+        console.log('User left:', data);
+    });
     ```
     """
+    query_filter = parse_query_filter(query)
     return StreamingResponse(
-        event_generator(request),
+        event_generator(request, None, query_filter, user_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -109,16 +183,33 @@ async def realtime_all(
 async def realtime_collection(
     collection_name: str,
     request: Request,
-    user_id: Optional[str] = Query(None),
+    user_id: Optional[str] = Query(None, description="Optional user ID for presence tracking"),
+    query: Optional[str] = Query(None, description="Optional query filter (e.g., status=published)"),
 ):
     """
-    Subscribe to real-time updates for a specific collection.
+    Subscribe to real-time updates for a specific collection with optional Live Query filtering.
 
     This endpoint uses Server-Sent Events (SSE) to push updates to the client.
 
+    Args:
+        collection_name: Name of the collection to subscribe to
+        user_id: Optional user ID for presence tracking
+        query: Optional query filter to receive only matching events
+               Supports: field=value, field!=value, field>value, field<value
+
     Example usage (JavaScript):
     ```javascript
+    // Basic subscription
     const eventSource = new EventSource('/api/v1/realtime/posts');
+
+    // With user tracking
+    const eventSource = new EventSource('/api/v1/realtime/posts?user_id=user123');
+
+    // With live query filter (only published posts)
+    const eventSource = new EventSource('/api/v1/realtime/posts?query=status=published');
+
+    // With multiple filters (price > 100)
+    const eventSource = new EventSource('/api/v1/realtime/products?query=price>100');
 
     eventSource.addEventListener('record.created', (e) => {
         const data = JSON.parse(e.data);
@@ -136,8 +227,9 @@ async def realtime_collection(
     });
     ```
     """
+    query_filter = parse_query_filter(query)
     return StreamingResponse(
-        event_generator(request, collection_name),
+        event_generator(request, collection_name, query_filter, user_id),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

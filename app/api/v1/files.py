@@ -76,7 +76,7 @@ async def list_files(
         per_page=per_page,
         collection_name=collection_name,
         record_id=record_id,
-        user_id=user_id if user_id else None,
+        user_id=None,  # Show all files in admin panel, not filtered by user
     )
 
 

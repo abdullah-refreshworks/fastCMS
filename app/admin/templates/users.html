@@ -89,12 +89,16 @@
                             <span x-text="new Date(user.created).toLocaleDateString()"></span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button @click="toggleRole(user)"
+                            <button @click="openEditModal(user)"
+                                class="text-blue-600 hover:text-blue-900 mr-3">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button @click="confirmToggleRole(user)"
                                 class="text-indigo-600 hover:text-indigo-900 mr-3"
                                 x-text="user.role === 'admin' ? 'Demote' : 'Promote'">
                             </button>
-                            <button @click="deleteUser(user)" class="text-red-600 hover:text-red-900">
-                                Delete
+                            <button @click="confirmDeleteUser(user)" class="text-red-600 hover:text-red-900">
+                                <i class="fas fa-trash"></i> Delete
                             </button>
                         </td>
                     </tr>
@@ -106,6 +110,89 @@
                 </tr>
             </tbody>
         </table>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div x-show="showEditModal"
+         x-cloak
+         class="fixed z-10 inset-0 overflow-y-auto"
+         @keydown.escape.window="showEditModal = false">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showEditModal = false"></div>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <form @submit.prevent="updateUser">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <div class="sm:flex sm:items-start">
+                            <div class="mt-3 text-center sm:mt-0 sm:text-left w-full">
+                                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                    Edit User
+                                </h3>
+
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Name</label>
+                                        <input type="text" x-model="editUser.name"
+                                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Email *</label>
+                                        <input type="email" x-model="editUser.email" required
+                                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Role</label>
+                                        <select x-model="editUser.role"
+                                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                            <option value="user">User</option>
+                                            <option value="admin">Admin</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="border-t border-gray-200 pt-4">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" x-model="editUser.verified"
+                                                   class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                            <span class="ml-2 text-sm text-gray-700">Email Verified</span>
+                                        </label>
+                                    </div>
+
+                                    <div class="border-t border-gray-200 pt-4">
+                                        <label class="flex items-center mb-2">
+                                            <input type="checkbox" x-model="changePassword"
+                                                   class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                                            <span class="ml-2 text-sm font-medium text-gray-700">Change Password</span>
+                                        </label>
+
+                                        <div x-show="changePassword" class="space-y-3 mt-3">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700">New Password</label>
+                                                <input type="password" x-model="editUser.new_password" minlength="8"
+                                                       :required="changePassword"
+                                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                                <p class="mt-1 text-xs text-gray-500">At least 8 characters</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                        <button type="submit"
+                                class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                            Update User
+                        </button>
+                        <button type="button" @click="showEditModal = false"
+                                class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 
     <!-- Create User Modal -->
@@ -177,6 +264,82 @@
             </div>
         </div>
     </div>
+
+    <!-- Role Toggle Confirmation Modal -->
+    <div x-show="showRoleModal"
+         x-cloak
+         class="fixed z-10 inset-0 overflow-y-auto"
+         @keydown.escape.window="showRoleModal = false">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showRoleModal = false"></div>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-user-shield text-indigo-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                Change User Role
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500" x-text="`Change ${roleTarget?.email}'s role to ${roleTarget?.role === 'admin' ? 'user' : 'admin'}?`"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="toggleRole()"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Confirm
+                    </button>
+                    <button type="button" @click="showRoleModal = false"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div x-show="showDeleteModal"
+         x-cloak
+         class="fixed z-10 inset-0 overflow-y-auto"
+         @keydown.escape.window="showDeleteModal = false">
+        <div class="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showDeleteModal = false"></div>
+
+            <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <div class="sm:flex sm:items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i class="fas fa-exclamation-triangle text-red-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">
+                                Delete User
+                            </h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500" x-text="`Are you sure you want to delete ${deleteTarget?.email}? This action cannot be undone.`"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                    <button type="button" @click="deleteUser()"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm">
+                        Delete
+                    </button>
+                    <button type="button" @click="showDeleteModal = false"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -192,12 +355,26 @@
                 total_pages: 0
             },
             showCreateModal: false,
+            showEditModal: false,
+            showRoleModal: false,
+            showDeleteModal: false,
+            changePassword: false,
+            roleTarget: null,
+            deleteTarget: null,
             newUser: {
                 name: '',
                 email: '',
                 password: '',
                 password_confirm: '',
                 role: 'user'
+            },
+            editUser: {
+                id: '',
+                name: '',
+                email: '',
+                role: 'user',
+                verified: false,
+                new_password: ''
             },
 
             async loadUsers() {
@@ -215,36 +392,93 @@
                 }
             },
 
-            async toggleRole(user) {
-                const newRole = user.role === 'admin' ? 'user' : 'admin';
-                const confirmed = confirm(`Change ${user.email}'s role to ${newRole}?`);
+            openEditModal(user) {
+                this.editUser = {
+                    id: user.id,
+                    name: user.name || '',
+                    email: user.email,
+                    role: user.role,
+                    verified: user.verified,
+                    new_password: ''
+                };
+                this.changePassword = false;
+                this.showEditModal = true;
+            },
 
-                if (!confirmed) return;
-
+            async updateUser() {
                 try {
-                    await apiRequest(`/admin/users/${user.id}/role?role=${newRole}`, {
-                        method: 'PATCH'
+                    showToast('Updating user...', 'info');
+
+                    // Build update payload
+                    const payload = {
+                        name: this.editUser.name,
+                        email: this.editUser.email,
+                        role: this.editUser.role,
+                        verified: this.editUser.verified
+                    };
+
+                    // Add password if changing
+                    if (this.changePassword && this.editUser.new_password) {
+                        payload.password = this.editUser.new_password;
+                    }
+
+                    await apiRequest(`/admin/users/${this.editUser.id}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify(payload)
                     });
-                    showToast(`User role updated to ${newRole}`, 'success');
+
+                    showToast('User updated successfully', 'success');
+                    this.showEditModal = false;
                     await this.loadUsers();
                 } catch (error) {
-                    console.error('Failed to update role:', error);
+                    console.error('Failed to update user:', error);
+                    showToast(error.message || 'Failed to update user', 'error');
                 }
             },
 
-            async deleteUser(user) {
-                const confirmed = confirm(`Delete user ${user.email}? This action cannot be undone.`);
+            confirmToggleRole(user) {
+                this.roleTarget = user;
+                this.showRoleModal = true;
+            },
 
-                if (!confirmed) return;
+            async toggleRole() {
+                if (!this.roleTarget) return;
+
+                const newRole = this.roleTarget.role === 'admin' ? 'user' : 'admin';
 
                 try {
-                    await apiRequest(`/admin/users/${user.id}`, {
+                    await apiRequest(`/admin/users/${this.roleTarget.id}/role?role=${newRole}`, {
+                        method: 'PATCH'
+                    });
+                    showToast(`User role updated to ${newRole}`, 'success');
+                    this.showRoleModal = false;
+                    this.roleTarget = null;
+                    await this.loadUsers();
+                } catch (error) {
+                    console.error('Failed to update role:', error);
+                    showToast(error.message || 'Failed to update role', 'error');
+                }
+            },
+
+            confirmDeleteUser(user) {
+                this.deleteTarget = user;
+                this.showDeleteModal = true;
+            },
+
+            async deleteUser() {
+                if (!this.deleteTarget) return;
+
+                try {
+                    await apiRequest(`/admin/users/${this.deleteTarget.id}`, {
                         method: 'DELETE'
                     });
                     showToast('User deleted successfully', 'success');
+                    this.showDeleteModal = false;
+                    this.deleteTarget = null;
                     await this.loadUsers();
                 } catch (error) {
                     console.error('Failed to delete user:', error);
+                    showToast(error.message || 'Failed to delete user', 'error');
                 }
             },
 

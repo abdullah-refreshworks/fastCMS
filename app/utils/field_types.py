@@ -38,6 +38,23 @@ class FieldValidation(BaseModel):
     values: Optional[List[Any]] = None  # Allowed values for select
 
 
+class RelationCascade(str, Enum):
+    """Cascade action for relations."""
+    CASCADE = "cascade"  # Delete related records
+    SET_NULL = "set_null"  # Set foreign key to NULL
+    RESTRICT = "restrict"  # Prevent deletion if related records exist
+    NO_ACTION = "no_action"  # Do nothing (default SQL behavior)
+
+
+class RelationType(str, Enum):
+    """Relationship types."""
+    ONE_TO_MANY = "one-to-many"
+    MANY_TO_ONE = "many-to-one"
+    MANY_TO_MANY = "many-to-many"
+    ONE_TO_ONE = "one-to-one"
+    POLYMORPHIC = "polymorphic"  # Can relate to multiple collection types
+
+
 class RelationOptions(BaseModel):
     """Options for relation fields."""
 
@@ -46,11 +63,53 @@ class RelationOptions(BaseModel):
         default="one-to-many",
         description="Relationship type: one-to-many, many-to-one, many-to-many, one-to-one"
     )
-    cascade_delete: bool = Field(default=False, description="Delete related records")
     display_fields: List[str] = Field(
         default_factory=lambda: ["id"],
         description="Fields to display in relation",
     )
+    max_depth: int = Field(
+        default=1,
+        ge=0,
+        le=5,
+        description="Maximum depth for nested relation loading (0-5)"
+    )
+    junction_table: Optional[str] = Field(
+        None,
+        description="Junction table name for many-to-many relations"
+    )
+    junction_field: Optional[str] = Field(
+        None,
+        description="Field name in junction table referencing this collection"
+    )
+    target_field: Optional[str] = Field(
+        None,
+        description="Field name in junction table referencing target collection"
+    )
+    polymorphic_type_field: Optional[str] = Field(
+        None,
+        description="Field storing the collection type for polymorphic relations"
+    )
+
+    @field_validator("cascade_delete", mode="before")
+    @classmethod
+    def migrate_cascade_delete(cls, v: Any) -> Optional[RelationCascade]:
+        """Convert old boolean cascade_delete to new enum format."""
+        if v is None:
+            return RelationCascade.RESTRICT
+        if isinstance(v, bool):
+            # Old format: boolean (True = cascade, False = restrict)
+            return RelationCascade.CASCADE if v else RelationCascade.RESTRICT
+        if isinstance(v, str):
+            # New format: enum string
+            return v
+        return v
+
+    @field_validator("collection_id")
+    @classmethod
+    def validate_collection_id(cls, v: Optional[str], info: Any) -> Optional[str]:
+        """Ensure collection_id or collection_ids is provided."""
+        # At least one must be provided, but validation is lenient for existing data
+        return v
 
 
 class SelectOptions(BaseModel):

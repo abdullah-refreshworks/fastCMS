@@ -26,6 +26,23 @@
                 <i class="fas fa-code mr-2"></i>
                 View API
             </a>
+            <!-- CSV Export Button -->
+            <button
+                @click="exportCSV"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+                <i class="fas fa-download mr-2"></i>
+                Export CSV
+            </button>
+            <!-- CSV Import Button (only for non-view collections) -->
+            <button
+                x-show="collection?.type !== 'view'"
+                @click="showImportModal = true"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+                <i class="fas fa-upload mr-2"></i>
+                Import CSV
+            </button>
             <!-- Only show Create button for non-view collections -->
             <a
                 x-show="collection?.type !== 'view'"
@@ -49,9 +66,51 @@
     <!-- Records Table -->
     <div class="mt-6 bg-white shadow overflow-hidden sm:rounded-lg">
         <div class="px-4 py-5 sm:px-6 border-b border-gray-200">
+            <!-- Search Box -->
+            <div class="mb-4">
+                <div class="relative">
+                    <input
+                        type="text"
+                        x-model="searchQuery"
+                        @input="searchRecords"
+                        placeholder="Search across all text fields..."
+                        class="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-search text-gray-400"></i>
+                    </div>
+                    <button
+                        x-show="searchQuery"
+                        @click="clearSearch"
+                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                    >
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <p x-show="searchQuery" class="mt-2 text-sm text-gray-600">
+                    Showing results for "<span x-text="searchQuery"></span>"
+                </p>
+            </div>
+
             <div class="flex justify-between items-center">
-                <div class="text-sm text-gray-500">
-                    Total: <span class="font-medium text-gray-900" x-text="pagination.total"></span> records
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm text-gray-500">
+                        Total: <span class="font-medium text-gray-900" x-text="pagination.total"></span> records
+                    </div>
+                    <!-- Bulk Actions -->
+                    <div x-show="selectedRecords.length > 0 && collection?.type !== 'view'" class="flex items-center space-x-2">
+                        <span class="text-sm text-gray-600">
+                            <span x-text="selectedRecords.length"></span> selected
+                        </span>
+                        <button @click="bulkDeleteSelected"
+                            class="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                            <i class="fas fa-trash mr-1"></i> Delete Selected
+                        </button>
+                        <button @click="showBulkUpdateModal = true"
+                            class="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+                            <i class="fas fa-edit mr-1"></i> Update Selected
+                        </button>
+                    </div>
                 </div>
                 <div class="flex items-center space-x-2">
                     <button @click="prevPage" :disabled="pagination.page === 1"
@@ -73,6 +132,13 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
+                        <!-- Checkbox column for bulk selection (only for non-view collections) -->
+                        <th x-show="collection?.type !== 'view'" class="px-3 py-3 text-left">
+                            <input type="checkbox"
+                                @change="toggleSelectAll($event.target.checked)"
+                                :checked="selectedRecords.length === records.length && records.length > 0"
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                        </th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                         <template x-for="field in collection?.schema?.slice(0, 5)" :key="field.name">
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" x-text="field.name"></th>
@@ -83,7 +149,15 @@
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     <template x-for="record in records" :key="record.id">
-                        <tr class="hover:bg-gray-50">
+                        <tr class="hover:bg-gray-50" :class="{ 'bg-indigo-50': selectedRecords.includes(record.id) }">
+                            <!-- Checkbox column (only for non-view collections) -->
+                            <td x-show="collection?.type !== 'view'" class="px-3 py-4 whitespace-nowrap">
+                                <input type="checkbox"
+                                    :value="record.id"
+                                    @change="toggleRecordSelection(record.id, $event.target.checked)"
+                                    :checked="selectedRecords.includes(record.id)"
+                                    class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <code class="text-xs text-gray-600" x-text="record.id.substring(0, 8) + '...'"></code>
                             </td>
@@ -142,6 +216,137 @@
             </table>
         </div>
     </div>
+
+    <!-- CSV Import Modal -->
+    <div x-show="showImportModal"
+         x-cloak
+         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+         @click.self="showImportModal = false">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Import CSV</h3>
+                <button @click="showImportModal = false" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Select CSV File
+                </label>
+                <input
+                    type="file"
+                    accept=".csv"
+                    @change="handleFileSelect"
+                    class="block w-full text-sm text-gray-500
+                           file:mr-4 file:py-2 file:px-4
+                           file:rounded-md file:border-0
+                           file:text-sm file:font-semibold
+                           file:bg-indigo-50 file:text-indigo-700
+                           hover:file:bg-indigo-100"
+                />
+            </div>
+
+            <div class="mb-4">
+                <label class="flex items-center">
+                    <input
+                        type="checkbox"
+                        x-model="skipValidation"
+                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                    />
+                    <span class="ml-2 text-sm text-gray-600">Skip validation (import as text)</span>
+                </label>
+            </div>
+
+            <div x-show="importProgress" class="mb-4">
+                <div class="text-sm text-gray-600 mb-2">
+                    <span x-text="importProgress"></span>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button
+                    @click="showImportModal = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                    Cancel
+                </button>
+                <button
+                    @click="importCSV"
+                    :disabled="!selectedFile || isImporting"
+                    class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span x-show="!isImporting">Import</span>
+                    <span x-show="isImporting">
+                        <i class="fas fa-spinner fa-spin mr-2"></i>
+                        Importing...
+                    </span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Update Modal -->
+    <div x-show="showBulkUpdateModal"
+         x-cloak
+         class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+         @click.self="showBulkUpdateModal = false">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Bulk Update Records</h3>
+                <button @click="showBulkUpdateModal = false" class="text-gray-400 hover:text-gray-500">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-4">
+                    Updating <span class="font-semibold" x-text="selectedRecords.length"></span> selected record(s)
+                </p>
+
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Select Field to Update
+                </label>
+                <select
+                    x-model="bulkUpdateField"
+                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                >
+                    <option value="">-- Select Field --</option>
+                    <template x-for="field in collection?.schema" :key="field.name">
+                        <option :value="field.name" x-text="field.name"></option>
+                    </template>
+                </select>
+            </div>
+
+            <div class="mb-4" x-show="bulkUpdateField">
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    New Value
+                </label>
+                <input
+                    type="text"
+                    x-model="bulkUpdateValue"
+                    placeholder="Enter new value"
+                    class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                />
+            </div>
+
+            <div class="flex justify-end space-x-3">
+                <button
+                    @click="showBulkUpdateModal = false"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                    Cancel
+                </button>
+                <button
+                    @click="bulkUpdateRecords"
+                    :disabled="!bulkUpdateField || !bulkUpdateValue"
+                    class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Update Records
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -157,6 +362,19 @@
                 total: 0,
                 total_pages: 0
             },
+            // CSV Import/Export state
+            showImportModal: false,
+            selectedFile: null,
+            skipValidation: false,
+            isImporting: false,
+            importProgress: '',
+            // Bulk operations state
+            selectedRecords: [],
+            showBulkUpdateModal: false,
+            bulkUpdateField: '',
+            bulkUpdateValue: '',
+            // Search state
+            searchQuery: '',
 
             async loadCollection() {
                 try {
@@ -183,7 +401,12 @@
                         endpoint = `/views/${collectionName}/records?page=${this.pagination.page}&per_page=${this.pagination.per_page}`;
                     } else {
                         console.log('Loading regular collection records');
-                        endpoint = `/${collectionName}/records?page=${this.pagination.page}&per_page=${this.pagination.per_page}`;
+                        endpoint = `/collections/${collectionName}/records?page=${this.pagination.page}&per_page=${this.pagination.per_page}`;
+                    }
+
+                    // Add search parameter if present
+                    if (this.searchQuery) {
+                        endpoint += `&search=${encodeURIComponent(this.searchQuery)}`;
                     }
 
                     const data = await apiRequest(endpoint);
@@ -205,7 +428,7 @@
                 if (!confirmed) return;
 
                 try {
-                    await apiRequest(`/${collectionName}/records/${record.id}`, {
+                    await apiRequest(`/collections/${collectionName}/records/${record.id}`, {
                         method: 'DELETE'
                     });
                     showToast('Record deleted successfully', 'success');
@@ -236,6 +459,211 @@
                 if (this.pagination.page > 1) {
                     this.pagination.page--;
                     await this.loadRecords();
+                }
+            },
+
+            // Search functionality
+            async searchRecords() {
+                // Reset to page 1 when searching
+                this.pagination.page = 1;
+                await this.loadRecords();
+            },
+
+            async clearSearch() {
+                this.searchQuery = '';
+                this.pagination.page = 1;
+                await this.loadRecords();
+            },
+
+            // CSV Export
+            async exportCSV() {
+                try {
+                    const token = localStorage.getItem('access_token');
+                    const response = await fetch(`/api/v1/collections/${collectionName}/records/export/csv`, {
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to export CSV');
+                    }
+
+                    // Create a blob from the response
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+
+                    // Create a temporary link and trigger download
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${collectionName}_export.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+
+                    // Cleanup
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    showToast('CSV exported successfully', 'success');
+                } catch (error) {
+                    console.error('Failed to export CSV:', error);
+                    showToast('Failed to export CSV', 'error');
+                }
+            },
+
+            // CSV Import
+            handleFileSelect(event) {
+                this.selectedFile = event.target.files[0];
+            },
+
+            async importCSV() {
+                if (!this.selectedFile) {
+                    showToast('Please select a CSV file', 'error');
+                    return;
+                }
+
+                this.isImporting = true;
+                this.importProgress = 'Uploading...';
+
+                try {
+                    const token = localStorage.getItem('access_token');
+                    const formData = new FormData();
+                    formData.append('file', this.selectedFile);
+
+                    const url = `/api/v1/collections/${collectionName}/records/import/csv${this.skipValidation ? '?skip_validation=true' : ''}`;
+
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.detail || 'Failed to import CSV');
+                    }
+
+                    const result = await response.json();
+
+                    // Show results
+                    let message = `Successfully imported ${result.imported} of ${result.total} records`;
+                    if (result.errors && result.errors.length > 0) {
+                        message += `. ${result.errors.length} errors occurred.`;
+                        console.error('Import errors:', result.errors);
+                    }
+
+                    showToast(message, result.errors && result.errors.length > 0 ? 'warning' : 'success');
+
+                    // Close modal and reload records
+                    this.showImportModal = false;
+                    this.selectedFile = null;
+                    this.skipValidation = false;
+                    await this.loadRecords();
+                } catch (error) {
+                    console.error('Failed to import CSV:', error);
+                    showToast(error.message || 'Failed to import CSV', 'error');
+                } finally {
+                    this.isImporting = false;
+                    this.importProgress = '';
+                }
+            },
+
+            // Bulk Operations
+            toggleSelectAll(checked) {
+                if (checked) {
+                    this.selectedRecords = this.records.map(r => r.id);
+                } else {
+                    this.selectedRecords = [];
+                }
+            },
+
+            toggleRecordSelection(recordId, checked) {
+                if (checked) {
+                    if (!this.selectedRecords.includes(recordId)) {
+                        this.selectedRecords.push(recordId);
+                    }
+                } else {
+                    this.selectedRecords = this.selectedRecords.filter(id => id !== recordId);
+                }
+            },
+
+            async bulkDeleteSelected() {
+                if (this.selectedRecords.length === 0) {
+                    showToast('No records selected', 'warning');
+                    return;
+                }
+
+                const confirmed = confirm(`Delete ${this.selectedRecords.length} record(s)? This action cannot be undone.`);
+                if (!confirmed) return;
+
+                try {
+                    const response = await apiRequest(`/collections/${collectionName}/records/bulk-delete`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            record_ids: this.selectedRecords
+                        })
+                    });
+
+                    let message = `Successfully deleted ${response.success} record(s)`;
+                    if (response.failed > 0) {
+                        message += `. ${response.failed} failed.`;
+                        console.error('Bulk delete errors:', response.errors);
+                    }
+
+                    showToast(message, response.failed > 0 ? 'warning' : 'success');
+
+                    // Clear selection and reload records
+                    this.selectedRecords = [];
+                    await this.loadRecords();
+                } catch (error) {
+                    console.error('Failed to bulk delete:', error);
+                    showToast('Failed to delete records', 'error');
+                }
+            },
+
+            async bulkUpdateRecords() {
+                if (this.selectedRecords.length === 0) {
+                    showToast('No records selected', 'warning');
+                    return;
+                }
+
+                if (!this.bulkUpdateField || !this.bulkUpdateValue) {
+                    showToast('Please select a field and enter a value', 'warning');
+                    return;
+                }
+
+                try {
+                    const updateData = {
+                        [this.bulkUpdateField]: this.bulkUpdateValue
+                    };
+
+                    const response = await apiRequest(`/collections/${collectionName}/records/bulk-update`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            record_ids: this.selectedRecords,
+                            data: updateData
+                        })
+                    });
+
+                    let message = `Successfully updated ${response.success} record(s)`;
+                    if (response.failed > 0) {
+                        message += `. ${response.failed} failed.`;
+                        console.error('Bulk update errors:', response.errors);
+                    }
+
+                    showToast(message, response.failed > 0 ? 'warning' : 'success');
+
+                    // Close modal, clear selection and reload records
+                    this.showBulkUpdateModal = false;
+                    this.bulkUpdateField = '';
+                    this.bulkUpdateValue = '';
+                    this.selectedRecords = [];
+                    await this.loadRecords();
+                } catch (error) {
+                    console.error('Failed to bulk update:', error);
+                    showToast('Failed to update records', 'error');
                 }
             }
         };
