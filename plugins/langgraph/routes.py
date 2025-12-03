@@ -8,6 +8,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -28,6 +29,7 @@ from plugins.langgraph.schemas import (
     WorkflowResponse,
     WorkflowUpdate,
 )
+from plugins.langgraph.executor import execute_langgraph_workflow
 
 router = APIRouter()
 
@@ -577,6 +579,132 @@ async def execute_workflow(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_message
         )
+
+
+@router.post("/workflows/{workflow_id}/execute/stream")
+async def execute_workflow_stream(
+    workflow_id: UUID,
+    execution_input: ExecutionInput,
+    user: UserContext = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Execute workflow with LangGraph and stream results using Server-Sent Events."""
+    # Verify workflow ownership
+    result = await db.execute(select(Workflow).where(Workflow.id == str(workflow_id), Workflow.user_id == user.user_id))
+    workflow = result.scalar_one_or_none()
+
+    if not workflow:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
+
+    # Check if workflow is LangGraph type (can be None for older workflows, treat as custom)
+    workflow_type = getattr(workflow, 'workflow_type', 'custom')
+
+    if workflow_type != 'langgraph':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This endpoint only supports LangGraph workflows. Use /execute for custom workflows."
+        )
+
+    # Get nodes and edges
+    nodes_result = await db.execute(
+        select(WorkflowNode).where(WorkflowNode.workflow_id == str(workflow_id))
+    )
+    nodes = nodes_result.scalars().all()
+
+    edges_result = await db.execute(
+        select(WorkflowEdge).where(WorkflowEdge.workflow_id == str(workflow_id))
+    )
+    edges = edges_result.scalars().all()
+
+    # Convert to dict format for executor
+    nodes_data = [
+        {
+            "id": str(node.id),
+            "type": node.node_type,
+            "label": node.label,
+            "config": json.loads(node.config) if isinstance(node.config, str) else node.config,
+        }
+        for node in nodes
+    ]
+
+    edges_data = [
+        {
+            "id": str(edge.id),
+            "source_node_id": str(edge.source_node_id),
+            "target_node_id": str(edge.target_node_id),
+        }
+        for edge in edges
+    ]
+
+    workflow_data = {
+        "nodes": nodes_data,
+        "edges": edges_data,
+    }
+
+    # Create execution record
+    execution = WorkflowExecution(
+        workflow_id=str(workflow_id),
+        user_id=user.user_id,
+        input_data=json.dumps(execution_input.input),
+        status="running",
+    )
+    db.add(execution)
+    await db.commit()
+    await db.refresh(execution)
+
+    # Stream execution
+    async def event_generator():
+        """Generate SSE events from LangGraph execution"""
+        execution_logs = []
+        final_output = None
+        has_error = False
+
+        try:
+            async for event in execute_langgraph_workflow(workflow_data, execution_input.input, stream=True):
+                # Store logs
+                execution_logs.append(event)
+
+                # Track final output
+                if event.get("type") == "execution_complete":
+                    final_output = event.get("output")
+                elif event.get("type") == "error":
+                    has_error = True
+
+                # Send as SSE
+                yield f"data: {json.dumps(event)}\n\n"
+
+            # Update execution record
+            execution.status = "failed" if has_error else "completed"
+            execution.output_data = json.dumps(final_output) if final_output else None
+            execution.execution_log = json.dumps(execution_logs)
+            execution.completed_at = datetime.utcnow()
+            await db.commit()
+
+        except Exception as e:
+            # Send error event
+            error_event = {
+                "type": "error",
+                "message": f"Streaming failed: {str(e)}",
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+            # Update execution
+            execution.status = "failed"
+            execution.error = str(e)
+            execution.execution_log = json.dumps(execution_logs)
+            execution.completed_at = datetime.utcnow()
+            await db.commit()
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        }
+    )
 
 
 @router.get("/workflows/{workflow_id}/executions", response_model=ExecutionListResponse)

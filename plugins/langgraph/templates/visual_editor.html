@@ -155,10 +155,28 @@
     <!-- Main Content -->
     <div class="flex-1 flex overflow-hidden">
       <!-- Sidebar -->
-      <div class="w-64 bg-white border-r p-4 overflow-y-auto z-10">
-        <h3 class="text-lg font-bold mb-4">Node Library</h3>
+      <div class="w-64 bg-white border-r flex flex-col z-10">
+        <!-- Tab Switcher -->
+        <div class="flex border-b flex-shrink-0">
+          <button
+            @click="sidebarTab = 'nodes'"
+            class="flex-1 px-4 py-3 text-sm font-medium transition-colors"
+            :class="sidebarTab === 'nodes' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'"
+          >
+            <i class="fas fa-cubes mr-2"></i>Nodes
+          </button>
+          <button
+            @click="sidebarTab = 'api'"
+            class="flex-1 px-4 py-3 text-sm font-medium transition-colors"
+            :class="sidebarTab === 'api' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'"
+          >
+            <i class="fas fa-code mr-2"></i>API
+          </button>
+        </div>
 
-        <div class="space-y-2">
+        <!-- Node Library Tab -->
+        <div x-show="sidebarTab === 'nodes'" class="flex-1 overflow-y-auto">
+          <div class="p-4 space-y-2">
           <button
             @click="addNode('llm', 100, 100)"
             class="w-full p-3 bg-purple-50 border-2 border-purple-200 rounded-lg hover:bg-purple-100 flex items-center"
@@ -210,17 +228,193 @@
               <div class="text-xs text-gray-600">Exit</div>
             </div>
           </button>
+
+          <button
+            @click="addNode('document_loader', 100, 100)"
+            class="w-full p-3 bg-green-50 border-2 border-green-200 rounded-lg hover:bg-green-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-green-600 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-file-pdf"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Document Loader</div>
+              <div class="text-xs text-gray-600">PDF/DOCX/Web</div>
+            </div>
+          </button>
+
+          <button
+            @click="addNode('text_splitter', 100, 100)"
+            class="w-full p-3 bg-orange-50 border-2 border-orange-200 rounded-lg hover:bg-orange-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-orange-500 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-scissors"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Text Splitter</div>
+              <div class="text-xs text-gray-600">Chunk Text</div>
+            </div>
+          </button>
+
+          <button
+            @click="addNode('embedding', 100, 100)"
+            class="w-full p-3 bg-pink-50 border-2 border-pink-200 rounded-lg hover:bg-pink-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-pink-500 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-vector-square"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Embedding</div>
+              <div class="text-xs text-gray-600">Vectors</div>
+            </div>
+          </button>
+
+          <button
+            @click="addNode('vector_store', 100, 100)"
+            class="w-full p-3 bg-indigo-50 border-2 border-indigo-200 rounded-lg hover:bg-indigo-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-indigo-600 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-database"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Vector Store</div>
+              <div class="text-xs text-gray-600">FAISS/Pinecone</div>
+            </div>
+          </button>
+
+          <button
+            @click="addNode('deep_agent', 100, 100)"
+            class="w-full p-3 bg-teal-50 border-2 border-teal-200 rounded-lg hover:bg-teal-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-teal-600 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-robot"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Deep Agent</div>
+              <div class="text-xs text-gray-600">Autonomous</div>
+            </div>
+          </button>
         </div>
 
-        <div class="mt-6 p-3 bg-blue-50 rounded text-xs text-gray-700">
-          <strong>How to use:</strong>
-          <ul class="mt-2 space-y-1">
-            <li>• Click buttons to add nodes</li>
-            <li>• Drag nodes to move them</li>
-            <li>• Drag from ⚪ to connect</li>
-            <li>• Click ⚙️ to configure</li>
-            <li>• Click 🗑️ to delete node + edges</li>
-          </ul>
+            <div class="mt-6 p-3 bg-blue-50 rounded text-xs text-gray-700">
+              <strong>How to use:</strong>
+              <ul class="mt-2 space-y-1">
+                <li>• Click buttons to add nodes</li>
+                <li>• Drag nodes to move them</li>
+                <li>• Drag from ⚪ to connect</li>
+                <li>• Click ⚙️ to configure</li>
+                <li>• Click 🗑️ to delete node + edges</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Endpoints Tab -->
+        <div x-show="sidebarTab === 'api'" class="flex-1 flex flex-col overflow-hidden">
+          <div class="p-4 border-b bg-gray-50">
+            <select x-model="apiLang" class="w-full text-sm border-gray-300 rounded-md">
+              <option value="curl">cURL</option>
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python</option>
+            </select>
+          </div>
+
+          <div class="flex-1 overflow-y-auto divide-y divide-gray-200">
+            <!-- Execute Workflow (Non-streaming) -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">POST</span>
+                  <span class="text-xs font-mono text-gray-700">Execute</span>
+                </div>
+                <button @click="copyApiCode('execute')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('execute')"></pre>
+              </div>
+            </div>
+
+            <!-- Execute Workflow (Streaming) -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded">POST</span>
+                  <span class="text-xs font-mono text-gray-700">Stream</span>
+                </div>
+                <button @click="copyApiCode('stream')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('stream')"></pre>
+              </div>
+            </div>
+
+            <!-- Get Workflow -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded">GET</span>
+                  <span class="text-xs font-mono text-gray-700">Get Workflow</span>
+                </div>
+                <button @click="copyApiCode('get_workflow')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('get_workflow')"></pre>
+              </div>
+            </div>
+
+            <!-- List Executions -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-indigo-100 text-indigo-800 rounded">GET</span>
+                  <span class="text-xs font-mono text-gray-700">Executions</span>
+                </div>
+                <button @click="copyApiCode('list_executions')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('list_executions')"></pre>
+              </div>
+            </div>
+
+            <!-- Add Node -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">POST</span>
+                  <span class="text-xs font-mono text-gray-700">Add Node</span>
+                </div>
+                <button @click="copyApiCode('add_node')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('add_node')"></pre>
+              </div>
+            </div>
+
+            <!-- Add Edge -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">POST</span>
+                  <span class="text-xs font-mono text-gray-700">Connect Nodes</span>
+                </div>
+                <button @click="copyApiCode('add_edge')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('add_edge')"></pre>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -504,12 +698,37 @@
           <template x-if="currentNode && currentNode.node_type === 'llm'">
             <div class="space-y-4">
               <div>
+                <label class="block text-sm font-medium mb-2">Provider</label>
+                <select x-model="currentNode.config.provider" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="google">Google (Gemini)</option>
+                </select>
+              </div>
+              <div>
                 <label class="block text-sm font-medium mb-2">Model</label>
                 <select x-model="currentNode.config.model" class="w-full px-4 py-2 border rounded-lg">
-                  <option value="gpt-4o">GPT-4o</option>
-                  <option value="gpt-4o-mini">GPT-4o Mini</option>
-                  <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                  <template x-if="currentNode.config.provider === 'openai'">
+                    <optgroup label="OpenAI">
+                      <option value="gpt-4o">GPT-4o</option>
+                      <option value="gpt-4o-mini">GPT-4o Mini</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </optgroup>
+                  </template>
+                  <template x-if="currentNode.config.provider === 'anthropic'">
+                    <optgroup label="Anthropic">
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                      <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                    </optgroup>
+                  </template>
+                  <template x-if="currentNode.config.provider === 'google'">
+                    <optgroup label="Google">
+                      <option value="gemini-pro">Gemini Pro</option>
+                      <option value="gemini-pro-vision">Gemini Pro Vision</option>
+                    </optgroup>
+                  </template>
                 </select>
               </div>
               <div>
@@ -543,6 +762,135 @@
                 class="w-full px-4 py-2 border rounded-lg font-mono text-sm"
                 placeholder="# Input: 'input' variable&#10;# Output: set 'output' variable&#10;&#10;output = input.upper()"
               ></textarea>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'document_loader'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Loader Type</label>
+                <select x-model="currentNode.config.loader_type" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="pdf">PDF</option>
+                  <option value="docx">DOCX</option>
+                  <option value="web">Web (URL)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Source Path/URL</label>
+                <input
+                  type="text"
+                  x-model="currentNode.config.source"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="/path/to/document.pdf or https://example.com"
+                />
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'text_splitter'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Chunk Size</label>
+                <input
+                  type="number"
+                  x-model.number="currentNode.config.chunk_size"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="1000"
+                  min="100"
+                  max="10000"
+                />
+                <p class="text-xs text-gray-600 mt-1">Number of characters per chunk (recommended: 500-2000)</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Chunk Overlap</label>
+                <input
+                  type="number"
+                  x-model.number="currentNode.config.chunk_overlap"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="200"
+                  min="0"
+                  max="1000"
+                />
+                <p class="text-xs text-gray-600 mt-1">Overlap between chunks (recommended: 100-300)</p>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'embedding'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Provider</label>
+                <select x-model="currentNode.config.provider" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="openai">OpenAI</option>
+                  <option value="cohere">Cohere</option>
+                  <option value="huggingface">HuggingFace</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Model</label>
+                <input
+                  type="text"
+                  x-model="currentNode.config.model"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="text-embedding-3-small"
+                />
+                <p class="text-xs text-gray-600 mt-1">OpenAI: text-embedding-3-small, text-embedding-3-large</p>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'vector_store'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Provider</label>
+                <select x-model="currentNode.config.provider" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="faiss">FAISS (Local)</option>
+                  <option value="pinecone">Pinecone (Cloud)</option>
+                  <option value="chroma">Chroma</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Action</label>
+                <select x-model="currentNode.config.action" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="store">Store (Save embeddings)</option>
+                  <option value="search">Search (Query embeddings)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Index Name</label>
+                <input
+                  type="text"
+                  x-model="currentNode.config.index_name"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="my_documents"
+                />
+                <p class="text-xs text-gray-600 mt-1">Unique identifier for this vector store</p>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'deep_agent'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Model</label>
+                <select x-model="currentNode.config.model" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Recommended)</option>
+                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Max Iterations</label>
+                <input
+                  type="number"
+                  x-model.number="currentNode.config.max_iterations"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="10"
+                  min="1"
+                  max="50"
+                />
+                <p class="text-xs text-gray-600 mt-1">Maximum planning/execution cycles (1-50)</p>
+              </div>
             </div>
           </template>
 
@@ -721,6 +1069,8 @@
         showEdgeMenu: false,
         selectedEdge: null,
         edgeMenuPosition: { x: 0, y: 0 },
+        apiLang: 'curl',
+        sidebarTab: 'nodes',
 
         // Initialize
         async init() {
@@ -754,6 +1104,7 @@
           switch(type) {
             case 'llm':
               return {
+                provider: 'openai',
                 model: 'gpt-4o-mini',
                 system_prompt: 'You are a helpful assistant.',
                 temperature: 0.7,
@@ -762,6 +1113,32 @@
             case 'function':
               return {
                 code: '# Input is available as \'input\' variable\n# Set \'output\' variable with your result\n\noutput = input'
+              };
+            case 'document_loader':
+              return {
+                loader_type: 'pdf',
+                source: '/path/to/document.pdf'
+              };
+            case 'text_splitter':
+              return {
+                chunk_size: 1000,
+                chunk_overlap: 200
+              };
+            case 'embedding':
+              return {
+                provider: 'openai',
+                model: 'text-embedding-3-small'
+              };
+            case 'vector_store':
+              return {
+                provider: 'faiss',
+                action: 'store',
+                index_name: 'default'
+              };
+            case 'deep_agent':
+              return {
+                model: 'claude-sonnet-4-5-20250929',
+                max_iterations: 10
               };
             default:
               return {};
@@ -1399,6 +1776,11 @@
             end: 'stop',
             tool: 'wrench',
             condition: 'code-branch',
+            document_loader: 'file-pdf',
+            text_splitter: 'scissors',
+            embedding: 'vector-square',
+            vector_store: 'database',
+            deep_agent: 'robot',
           };
           return icons[type] || 'circle';
         },
@@ -1411,6 +1793,11 @@
             end: 'bg-red-500',
             tool: 'bg-yellow-500',
             condition: 'bg-orange-500',
+            document_loader: 'bg-green-600',
+            text_splitter: 'bg-orange-500',
+            embedding: 'bg-pink-500',
+            vector_store: 'bg-indigo-600',
+            deep_agent: 'bg-teal-600',
           };
           return colors[type] || 'bg-gray-500';
         },
@@ -1423,8 +1810,256 @@
             end: 'border-red-300',
             tool: 'border-yellow-300',
             condition: 'border-orange-300',
+            document_loader: 'border-green-300',
+            text_splitter: 'border-orange-300',
+            embedding: 'border-pink-300',
+            vector_store: 'border-indigo-300',
+            deep_agent: 'border-teal-300',
           };
           return colors[type] || 'border-gray-300';
+        },
+
+        // API Endpoints Code Generation
+        getApiCode(operation) {
+          const workflowId = this.workflow.id || 'YOUR_WORKFLOW_ID';
+          const baseUrl = window.location.origin + '/api/v1/plugins/langgraph';
+
+          if (this.apiLang === 'curl') {
+            return this.getCurlCode(operation, workflowId, baseUrl);
+          } else if (this.apiLang === 'javascript') {
+            return this.getJavaScriptCode(operation, workflowId, baseUrl);
+          } else if (this.apiLang === 'python') {
+            return this.getPythonCode(operation, workflowId, baseUrl);
+          }
+        },
+
+        getCurlCode(operation, workflowId, baseUrl) {
+          const examples = {
+            execute: `curl -X POST "${baseUrl}/workflows/${workflowId}/execute" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{
+    "input": "Hello, world!"
+  }'`,
+            stream: `curl -X POST "${baseUrl}/workflows/${workflowId}/execute/stream" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{
+    "input": "Hello, world!"
+  }' \\
+  --no-buffer`,
+            get_workflow: `curl "${baseUrl}/workflows/${workflowId}" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+            list_executions: `curl "${baseUrl}/workflows/${workflowId}/executions" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+            add_node: `curl -X POST "${baseUrl}/workflows/${workflowId}/nodes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{
+    "node_type": "llm",
+    "label": "My LLM Node",
+    "position_x": 100,
+    "position_y": 100,
+    "config": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "system_prompt": "You are a helpful assistant."
+    }
+  }'`,
+            add_edge: `curl -X POST "${baseUrl}/workflows/${workflowId}/edges" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{
+    "source_node_id": "SOURCE_NODE_ID",
+    "target_node_id": "TARGET_NODE_ID"
+  }'`
+          };
+          return examples[operation] || '';
+        },
+
+        getJavaScriptCode(operation, workflowId, baseUrl) {
+          const examples = {
+            execute: `// Execute workflow
+const response = await fetch('${baseUrl}/workflows/${workflowId}/execute', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify({
+    input: 'Hello, world!'
+  })
+});
+const data = await response.json();
+console.log(data);`,
+            stream: `// Execute workflow with streaming
+const eventSource = new EventSource(
+  '${baseUrl}/workflows/${workflowId}/execute/stream?input=Hello'
+);
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'token') {
+    // Append each token as it arrives
+    console.log(data.content);
+  } else if (data.type === 'complete') {
+    console.log('Stream complete:', data);
+    eventSource.close();
+  }
+};
+
+eventSource.onerror = (error) => {
+  console.error('Stream error:', error);
+  eventSource.close();
+};`,
+            get_workflow: `// Get workflow details
+const response = await fetch('${baseUrl}/workflows/${workflowId}', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const workflow = await response.json();
+console.log(workflow);`,
+            list_executions: `// List workflow executions
+const response = await fetch('${baseUrl}/workflows/${workflowId}/executions', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const executions = await response.json();
+console.log(executions);`,
+            add_node: `// Add node to workflow
+const response = await fetch('${baseUrl}/workflows/${workflowId}/nodes', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify({
+    node_type: 'llm',
+    label: 'My LLM Node',
+    position_x: 100,
+    position_y: 100,
+    config: {
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      system_prompt: 'You are a helpful assistant.'
+    }
+  })
+});
+const node = await response.json();
+console.log(node);`,
+            add_edge: `// Connect nodes
+const response = await fetch('${baseUrl}/workflows/${workflowId}/edges', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify({
+    source_node_id: 'SOURCE_NODE_ID',
+    target_node_id: 'TARGET_NODE_ID'
+  })
+});
+const edge = await response.json();
+console.log(edge);`
+          };
+          return examples[operation] || '';
+        },
+
+        getPythonCode(operation, workflowId, baseUrl) {
+          const examples = {
+            execute: `import requests
+
+# Execute workflow
+response = requests.post(
+    '${baseUrl}/workflows/${workflowId}/execute',
+    json={'input': 'Hello, world!'},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()
+print(data)`,
+            stream: `import requests
+
+# Execute workflow with streaming
+response = requests.post(
+    '${baseUrl}/workflows/${workflowId}/execute/stream',
+    json={'input': 'Hello, world!'},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'},
+    stream=True
+)
+
+for line in response.iter_lines():
+    if line:
+        data = json.loads(line.decode('utf-8'))
+        if data['type'] == 'token':
+            print(data['content'], end='')
+        elif data['type'] == 'complete':
+            print('\\nComplete:', data)`,
+            get_workflow: `import requests
+
+# Get workflow details
+response = requests.get(
+    '${baseUrl}/workflows/${workflowId}',
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+workflow = response.json()
+print(workflow)`,
+            list_executions: `import requests
+
+# List workflow executions
+response = requests.get(
+    '${baseUrl}/workflows/${workflowId}/executions',
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+executions = response.json()
+print(executions)`,
+            add_node: `import requests
+
+# Add node to workflow
+response = requests.post(
+    '${baseUrl}/workflows/${workflowId}/nodes',
+    json={
+        'node_type': 'llm',
+        'label': 'My LLM Node',
+        'position_x': 100,
+        'position_y': 100,
+        'config': {
+            'provider': 'openai',
+            'model': 'gpt-4o-mini',
+            'system_prompt': 'You are a helpful assistant.'
+        }
+    },
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+node = response.json()
+print(node)`,
+            add_edge: `import requests
+
+# Connect nodes
+response = requests.post(
+    '${baseUrl}/workflows/${workflowId}/edges',
+    json={
+        'source_node_id': 'SOURCE_NODE_ID',
+        'target_node_id': 'TARGET_NODE_ID'
+    },
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+edge = response.json()
+print(edge)`
+          };
+          return examples[operation] || '';
+        },
+
+        async copyApiCode(operation) {
+          const code = this.getApiCode(operation);
+          try {
+            await navigator.clipboard.writeText(code);
+            this.showToast('Code copied to clipboard!', 'success');
+          } catch (err) {
+            console.error('Failed to copy:', err);
+            this.showToast('Failed to copy code', 'error');
+          }
         },
 
         showToast(message, type = 'info', duration = 3000) {
