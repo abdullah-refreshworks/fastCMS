@@ -37,12 +37,26 @@ class WorkflowExecutor:
         current_data = input_data
 
         try:
+            # Validate inputs
+            if not nodes:
+                return {
+                    "status": "failed",
+                    "error": "No nodes in workflow. Please add at least one node.",
+                    "output": None,
+                    "logs": execution_log,
+                }
+
+            execution_log.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "message": f"Starting workflow execution with {len(nodes)} nodes and {len(edges)} edges",
+            })
+
             # Find start node
             start_node = self._find_start_node(nodes)
             if not start_node:
                 return {
                     "status": "failed",
-                    "error": "No start node found",
+                    "error": "No start node found. Please add a 'Start' node or ensure at least one node exists.",
                     "output": None,
                     "logs": execution_log,
                 }
@@ -174,7 +188,10 @@ class WorkflowExecutor:
     async def _execute_llm_node(self, config: Dict[str, Any], input_data: Any) -> str:
         """Execute an LLM node using OpenAI API."""
         if not self.api_key:
-            raise ValueError("OpenAI API key not configured")
+            raise ValueError(
+                "OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file. "
+                "You can get an API key from https://platform.openai.com/api-keys"
+            )
 
         try:
             # Lazy import to avoid dependency issues

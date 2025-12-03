@@ -6,9 +6,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-BASE_URL = "http://localhost:8000"
-ADMIN_EMAIL = "admin@fastcms.dev"
-ADMIN_PASSWORD = "Admin123!"
+BASE_URL = os.getenv("BASE_URL", "http://localhost:8000")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@fastcms.dev")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Admin123!")
 
 async def test_api_rules():
     """Test API rules enforcement."""

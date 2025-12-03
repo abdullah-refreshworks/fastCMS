@@ -138,8 +138,8 @@ class ExecutionResponse(BaseModel):
     id: UUID
     workflow_id: UUID
     user_id: UUID
-    input_data: Dict[str, Any]
-    output_data: Optional[Dict[str, Any]] = None
+    input_data: Any  # Can be string, dict, list, etc.
+    output_data: Optional[Any] = None  # Can be string, dict, list, etc.
     status: str
     error: Optional[str] = None
     execution_log: List[Dict[str, Any]] = Field(default_factory=list)
