@@ -27,6 +27,8 @@ class Workflow(Base):
     is_template = Column(Boolean, default=False)
     tags = Column(Text, default="[]")  # JSON string for SQLite
     rete_data = Column(Text, default="{}")  # JSON string for SQLite
+    workflow_type = Column(String(20), default="custom", nullable=False)  # 'custom' or 'langgraph'
+    graph_code = Column(Text, nullable=True)  # Python code for LangGraph workflows
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -128,3 +130,27 @@ class WorkflowExecution(Base):
 
     def __repr__(self):
         return f"<WorkflowExecution(id={self.id}, status={self.status})>"
+
+
+class WorkflowCheckpoint(Base):
+    """Workflow checkpoint model - stores LangGraph checkpoints for state persistence."""
+
+    __tablename__ = "langgraph_checkpoints"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    workflow_id = Column(String(36), ForeignKey("langgraph_workflows.id", ondelete="CASCADE"), nullable=False)
+    thread_id = Column(String(255), nullable=False)  # Unique conversation/session ID
+    checkpoint_data = Column(Text, nullable=False)  # Serialized checkpoint state
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    workflow = relationship("Workflow", backref="checkpoints")
+
+    # Indexes
+    __table_args__ = (
+        Index("idx_langgraph_checkpoints_workflow_id", "workflow_id"),
+        Index("idx_langgraph_checkpoints_thread_id", "thread_id"),
+    )
+
+    def __repr__(self):
+        return f"<WorkflowCheckpoint(id={self.id}, thread_id={self.thread_id})>"

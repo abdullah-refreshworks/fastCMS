@@ -157,8 +157,11 @@
               throw new Error("Admin access required");
             }
 
-            // Store token
+            // Store token in localStorage
             localStorage.setItem("access_token", data.token.access_token);
+
+            // Also store token in cookie for server-side auth during page navigation
+            document.cookie = `access_token=${data.token.access_token}; path=/; max-age=3600; SameSite=Lax`;
 
             // Redirect to dashboard
             window.location.href = "/admin/";

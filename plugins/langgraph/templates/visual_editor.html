@@ -9,6 +9,14 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
+  <!-- Store access token for API calls -->
+  <script>
+    {% if access_token %}
+    localStorage.setItem('access_token', '{{ access_token }}');
+    document.cookie = 'access_token={{ access_token }}; path=/; max-age=3600; SameSite=Lax';
+    {% endif %}
+  </script>
+
   <style>
     [x-cloak] { display: none !important; }
 
@@ -66,6 +74,31 @@
       pointer-events: none;
       z-index: 0;
     }
+
+    .edge-path {
+      pointer-events: stroke;
+      cursor: pointer;
+      transition: stroke-width 0.2s, stroke 0.2s;
+    }
+
+    .edge-path:hover {
+      stroke: #6366f1 !important;
+      stroke-width: 3 !important;
+    }
+
+    .edge-path.selected {
+      stroke: #ef4444 !important;
+      stroke-width: 3 !important;
+    }
+
+    .edge-menu {
+      position: absolute;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+    }
   </style>
 </head>
 
@@ -86,6 +119,15 @@
       </div>
 
       <div class="flex items-center space-x-2">
+        <button
+          @click="showExecutionPanel = !showExecutionPanel"
+          class="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg relative"
+          :class="showExecutionPanel ? 'bg-indigo-100 text-indigo-600' : ''"
+          title="Toggle execution results"
+        >
+          <i class="fas fa-chart-line"></i>
+          <span x-show="executionResult.logs.length > 0" class="absolute top-1 right-1 w-2 h-2 bg-green-500 rounded-full"></span>
+        </button>
         <button
           @click="clearCanvas()"
           class="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
@@ -113,10 +155,28 @@
     <!-- Main Content -->
     <div class="flex-1 flex overflow-hidden">
       <!-- Sidebar -->
-      <div class="w-64 bg-white border-r p-4 overflow-y-auto z-10">
-        <h3 class="text-lg font-bold mb-4">Node Library</h3>
+      <div class="w-64 bg-white border-r flex flex-col z-10">
+        <!-- Tab Switcher -->
+        <div class="flex border-b flex-shrink-0">
+          <button
+            @click="sidebarTab = 'nodes'"
+            class="flex-1 px-4 py-3 text-sm font-medium transition-colors"
+            :class="sidebarTab === 'nodes' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'"
+          >
+            <i class="fas fa-cubes mr-2"></i>Nodes
+          </button>
+          <button
+            @click="sidebarTab = 'api'"
+            class="flex-1 px-4 py-3 text-sm font-medium transition-colors"
+            :class="sidebarTab === 'api' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'"
+          >
+            <i class="fas fa-code mr-2"></i>API
+          </button>
+        </div>
 
-        <div class="space-y-2">
+        <!-- Node Library Tab -->
+        <div x-show="sidebarTab === 'nodes'" class="flex-1 overflow-y-auto">
+          <div class="p-4 space-y-2">
           <button
             @click="addNode('llm', 100, 100)"
             class="w-full p-3 bg-purple-50 border-2 border-purple-200 rounded-lg hover:bg-purple-100 flex items-center"
@@ -168,41 +228,207 @@
               <div class="text-xs text-gray-600">Exit</div>
             </div>
           </button>
+
+          <button
+            @click="addNode('document_loader', 100, 100)"
+            class="w-full p-3 bg-green-50 border-2 border-green-200 rounded-lg hover:bg-green-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-green-600 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-file-pdf"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Document Loader</div>
+              <div class="text-xs text-gray-600">PDF/DOCX/Web</div>
+            </div>
+          </button>
+
+          <button
+            @click="addNode('text_splitter', 100, 100)"
+            class="w-full p-3 bg-orange-50 border-2 border-orange-200 rounded-lg hover:bg-orange-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-orange-500 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-scissors"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Text Splitter</div>
+              <div class="text-xs text-gray-600">Chunk Text</div>
+            </div>
+          </button>
+
+          <button
+            @click="addNode('embedding', 100, 100)"
+            class="w-full p-3 bg-pink-50 border-2 border-pink-200 rounded-lg hover:bg-pink-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-pink-500 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-vector-square"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Embedding</div>
+              <div class="text-xs text-gray-600">Vectors</div>
+            </div>
+          </button>
+
+          <button
+            @click="addNode('vector_store', 100, 100)"
+            class="w-full p-3 bg-indigo-50 border-2 border-indigo-200 rounded-lg hover:bg-indigo-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-indigo-600 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-database"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Vector Store</div>
+              <div class="text-xs text-gray-600">FAISS/Pinecone</div>
+            </div>
+          </button>
+
+          <button
+            @click="addNode('deep_agent', 100, 100)"
+            class="w-full p-3 bg-teal-50 border-2 border-teal-200 rounded-lg hover:bg-teal-100 flex items-center"
+          >
+            <div class="w-10 h-10 bg-teal-600 text-white rounded flex items-center justify-center mr-3">
+              <i class="fas fa-robot"></i>
+            </div>
+            <div class="text-left">
+              <div class="font-semibold text-sm">Deep Agent</div>
+              <div class="text-xs text-gray-600">Autonomous</div>
+            </div>
+          </button>
         </div>
 
-        <div class="mt-6 p-3 bg-blue-50 rounded text-xs text-gray-700">
-          <strong>How to use:</strong>
-          <ul class="mt-2 space-y-1">
-            <li>• Click to add nodes</li>
-            <li>• Drag nodes to move</li>
-            <li>• Drag from ⚪ to connect</li>
-            <li>• Click node to configure</li>
-            <li>• Right-click to delete</li>
-          </ul>
+            <div class="mt-6 p-3 bg-blue-50 rounded text-xs text-gray-700">
+              <strong>How to use:</strong>
+              <ul class="mt-2 space-y-1">
+                <li>• Click buttons to add nodes</li>
+                <li>• Drag nodes to move them</li>
+                <li>• Drag from ⚪ to connect</li>
+                <li>• Click ⚙️ to configure</li>
+                <li>• Click 🗑️ to delete node + edges</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- API Endpoints Tab -->
+        <div x-show="sidebarTab === 'api'" class="flex-1 flex flex-col overflow-hidden">
+          <div class="p-4 border-b bg-gray-50">
+            <select x-model="apiLang" class="w-full text-sm border-gray-300 rounded-md">
+              <option value="curl">cURL</option>
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python</option>
+            </select>
+          </div>
+
+          <div class="flex-1 overflow-y-auto divide-y divide-gray-200">
+            <!-- Execute Workflow (Non-streaming) -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">POST</span>
+                  <span class="text-xs font-mono text-gray-700">Execute</span>
+                </div>
+                <button @click="copyApiCode('execute')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('execute')"></pre>
+              </div>
+            </div>
+
+            <!-- Execute Workflow (Streaming) -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded">POST</span>
+                  <span class="text-xs font-mono text-gray-700">Stream</span>
+                </div>
+                <button @click="copyApiCode('stream')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('stream')"></pre>
+              </div>
+            </div>
+
+            <!-- Get Workflow -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded">GET</span>
+                  <span class="text-xs font-mono text-gray-700">Get Workflow</span>
+                </div>
+                <button @click="copyApiCode('get_workflow')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('get_workflow')"></pre>
+              </div>
+            </div>
+
+            <!-- List Executions -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-indigo-100 text-indigo-800 rounded">GET</span>
+                  <span class="text-xs font-mono text-gray-700">Executions</span>
+                </div>
+                <button @click="copyApiCode('list_executions')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('list_executions')"></pre>
+              </div>
+            </div>
+
+            <!-- Add Node -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">POST</span>
+                  <span class="text-xs font-mono text-gray-700">Add Node</span>
+                </div>
+                <button @click="copyApiCode('add_node')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('add_node')"></pre>
+              </div>
+            </div>
+
+            <!-- Add Edge -->
+            <div class="p-4">
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">POST</span>
+                  <span class="text-xs font-mono text-gray-700">Connect Nodes</span>
+                </div>
+                <button @click="copyApiCode('add_edge')" class="text-gray-400 hover:text-gray-600">
+                  <i class="fas fa-copy"></i>
+                </button>
+              </div>
+              <div class="bg-gray-900 rounded-lg p-3 overflow-x-auto">
+                <pre class="text-xs text-gray-100 whitespace-pre-wrap" x-text="getApiCode('add_edge')"></pre>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Canvas -->
-      <div class="flex-1 relative">
-        <div id="canvas" class="absolute inset-0">
+      <div class="flex-1 relative" :class="showExecutionPanel ? 'mr-96' : ''">
+        <div id="canvas" class="absolute inset-0" @click="onEdgeClick($event)">
           <!-- SVG for connections -->
           <svg id="connections-svg">
-            <template x-for="edge in edges" :key="edge.id">
-              <g>
-                <path
-                  :d="getEdgePath(edge)"
-                  stroke="#94a3b8"
-                  stroke-width="2"
-                  fill="none"
-                  :marker-end="'url(#arrowhead)'"
-                />
-              </g>
-            </template>
             <defs>
               <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
                 <polygon points="0 0, 10 3, 0 6" fill="#94a3b8" />
               </marker>
             </defs>
+            <g x-html="renderEdges()"></g>
           </svg>
 
           <!-- Drawing line -->
@@ -247,13 +473,22 @@
                     placeholder="Label"
                   />
                 </div>
-                <button
-                  @click.stop="openNodeConfig(node)"
-                  class="text-gray-400 hover:text-indigo-600 ml-2"
-                  title="Configure"
-                >
-                  <i class="fas fa-cog text-sm"></i>
-                </button>
+                <div class="flex items-center space-x-1">
+                  <button
+                    @click.stop="openNodeConfig(node)"
+                    class="text-gray-400 hover:text-indigo-600 p-1 rounded hover:bg-gray-100"
+                    title="Configure node"
+                  >
+                    <i class="fas fa-cog text-sm"></i>
+                  </button>
+                  <button
+                    @click.stop="deleteNode(node)"
+                    class="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50"
+                    title="Delete node and connections"
+                  >
+                    <i class="fas fa-trash text-sm"></i>
+                  </button>
+                </div>
               </div>
 
               <!-- Node Body -->
@@ -292,6 +527,156 @@
           </div>
         </div>
       </div>
+
+      <!-- Edge Context Menu -->
+      <div
+        x-show="showEdgeMenu"
+        @click.away="hideEdgeMenu()"
+        class="edge-menu"
+        :style="`left: ${edgeMenuPosition.x}px; top: ${edgeMenuPosition.y}px;`"
+      >
+        <div class="px-3 py-2 border-b text-xs text-gray-600 font-medium">
+          <div x-text="getEdgeDescription(selectedEdge)"></div>
+        </div>
+        <button
+          @click="deleteEdge(selectedEdge)"
+          class="w-full px-4 py-2 text-left text-red-600 hover:bg-red-50 flex items-center text-sm"
+        >
+          <i class="fas fa-trash mr-2"></i>
+          Delete Connection
+        </button>
+      </div>
+
+      <!-- Execution Results Panel -->
+      <div
+        x-show="showExecutionPanel"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="translate-x-full"
+        x-transition:enter-end="translate-x-0"
+        class="fixed right-0 top-0 bottom-0 w-96 bg-white border-l shadow-2xl overflow-hidden flex flex-col z-20"
+        style="margin-top: 60px;"
+      >
+        <!-- Panel Header -->
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex items-center justify-between">
+          <div class="flex items-center">
+            <i class="fas fa-chart-line mr-3 text-xl"></i>
+            <h3 class="font-bold text-lg">Execution Results</h3>
+          </div>
+          <button
+            @click="showExecutionPanel = false"
+            class="text-white hover:bg-white/20 rounded p-2"
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Execution Status -->
+        <div class="p-4 border-b" :class="executionResult.status === 'completed' ? 'bg-green-50' : executionResult.status === 'failed' ? 'bg-red-50' : 'bg-yellow-50'">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-semibold text-gray-700">Status:</span>
+            <span
+              class="px-3 py-1 rounded-full text-sm font-semibold"
+              :class="{
+                'bg-green-500 text-white': executionResult.status === 'completed',
+                'bg-red-500 text-white': executionResult.status === 'failed',
+                'bg-yellow-500 text-white': executionResult.status === 'running'
+              }"
+            >
+              <i :class="{
+                'fas fa-check-circle': executionResult.status === 'completed',
+                'fas fa-times-circle': executionResult.status === 'failed',
+                'fas fa-spinner fa-spin': executionResult.status === 'running'
+              }" class="mr-1"></i>
+              <span x-text="executionResult.status"></span>
+            </span>
+          </div>
+          <template x-if="executionResult.error">
+            <div class="mt-2 p-2 bg-red-100 border border-red-300 rounded text-sm text-red-800">
+              <i class="fas fa-exclamation-triangle mr-1"></i>
+              <span x-text="executionResult.error"></span>
+            </div>
+          </template>
+        </div>
+
+        <!-- Execution Timeline -->
+        <div class="flex-1 overflow-y-auto p-4">
+          <h4 class="font-semibold text-gray-700 mb-3 flex items-center">
+            <i class="fas fa-tasks mr-2"></i>
+            Execution Timeline
+          </h4>
+
+          <div class="space-y-3">
+            <template x-for="(log, index) in executionResult.logs" :key="index">
+              <div class="relative pl-6 pb-4 border-l-2" :class="log.error ? 'border-red-400' : 'border-green-400'">
+                <!-- Timeline dot -->
+                <div
+                  class="absolute left-0 top-0 w-4 h-4 rounded-full -ml-2"
+                  :class="log.error ? 'bg-red-500' : 'bg-green-500'"
+                ></div>
+
+                <!-- Log content -->
+                <div class="bg-gray-50 rounded-lg p-3 shadow-sm">
+                  <!-- Node info -->
+                  <template x-if="log.node_id">
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="flex items-center">
+                        <div
+                          class="w-6 h-6 rounded flex items-center justify-center text-white text-xs mr-2"
+                          :class="getNodeBgColor(log.node_type || 'default')"
+                        >
+                          <i :class="'fas fa-' + getNodeIcon(log.node_type || 'circle')"></i>
+                        </div>
+                        <span class="font-semibold text-sm" x-text="log.label || 'Node'"></span>
+                      </div>
+                      <span class="text-xs text-gray-500" x-text="formatTimestamp(log.timestamp)"></span>
+                    </div>
+                  </template>
+
+                  <!-- Message -->
+                  <p class="text-sm text-gray-700 mb-1" x-text="log.message"></p>
+
+                  <!-- Output preview -->
+                  <template x-if="log.output">
+                    <div class="mt-2 p-2 bg-white border border-gray-200 rounded text-xs font-mono">
+                      <div class="text-gray-500 mb-1">Output:</div>
+                      <div class="text-gray-800 max-h-20 overflow-y-auto" x-text="log.output"></div>
+                    </div>
+                  </template>
+
+                  <!-- Error details -->
+                  <template x-if="log.error">
+                    <div class="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                      <div class="text-red-600 font-semibold mb-1">Error:</div>
+                      <div class="text-red-800" x-text="log.error"></div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Empty state -->
+          <template x-if="!executionResult.logs || executionResult.logs.length === 0">
+            <div class="text-center text-gray-400 py-8">
+              <i class="fas fa-clipboard-list text-4xl mb-2"></i>
+              <p>No execution logs yet</p>
+            </div>
+          </template>
+        </div>
+
+        <!-- Final Output -->
+        <template x-if="executionResult.output_data">
+          <div class="border-t p-4 bg-gray-50">
+            <h4 class="font-semibold text-gray-700 mb-2 flex items-center">
+              <i class="fas fa-flag-checkered mr-2"></i>
+              Final Output
+            </h4>
+            <div class="bg-white border border-gray-300 rounded p-3 max-h-40 overflow-y-auto">
+              <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono" x-text="JSON.stringify(executionResult.output_data, null, 2)"></pre>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
 
     <!-- Config Modal -->
@@ -313,12 +698,37 @@
           <template x-if="currentNode && currentNode.node_type === 'llm'">
             <div class="space-y-4">
               <div>
+                <label class="block text-sm font-medium mb-2">Provider</label>
+                <select x-model="currentNode.config.provider" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="google">Google (Gemini)</option>
+                </select>
+              </div>
+              <div>
                 <label class="block text-sm font-medium mb-2">Model</label>
                 <select x-model="currentNode.config.model" class="w-full px-4 py-2 border rounded-lg">
-                  <option value="gpt-4o">GPT-4o</option>
-                  <option value="gpt-4o-mini">GPT-4o Mini</option>
-                  <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                  <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                  <template x-if="currentNode.config.provider === 'openai'">
+                    <optgroup label="OpenAI">
+                      <option value="gpt-4o">GPT-4o</option>
+                      <option value="gpt-4o-mini">GPT-4o Mini</option>
+                      <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                      <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                    </optgroup>
+                  </template>
+                  <template x-if="currentNode.config.provider === 'anthropic'">
+                    <optgroup label="Anthropic">
+                      <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                      <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                      <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                    </optgroup>
+                  </template>
+                  <template x-if="currentNode.config.provider === 'google'">
+                    <optgroup label="Google">
+                      <option value="gemini-pro">Gemini Pro</option>
+                      <option value="gemini-pro-vision">Gemini Pro Vision</option>
+                    </optgroup>
+                  </template>
                 </select>
               </div>
               <div>
@@ -355,6 +765,135 @@
             </div>
           </template>
 
+          <template x-if="currentNode && currentNode.node_type === 'document_loader'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Loader Type</label>
+                <select x-model="currentNode.config.loader_type" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="pdf">PDF</option>
+                  <option value="docx">DOCX</option>
+                  <option value="web">Web (URL)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Source Path/URL</label>
+                <input
+                  type="text"
+                  x-model="currentNode.config.source"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="/path/to/document.pdf or https://example.com"
+                />
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'text_splitter'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Chunk Size</label>
+                <input
+                  type="number"
+                  x-model.number="currentNode.config.chunk_size"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="1000"
+                  min="100"
+                  max="10000"
+                />
+                <p class="text-xs text-gray-600 mt-1">Number of characters per chunk (recommended: 500-2000)</p>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Chunk Overlap</label>
+                <input
+                  type="number"
+                  x-model.number="currentNode.config.chunk_overlap"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="200"
+                  min="0"
+                  max="1000"
+                />
+                <p class="text-xs text-gray-600 mt-1">Overlap between chunks (recommended: 100-300)</p>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'embedding'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Provider</label>
+                <select x-model="currentNode.config.provider" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="openai">OpenAI</option>
+                  <option value="cohere">Cohere</option>
+                  <option value="huggingface">HuggingFace</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Model</label>
+                <input
+                  type="text"
+                  x-model="currentNode.config.model"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="text-embedding-3-small"
+                />
+                <p class="text-xs text-gray-600 mt-1">OpenAI: text-embedding-3-small, text-embedding-3-large</p>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'vector_store'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Provider</label>
+                <select x-model="currentNode.config.provider" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="faiss">FAISS (Local)</option>
+                  <option value="pinecone">Pinecone (Cloud)</option>
+                  <option value="chroma">Chroma</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Action</label>
+                <select x-model="currentNode.config.action" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="store">Store (Save embeddings)</option>
+                  <option value="search">Search (Query embeddings)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Index Name</label>
+                <input
+                  type="text"
+                  x-model="currentNode.config.index_name"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="my_documents"
+                />
+                <p class="text-xs text-gray-600 mt-1">Unique identifier for this vector store</p>
+              </div>
+            </div>
+          </template>
+
+          <template x-if="currentNode && currentNode.node_type === 'deep_agent'">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-2">Model</label>
+                <select x-model="currentNode.config.model" class="w-full px-4 py-2 border rounded-lg">
+                  <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Recommended)</option>
+                  <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+                  <option value="gpt-4o">GPT-4o</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2">Max Iterations</label>
+                <input
+                  type="number"
+                  x-model.number="currentNode.config.max_iterations"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="10"
+                  min="1"
+                  max="50"
+                />
+                <p class="text-xs text-gray-600 mt-1">Maximum planning/execution cycles (1-50)</p>
+              </div>
+            </div>
+          </template>
+
           <div class="mt-6 flex justify-end space-x-2">
             <button @click="showConfigModal = false" class="px-4 py-2 border rounded-lg hover:bg-gray-50">
               Cancel
@@ -366,10 +905,1185 @@
         </div>
       </div>
     </div>
+
+    <!-- Execution Input Modal -->
+    <div
+      x-show="showExecutionModal"
+      @click.self="showExecutionModal = false"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      style="display: none;"
+    >
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 class="text-lg font-bold mb-4">Run Workflow</h3>
+        <p class="text-sm text-gray-600 mb-4">Enter the input data for your workflow. This will be passed to the first node.</p>
+
+        <textarea
+          x-model="executionInput"
+          class="w-full border border-gray-300 rounded-lg p-3 mb-4 font-mono text-sm"
+          rows="4"
+          placeholder='Enter input text or JSON, e.g., "Hello AI" or {"message": "Hello"}'
+        ></textarea>
+
+        <div class="flex justify-end space-x-2">
+          <button
+            @click="showExecutionModal = false"
+            class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            @click="runWorkflowExecution()"
+            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
+          >
+            <i class="fas fa-play mr-2"></i>Execute
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div
+      x-show="showDeleteModal"
+      @click.self="showDeleteModal = false"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      style="display: none;"
+    >
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <div class="flex items-center mb-4">
+          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
+            <i class="fas fa-exclamation-triangle text-red-600"></i>
+          </div>
+          <h3 class="text-lg font-bold text-red-600">Delete Node</h3>
+        </div>
+
+        <p class="text-sm text-gray-700 mb-3">
+          Are you sure you want to delete "<span class="font-semibold" x-text="nodeToDelete?.label"></span>"?
+        </p>
+
+        <div class="bg-yellow-50 border border-yellow-200 rounded p-3 mb-4">
+          <div class="flex items-start">
+            <i class="fas fa-info-circle text-yellow-600 mr-2 mt-0.5"></i>
+            <div class="text-xs text-gray-700">
+              <p class="font-semibold mb-1">This action will:</p>
+              <ul class="list-disc ml-4 space-y-1">
+                <li>Remove the node from the workflow</li>
+                <li>Delete <span class="font-semibold" x-text="countNodeConnections(nodeToDelete)"></span> connected edge(s)</li>
+                <li>Cannot be undone</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end space-x-2">
+          <button
+            @click="showDeleteModal = false; nodeToDelete = null"
+            class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            @click="confirmDeleteNode()"
+            class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center"
+          >
+            <i class="fas fa-trash mr-2"></i>Delete Node
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clear Canvas Confirmation Modal -->
+    <div
+      x-show="showClearModal"
+      @click.self="showClearModal = false"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      style="display: none;"
+    >
+      <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+        <h3 class="text-lg font-bold mb-4 text-orange-600">Clear Canvas</h3>
+        <p class="text-sm text-gray-600 mb-4">
+          Are you sure you want to clear all nodes and connections? This action cannot be undone.
+        </p>
+
+        <div class="flex justify-end space-x-2">
+          <button
+            @click="showClearModal = false"
+            class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            @click="confirmClearCanvas()"
+            class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center"
+          >
+            <i class="fas fa-trash mr-2"></i>Clear All
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div id="toast-container" class="fixed top-4 right-4 z-50 space-y-2"></div>
+  <!-- Toast notifications - positioned at bottom to not block buttons -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 space-y-2"></div>
 
-  <script src="/static/plugins/langgraph/js/visual-editor.js"></script>
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('visualEditor', () => ({
+        // State
+        workflow: {
+          id: null,
+          name: 'Untitled Workflow',
+          description: '',
+        },
+        nodes: [],
+        edges: [],
+
+        // Drag state
+        isDragging: false,
+        draggedNode: null,
+        dragOffset: { x: 0, y: 0 },
+        dragStartPos: { x: 0, y: 0 },
+        hasDragged: false,
+
+        // Connection state
+        isDrawingConnection: false,
+        connectionStart: { x: 0, y: 0 },
+        connectionSourceNode: null,
+        mousePosition: { x: 0, y: 0 },
+
+        // UI state
+        showConfigModal: false,
+        currentNode: null,
+        showExecutionModal: false,
+        executionInput: '',
+        showDeleteModal: false,
+        nodeToDelete: null,
+        showClearModal: false,
+        showExecutionPanel: false,
+        executionResult: {
+          status: '',
+          logs: [],
+          output_data: null,
+          error: null,
+        },
+        executingNodeIds: [],
+        showEdgeMenu: false,
+        selectedEdge: null,
+        edgeMenuPosition: { x: 0, y: 0 },
+        apiLang: 'curl',
+        sidebarTab: 'nodes',
+
+        // Initialize
+        async init() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const workflowId = window.location.pathname.split('/').pop();
+
+          if (workflowId && workflowId !== 'editor') {
+            await this.loadWorkflow(workflowId);
+          }
+        },
+
+        // Node Management
+        addNode(type, x = null, y = null) {
+          const posX = x !== null ? x : 100 + Math.random() * 200;
+          const posY = y !== null ? y : 100 + Math.random() * 200;
+
+          const node = {
+            id: 'temp_' + Date.now() + '_' + Math.random(),
+            node_type: type,
+            label: `${type.charAt(0).toUpperCase() + type.slice(1)} Node`,
+            position_x: posX,
+            position_y: posY,
+            config: this.getDefaultConfig(type),
+          };
+
+          this.nodes.push(node);
+          this.showToast('Node added', 'success');
+        },
+
+        getDefaultConfig(type) {
+          switch(type) {
+            case 'llm':
+              return {
+                provider: 'openai',
+                model: 'gpt-4o-mini',
+                system_prompt: 'You are a helpful assistant.',
+                temperature: 0.7,
+                max_tokens: 1000,
+              };
+            case 'function':
+              return {
+                code: '# Input is available as \'input\' variable\n# Set \'output\' variable with your result\n\noutput = input'
+              };
+            case 'document_loader':
+              return {
+                loader_type: 'pdf',
+                source: '/path/to/document.pdf'
+              };
+            case 'text_splitter':
+              return {
+                chunk_size: 1000,
+                chunk_overlap: 200
+              };
+            case 'embedding':
+              return {
+                provider: 'openai',
+                model: 'text-embedding-3-small'
+              };
+            case 'vector_store':
+              return {
+                provider: 'faiss',
+                action: 'store',
+                index_name: 'default'
+              };
+            case 'deep_agent':
+              return {
+                model: 'claude-sonnet-4-5-20250929',
+                max_iterations: 10
+              };
+            default:
+              return {};
+          }
+        },
+
+        deleteNode(node) {
+          this.nodeToDelete = node;
+          this.showDeleteModal = true;
+        },
+
+        countNodeConnections(node) {
+          if (!node) return 0;
+          return this.edges.filter(e =>
+            e.source_node_id === node.id || e.target_node_id === node.id
+          ).length;
+        },
+
+        async confirmDeleteNode() {
+          if (!this.nodeToDelete) return;
+
+          const nodeId = this.nodeToDelete.id;
+          const nodeLabel = this.nodeToDelete.label;
+          const workflowId = this.workflow.id;
+
+          // Count connections before deletion
+          const connectedEdgesCount = this.countNodeConnections(this.nodeToDelete);
+
+          try {
+            // If this is a saved node (not temp), delete it from the server
+            if (!nodeId.startsWith('temp_') && workflowId) {
+              const res = await fetch(
+                `/api/v1/plugins/langgraph/workflows/${workflowId}/nodes/${nodeId}`,
+                {
+                  method: 'DELETE',
+                  headers: this.getAuthHeaders(),
+                }
+              );
+
+              if (!res.ok) {
+                throw new Error('Failed to delete node from server');
+              }
+            }
+
+            // Also remove all connected edges
+            const edgesToDelete = this.edges.filter(e =>
+              e.source_node_id === nodeId || e.target_node_id === nodeId
+            );
+
+            // Delete saved edges from server
+            if (workflowId) {
+              for (const edge of edgesToDelete) {
+                if (!edge.id.startsWith('temp_edge_')) {
+                  try {
+                    await fetch(
+                      `/api/v1/plugins/langgraph/workflows/${workflowId}/edges/${edge.id}`,
+                      {
+                        method: 'DELETE',
+                        headers: this.getAuthHeaders(),
+                      }
+                    );
+                  } catch (err) {
+                    // Edge deletion failed silently
+                  }
+                }
+              }
+            }
+
+            // Remove from local arrays
+            this.nodes = this.nodes.filter(n => n.id !== nodeId);
+            this.edges = this.edges.filter(e =>
+              e.source_node_id !== nodeId && e.target_node_id !== nodeId
+            );
+
+            // Show success message with details
+            const message = connectedEdgesCount > 0
+              ? `Deleted "${nodeLabel}" and ${connectedEdgesCount} connection(s)`
+              : `Deleted "${nodeLabel}"`;
+
+            this.showToast(message, 'success');
+          } catch (error) {
+            this.showToast('Failed to delete node: ' + error.message, 'error');
+          } finally {
+            this.showDeleteModal = false;
+            this.nodeToDelete = null;
+          }
+        },
+
+        openNodeConfig(node) {
+          this.currentNode = node;
+          this.showConfigModal = true;
+        },
+
+        // Drag and Drop
+        startDrag(event, node) {
+          // Don't drag if clicking on inputs, buttons, or icons
+          if (event.target.tagName === 'INPUT' ||
+              event.target.tagName === 'TEXTAREA' ||
+              event.target.tagName === 'BUTTON' ||
+              event.target.tagName === 'I' ||
+              event.target.closest('button')) {
+            return;
+          }
+
+          this.isDragging = true;
+          this.draggedNode = node;
+          this.hasDragged = false;
+
+          const canvas = document.getElementById('canvas');
+          const canvasRect = canvas.getBoundingClientRect();
+
+          this.dragStartPos = {
+            x: event.clientX,
+            y: event.clientY,
+          };
+
+          this.dragOffset = {
+            x: event.clientX - canvasRect.left - node.position_x,
+            y: event.clientY - canvasRect.top - node.position_y,
+          };
+
+          const nodeElement = document.getElementById('node-' + node.id);
+          if (nodeElement) {
+            nodeElement.classList.add('dragging');
+          }
+        },
+
+        onMouseMove(event) {
+          if (this.isDragging && this.draggedNode) {
+            // Check if mouse has moved more than 5px (drag threshold)
+            const deltaX = Math.abs(event.clientX - this.dragStartPos.x);
+            const deltaY = Math.abs(event.clientY - this.dragStartPos.y);
+
+            if (deltaX > 5 || deltaY > 5) {
+              this.hasDragged = true;
+            }
+
+            const canvas = document.getElementById('canvas');
+            const canvasRect = canvas.getBoundingClientRect();
+
+            this.draggedNode.position_x = event.clientX - canvasRect.left - this.dragOffset.x;
+            this.draggedNode.position_y = event.clientY - canvasRect.top - this.dragOffset.y;
+          } else if (this.isDrawingConnection) {
+            const canvas = document.getElementById('canvas');
+            const canvasRect = canvas.getBoundingClientRect();
+
+            this.mousePosition.x = event.clientX - canvasRect.left;
+            this.mousePosition.y = event.clientY - canvasRect.top;
+          }
+        },
+
+        onMouseUp(event) {
+          if (this.isDragging && this.draggedNode) {
+            const nodeElement = document.getElementById('node-' + this.draggedNode.id);
+            if (nodeElement) {
+              nodeElement.classList.remove('dragging');
+            }
+          }
+
+          this.isDragging = false;
+          this.draggedNode = null;
+
+          // Reset hasDragged after a short delay to allow click event to check it
+          setTimeout(() => {
+            this.hasDragged = false;
+          }, 10);
+
+          if (this.isDrawingConnection) {
+            this.isDrawingConnection = false;
+            this.connectionSourceNode = null;
+          }
+        },
+
+        // Connection Management
+        startConnection(event, node) {
+          event.stopPropagation();
+
+          this.isDrawingConnection = true;
+          this.connectionSourceNode = node;
+
+          const canvas = document.getElementById('canvas');
+          const canvasRect = canvas.getBoundingClientRect();
+          const nodeElement = document.getElementById('node-' + node.id);
+          const nodeRect = nodeElement.getBoundingClientRect();
+
+          // Start from output port (right side of node)
+          this.connectionStart.x = nodeRect.right - canvasRect.left;
+          this.connectionStart.y = nodeRect.top + nodeRect.height / 2 - canvasRect.top;
+
+          this.mousePosition.x = this.connectionStart.x;
+          this.mousePosition.y = this.connectionStart.y;
+        },
+
+        endConnection(targetNode) {
+          if (!this.isDrawingConnection || !this.connectionSourceNode) {
+            return;
+          }
+
+          // Don't connect to self
+          if (this.connectionSourceNode.id === targetNode.id) {
+            this.isDrawingConnection = false;
+            this.connectionSourceNode = null;
+            return;
+          }
+
+          // Check if edge already exists
+          const exists = this.edges.some(e =>
+            e.source_node_id === this.connectionSourceNode.id &&
+            e.target_node_id === targetNode.id
+          );
+
+          if (exists) {
+            this.showToast('Connection already exists', 'warning');
+            this.isDrawingConnection = false;
+            this.connectionSourceNode = null;
+            return;
+          }
+
+          // Create edge
+          const edge = {
+            id: 'temp_edge_' + Date.now() + '_' + Math.random(),
+            source_node_id: this.connectionSourceNode.id,
+            target_node_id: targetNode.id,
+          };
+
+          this.edges.push(edge);
+
+          this.showToast('Connection created', 'success');
+
+          this.isDrawingConnection = false;
+          this.connectionSourceNode = null;
+        },
+
+        getEdgePath(edge) {
+          const sourceNode = this.nodes.find(n => n.id === edge.source_node_id);
+          const targetNode = this.nodes.find(n => n.id === edge.target_node_id);
+
+          if (!sourceNode || !targetNode) return '';
+
+          // Calculate positions (output port of source, input port of target)
+          const x1 = sourceNode.position_x + 220; // Node width
+          const y1 = sourceNode.position_y + 60;  // Approximate middle
+          const x2 = targetNode.position_x;
+          const y2 = targetNode.position_y + 60;
+
+          // Create curved path
+          const midX = (x1 + x2) / 2;
+
+          return `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`;
+        },
+
+        renderEdges() {
+          return this.edges.map(edge => {
+            const path = this.getEdgePath(edge);
+            if (!path) return '';
+            const isSelected = this.selectedEdge && this.selectedEdge.id === edge.id;
+            const strokeColor = isSelected ? '#ef4444' : '#94a3b8';
+            const strokeWidth = isSelected ? '3' : '2';
+            return `<path
+              d="${path}"
+              stroke="${strokeColor}"
+              stroke-width="${strokeWidth}"
+              fill="none"
+              marker-end="url(#arrowhead)"
+              class="edge-path ${isSelected ? 'selected' : ''}"
+              data-edge-id="${edge.id}"
+              style="pointer-events: stroke; cursor: pointer;"
+            />`;
+          }).join('');
+        },
+
+        onEdgeClick(event) {
+          // Check if clicked element is an edge path
+          const target = event.target;
+
+          if (target.tagName === 'path' && target.classList.contains('edge-path')) {
+            const edgeId = target.getAttribute('data-edge-id');
+            const edge = this.edges.find(e => e.id === edgeId);
+
+            if (edge) {
+              this.selectedEdge = edge;
+
+              // Get canvas position
+              const canvas = document.getElementById('canvas');
+              const canvasRect = canvas.getBoundingClientRect();
+
+              // Position menu near click (with some offset to avoid covering the line)
+              this.edgeMenuPosition = {
+                x: event.clientX - canvasRect.left + 10,
+                y: event.clientY - canvasRect.top + 10
+              };
+
+              this.showEdgeMenu = true;
+              event.stopPropagation();
+              return;
+            }
+          }
+
+          // Click was not on an edge, close menu
+          this.hideEdgeMenu();
+        },
+
+        hideEdgeMenu() {
+          this.showEdgeMenu = false;
+          this.selectedEdge = null;
+        },
+
+        getEdgeDescription(edge) {
+          if (!edge) return '';
+
+          const sourceNode = this.nodes.find(n => n.id === edge.source_node_id);
+          const targetNode = this.nodes.find(n => n.id === edge.target_node_id);
+
+          if (!sourceNode || !targetNode) return 'Connection';
+
+          return `${sourceNode.label} → ${targetNode.label}`;
+        },
+
+        async deleteEdge(edge) {
+          if (!edge) return;
+
+          const workflowId = this.workflow.id;
+
+          try {
+            // Delete from server if it's a saved edge
+            if (!edge.id.startsWith('temp_edge_') && workflowId) {
+              const res = await fetch(
+                `/api/v1/plugins/langgraph/workflows/${workflowId}/edges/${edge.id}`,
+                {
+                  method: 'DELETE',
+                  headers: this.getAuthHeaders(),
+                }
+              );
+
+              if (!res.ok) {
+                throw new Error('Failed to delete connection from server');
+              }
+            }
+
+            // Remove from local array
+            this.edges = this.edges.filter(e => e.id !== edge.id);
+
+            this.showToast('Connection deleted', 'success');
+            this.hideEdgeMenu();
+          } catch (error) {
+            this.showToast('Failed to delete connection: ' + error.message, 'error');
+          }
+        },
+
+        // Get auth token from localStorage
+        getAuthHeaders() {
+          const token = localStorage.getItem('access_token');
+          return token ? {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          } : {
+            'Content-Type': 'application/json'
+          };
+        },
+
+        // Workflow Management
+        async loadWorkflow(workflowId) {
+          try {
+            // Load workflow
+            const workflowRes = await fetch(`/api/v1/plugins/langgraph/workflows/${workflowId}`, {
+              headers: this.getAuthHeaders()
+            });
+            if (!workflowRes.ok) throw new Error('Failed to load workflow');
+
+            this.workflow = await workflowRes.json();
+
+            // Load nodes
+            const nodesRes = await fetch(`/api/v1/plugins/langgraph/workflows/${workflowId}/nodes`, {
+              headers: this.getAuthHeaders()
+            });
+            if (nodesRes.ok) {
+              const nodesData = await nodesRes.json();
+              this.nodes = nodesData.nodes || [];
+            }
+
+            // Load edges
+            const edgesRes = await fetch(`/api/v1/plugins/langgraph/workflows/${workflowId}/edges`, {
+              headers: this.getAuthHeaders()
+            });
+            if (edgesRes.ok) {
+              const edgesData = await edgesRes.json();
+              this.edges = edgesData.edges || [];
+            }
+
+            this.showToast('Workflow loaded', 'success');
+          } catch (error) {
+            this.showToast('Failed to load workflow', 'error');
+          }
+        },
+
+        async saveWorkflow() {
+          try {
+            let workflowId = this.workflow.id;
+
+            // Create or update workflow
+            if (!workflowId) {
+              const res = await fetch('/api/v1/plugins/langgraph/workflows', {
+                method: 'POST',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify({
+                  name: this.workflow.name,
+                  description: this.workflow.description,
+                }),
+              });
+
+              if (!res.ok) throw new Error('Failed to create workflow');
+
+              const data = await res.json();
+              workflowId = data.id;
+              this.workflow.id = workflowId;
+
+              // Update URL
+              window.history.pushState({}, '', `/admin/langgraph/editor/${workflowId}`);
+            } else {
+              const res = await fetch(`/api/v1/plugins/langgraph/workflows/${workflowId}`, {
+                method: 'PUT',
+                headers: this.getAuthHeaders(),
+                body: JSON.stringify({
+                  name: this.workflow.name,
+                  description: this.workflow.description,
+                }),
+              });
+
+              if (!res.ok) throw new Error('Failed to update workflow');
+            }
+
+            // Save nodes
+            const savedNodes = new Map(); // Map temp IDs to real IDs
+
+            for (const node of this.nodes) {
+              if (node.id.startsWith('temp_')) {
+                // Create new node
+                const res = await fetch(`/api/v1/plugins/langgraph/workflows/${workflowId}/nodes`, {
+                  method: 'POST',
+                  headers: this.getAuthHeaders(),
+                  body: JSON.stringify({
+                    workflow_id: workflowId,
+                    node_type: node.node_type,
+                    label: node.label,
+                    position_x: node.position_x,
+                    position_y: node.position_y,
+                    config: node.config,
+                  }),
+                });
+
+                if (!res.ok) throw new Error('Failed to create node');
+
+                const data = await res.json();
+                savedNodes.set(node.id, data.id);
+                node.id = data.id;
+              } else {
+                // Update existing node
+                const res = await fetch(`/api/v1/plugins/langgraph/workflows/${workflowId}/nodes/${node.id}`, {
+                  method: 'PUT',
+                  headers: this.getAuthHeaders(),
+                  body: JSON.stringify({
+                    node_type: node.node_type,
+                    label: node.label,
+                    position_x: node.position_x,
+                    position_y: node.position_y,
+                    config: node.config,
+                  }),
+                });
+
+                if (!res.ok) throw new Error('Failed to update node');
+              }
+            }
+
+            // Save edges
+            for (const edge of this.edges) {
+              if (edge.id.startsWith('temp_edge_')) {
+                // Map temp node IDs to real IDs
+                const sourceId = savedNodes.get(edge.source_node_id) || edge.source_node_id;
+                const targetId = savedNodes.get(edge.target_node_id) || edge.target_node_id;
+
+                // Create new edge
+                const res = await fetch(`/api/v1/plugins/langgraph/workflows/${workflowId}/edges`, {
+                  method: 'POST',
+                  headers: this.getAuthHeaders(),
+                  body: JSON.stringify({
+                    workflow_id: workflowId,
+                    source_node_id: sourceId,
+                    target_node_id: targetId,
+                  }),
+                });
+
+                if (!res.ok) throw new Error('Failed to create edge');
+
+                const data = await res.json();
+                edge.id = data.id;
+                edge.source_node_id = sourceId;
+                edge.target_node_id = targetId;
+              }
+            }
+
+            this.showToast('Workflow saved successfully!', 'success');
+          } catch (error) {
+            this.showToast('Failed to save workflow: ' + error.message, 'error');
+          }
+        },
+
+        executeWorkflow() {
+          if (!this.workflow.id) {
+            this.showToast('Please save the workflow first', 'warning');
+            return;
+          }
+
+          if (this.nodes.length === 0) {
+            this.showToast('Add nodes to the workflow first', 'warning');
+            return;
+          }
+
+          // Show modal to get input
+          this.executionInput = '';
+          this.showExecutionModal = true;
+        },
+
+        async runWorkflowExecution() {
+          // Close modal
+          this.showExecutionModal = false;
+
+          const input = this.executionInput.trim();
+
+          // Reset execution state
+          this.executionResult = {
+            status: 'running',
+            logs: [],
+            output_data: null,
+            error: null,
+          };
+          this.executingNodeIds = [];
+
+          // Show execution panel
+          this.showExecutionPanel = true;
+
+          try {
+            this.showToast('Executing workflow...', 'info');
+
+            const res = await fetch(`/api/v1/plugins/langgraph/workflows/${this.workflow.id}/execute`, {
+              method: 'POST',
+              headers: this.getAuthHeaders(),
+              body: JSON.stringify({ input: input || '' }),
+            });
+
+            if (!res.ok) {
+              const error = await res.json();
+              const errorMessage = error.detail || 'Execution failed';
+
+              // Update execution result with error
+              this.executionResult.status = 'failed';
+              this.executionResult.error = errorMessage;
+
+              throw new Error(errorMessage);
+            }
+
+            const result = await res.json();
+
+            // Update execution result with success
+            this.executionResult.status = result.status;
+            this.executionResult.output_data = result.output_data;
+            this.executionResult.logs = result.execution_log || [];
+            this.executionResult.error = result.error;
+
+            // Highlight nodes that were executed
+            this.highlightExecutedNodes(this.executionResult.logs);
+
+            // Show success toast
+            if (result.status === 'completed') {
+              this.showToast('Execution completed successfully!', 'success', 3000);
+            } else if (result.status === 'failed') {
+              this.showToast('Execution failed. Check results panel.', 'error', 5000);
+            }
+
+          } catch (error) {
+            // Update execution result
+            this.executionResult.status = 'failed';
+            this.executionResult.error = error.message;
+
+            this.showToast('Execution failed: ' + error.message, 'error', 7000);
+          }
+        },
+
+        highlightExecutedNodes(logs) {
+          // Extract node IDs from logs and briefly highlight them
+          const nodeIds = logs
+            .filter(log => log.node_id)
+            .map(log => log.node_id);
+
+          nodeIds.forEach((nodeId, index) => {
+            setTimeout(() => {
+              const nodeElement = document.getElementById('node-' + nodeId);
+              if (nodeElement) {
+                nodeElement.classList.add('ring-4', 'ring-green-400');
+                setTimeout(() => {
+                  nodeElement.classList.remove('ring-4', 'ring-green-400');
+                }, 800);
+              }
+            }, index * 300);
+          });
+        },
+
+        formatTimestamp(timestamp) {
+          if (!timestamp) return '';
+          const date = new Date(timestamp);
+          return date.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            fractionalSecondDigits: 3
+          });
+        },
+
+        clearCanvas() {
+          this.showClearModal = true;
+        },
+
+        confirmClearCanvas() {
+          this.nodes = [];
+          this.edges = [];
+          this.showClearModal = false;
+          this.showToast('Canvas cleared', 'info');
+        },
+
+        // UI Helpers
+        getNodeIcon(type) {
+          const icons = {
+            llm: 'brain',
+            function: 'code',
+            start: 'play',
+            end: 'stop',
+            tool: 'wrench',
+            condition: 'code-branch',
+            document_loader: 'file-pdf',
+            text_splitter: 'scissors',
+            embedding: 'vector-square',
+            vector_store: 'database',
+            deep_agent: 'robot',
+          };
+          return icons[type] || 'circle';
+        },
+
+        getNodeBgColor(type) {
+          const colors = {
+            llm: 'bg-purple-500',
+            function: 'bg-blue-500',
+            start: 'bg-green-500',
+            end: 'bg-red-500',
+            tool: 'bg-yellow-500',
+            condition: 'bg-orange-500',
+            document_loader: 'bg-green-600',
+            text_splitter: 'bg-orange-500',
+            embedding: 'bg-pink-500',
+            vector_store: 'bg-indigo-600',
+            deep_agent: 'bg-teal-600',
+          };
+          return colors[type] || 'bg-gray-500';
+        },
+
+        getNodeBorderColor(type) {
+          const colors = {
+            llm: 'border-purple-300',
+            function: 'border-blue-300',
+            start: 'border-green-300',
+            end: 'border-red-300',
+            tool: 'border-yellow-300',
+            condition: 'border-orange-300',
+            document_loader: 'border-green-300',
+            text_splitter: 'border-orange-300',
+            embedding: 'border-pink-300',
+            vector_store: 'border-indigo-300',
+            deep_agent: 'border-teal-300',
+          };
+          return colors[type] || 'border-gray-300';
+        },
+
+        // API Endpoints Code Generation
+        getApiCode(operation) {
+          const workflowId = this.workflow.id || 'YOUR_WORKFLOW_ID';
+          const baseUrl = window.location.origin + '/api/v1/plugins/langgraph';
+
+          if (this.apiLang === 'curl') {
+            return this.getCurlCode(operation, workflowId, baseUrl);
+          } else if (this.apiLang === 'javascript') {
+            return this.getJavaScriptCode(operation, workflowId, baseUrl);
+          } else if (this.apiLang === 'python') {
+            return this.getPythonCode(operation, workflowId, baseUrl);
+          }
+        },
+
+        getCurlCode(operation, workflowId, baseUrl) {
+          const examples = {
+            execute: `curl -X POST "${baseUrl}/workflows/${workflowId}/execute" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{
+    "input": "Hello, world!"
+  }'`,
+            stream: `curl -X POST "${baseUrl}/workflows/${workflowId}/execute/stream" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{
+    "input": "Hello, world!"
+  }' \\
+  --no-buffer`,
+            get_workflow: `curl "${baseUrl}/workflows/${workflowId}" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+            list_executions: `curl "${baseUrl}/workflows/${workflowId}/executions" \\
+  -H "Authorization: Bearer YOUR_TOKEN"`,
+            add_node: `curl -X POST "${baseUrl}/workflows/${workflowId}/nodes" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{
+    "node_type": "llm",
+    "label": "My LLM Node",
+    "position_x": 100,
+    "position_y": 100,
+    "config": {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "system_prompt": "You are a helpful assistant."
+    }
+  }'`,
+            add_edge: `curl -X POST "${baseUrl}/workflows/${workflowId}/edges" \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  -d '{
+    "source_node_id": "SOURCE_NODE_ID",
+    "target_node_id": "TARGET_NODE_ID"
+  }'`
+          };
+          return examples[operation] || '';
+        },
+
+        getJavaScriptCode(operation, workflowId, baseUrl) {
+          const examples = {
+            execute: `// Execute workflow
+const response = await fetch('${baseUrl}/workflows/${workflowId}/execute', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify({
+    input: 'Hello, world!'
+  })
+});
+const data = await response.json();
+console.log(data);`,
+            stream: `// Execute workflow with streaming
+const eventSource = new EventSource(
+  '${baseUrl}/workflows/${workflowId}/execute/stream?input=Hello'
+);
+
+eventSource.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.type === 'token') {
+    // Append each token as it arrives
+    console.log(data.content);
+  } else if (data.type === 'complete') {
+    console.log('Stream complete:', data);
+    eventSource.close();
+  }
+};
+
+eventSource.onerror = (error) => {
+  console.error('Stream error:', error);
+  eventSource.close();
+};`,
+            get_workflow: `// Get workflow details
+const response = await fetch('${baseUrl}/workflows/${workflowId}', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const workflow = await response.json();
+console.log(workflow);`,
+            list_executions: `// List workflow executions
+const response = await fetch('${baseUrl}/workflows/${workflowId}/executions', {
+  headers: {
+    'Authorization': 'Bearer YOUR_TOKEN'
+  }
+});
+const executions = await response.json();
+console.log(executions);`,
+            add_node: `// Add node to workflow
+const response = await fetch('${baseUrl}/workflows/${workflowId}/nodes', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify({
+    node_type: 'llm',
+    label: 'My LLM Node',
+    position_x: 100,
+    position_y: 100,
+    config: {
+      provider: 'openai',
+      model: 'gpt-4o-mini',
+      system_prompt: 'You are a helpful assistant.'
+    }
+  })
+});
+const node = await response.json();
+console.log(node);`,
+            add_edge: `// Connect nodes
+const response = await fetch('${baseUrl}/workflows/${workflowId}/edges', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer YOUR_TOKEN'
+  },
+  body: JSON.stringify({
+    source_node_id: 'SOURCE_NODE_ID',
+    target_node_id: 'TARGET_NODE_ID'
+  })
+});
+const edge = await response.json();
+console.log(edge);`
+          };
+          return examples[operation] || '';
+        },
+
+        getPythonCode(operation, workflowId, baseUrl) {
+          const examples = {
+            execute: `import requests
+
+# Execute workflow
+response = requests.post(
+    '${baseUrl}/workflows/${workflowId}/execute',
+    json={'input': 'Hello, world!'},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+data = response.json()
+print(data)`,
+            stream: `import requests
+
+# Execute workflow with streaming
+response = requests.post(
+    '${baseUrl}/workflows/${workflowId}/execute/stream',
+    json={'input': 'Hello, world!'},
+    headers={'Authorization': 'Bearer YOUR_TOKEN'},
+    stream=True
+)
+
+for line in response.iter_lines():
+    if line:
+        data = json.loads(line.decode('utf-8'))
+        if data['type'] == 'token':
+            print(data['content'], end='')
+        elif data['type'] == 'complete':
+            print('\\nComplete:', data)`,
+            get_workflow: `import requests
+
+# Get workflow details
+response = requests.get(
+    '${baseUrl}/workflows/${workflowId}',
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+workflow = response.json()
+print(workflow)`,
+            list_executions: `import requests
+
+# List workflow executions
+response = requests.get(
+    '${baseUrl}/workflows/${workflowId}/executions',
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+executions = response.json()
+print(executions)`,
+            add_node: `import requests
+
+# Add node to workflow
+response = requests.post(
+    '${baseUrl}/workflows/${workflowId}/nodes',
+    json={
+        'node_type': 'llm',
+        'label': 'My LLM Node',
+        'position_x': 100,
+        'position_y': 100,
+        'config': {
+            'provider': 'openai',
+            'model': 'gpt-4o-mini',
+            'system_prompt': 'You are a helpful assistant.'
+        }
+    },
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+node = response.json()
+print(node)`,
+            add_edge: `import requests
+
+# Connect nodes
+response = requests.post(
+    '${baseUrl}/workflows/${workflowId}/edges',
+    json={
+        'source_node_id': 'SOURCE_NODE_ID',
+        'target_node_id': 'TARGET_NODE_ID'
+    },
+    headers={'Authorization': 'Bearer YOUR_TOKEN'}
+)
+edge = response.json()
+print(edge)`
+          };
+          return examples[operation] || '';
+        },
+
+        async copyApiCode(operation) {
+          const code = this.getApiCode(operation);
+          try {
+            await navigator.clipboard.writeText(code);
+            this.showToast('Code copied to clipboard!', 'success');
+          } catch (err) {
+            console.error('Failed to copy:', err);
+            this.showToast('Failed to copy code', 'error');
+          }
+        },
+
+        showToast(message, type = 'info', duration = 3000) {
+          const container = document.getElementById('toast-container');
+          const toast = document.createElement('div');
+
+          const colors = {
+            success: 'bg-green-500',
+            error: 'bg-red-500',
+            warning: 'bg-yellow-500',
+            info: 'bg-blue-500',
+          };
+
+          toast.className = `${colors[type]} text-white px-4 py-3 rounded shadow-lg mb-2`;
+          toast.textContent = message;
+
+          container.appendChild(toast);
+
+          setTimeout(() => {
+            toast.remove();
+          }, duration);
+        },
+      }));
+    });
+  </script>
 </body>
 </html>

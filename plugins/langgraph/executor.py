@@ -37,12 +37,26 @@ class WorkflowExecutor:
         current_data = input_data
 
         try:
+            # Validate inputs
+            if not nodes:
+                return {
+                    "status": "failed",
+                    "error": "No nodes in workflow. Please add at least one node.",
+                    "output": None,
+                    "logs": execution_log,
+                }
+
+            execution_log.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "message": f"Starting workflow execution with {len(nodes)} nodes and {len(edges)} edges",
+            })
+
             # Find start node
             start_node = self._find_start_node(nodes)
             if not start_node:
                 return {
                     "status": "failed",
-                    "error": "No start node found",
+                    "error": "No start node found. Please add a 'Start' node or ensure at least one node exists.",
                     "output": None,
                     "logs": execution_log,
                 }
@@ -174,7 +188,10 @@ class WorkflowExecutor:
     async def _execute_llm_node(self, config: Dict[str, Any], input_data: Any) -> str:
         """Execute an LLM node using OpenAI API."""
         if not self.api_key:
-            raise ValueError("OpenAI API key not configured")
+            raise ValueError(
+                "OpenAI API key not configured. Please set OPENAI_API_KEY in your .env file. "
+                "You can get an API key from https://platform.openai.com/api-keys"
+            )
 
         try:
             # Lazy import to avoid dependency issues
@@ -234,3 +251,55 @@ class WorkflowExecutor:
         # Add tool implementations here
         # For now, just pass through
         return input_data
+
+
+async def execute_langgraph_workflow(workflow_data: Dict[str, Any], input_data: Any, stream: bool = False):
+    """
+    Execute a LangGraph workflow and yield events.
+
+    Args:
+        workflow_data: Workflow data containing nodes and edges
+        input_data: Input data for the workflow
+        stream: Whether to stream events (required to be True for now)
+
+    Yields:
+        Event dictionaries with execution progress
+    """
+    executor = WorkflowExecutor()
+
+    # Extract nodes and edges from workflow data
+    nodes = workflow_data.get("nodes", [])
+    edges = workflow_data.get("edges", [])
+
+    # Yield start event
+    yield {
+        "type": "execution_start",
+        "timestamp": datetime.utcnow().isoformat(),
+        "message": "Workflow execution started"
+    }
+
+    # Execute workflow
+    result = await executor.execute_workflow(nodes, edges, input_data)
+
+    # Yield log events
+    for log_entry in result.get("logs", []):
+        yield {
+            "type": "log",
+            **log_entry
+        }
+
+    # Yield completion or error event
+    if result["status"] == "completed":
+        yield {
+            "type": "execution_complete",
+            "timestamp": datetime.utcnow().isoformat(),
+            "output": result["output"],
+            "message": "Workflow execution completed successfully"
+        }
+    else:
+        yield {
+            "type": "error",
+            "timestamp": datetime.utcnow().isoformat(),
+            "error": result.get("error"),
+            "message": f"Workflow execution failed: {result.get('error')}"
+        }

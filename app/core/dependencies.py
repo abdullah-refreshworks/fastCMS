@@ -5,7 +5,7 @@ FastAPI dependencies for dependency injection.
 from dataclasses import dataclass
 from typing import Optional
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import UnauthorizedException
@@ -23,13 +23,16 @@ class UserContext:
 
 async def get_current_user(
     authorization: Optional[str] = Header(None),
+    access_token: Optional[str] = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[UserContext]:
     """
     Get current authenticated user context from JWT token.
+    Checks both Authorization header and access_token cookie.
 
     Args:
         authorization: Authorization header with Bearer token
+        access_token: JWT token from cookie
         db: Database session
 
     Returns:
@@ -38,14 +41,26 @@ async def get_current_user(
     Raises:
         UnauthorizedException: If token is invalid
     """
-    if not authorization:
+    token = None
+
+    # Check Authorization header first
+    if authorization:
+        try:
+            scheme, token = authorization.split()
+            if scheme.lower() != "bearer":
+                token = None
+        except ValueError:
+            token = None
+
+    # Fall back to cookie if no header token
+    if not token and access_token:
+        token = access_token
+
+    # No token found anywhere
+    if not token:
         return None
 
     try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
-            return None
-
         payload = decode_token(token)
         if not payload:
             raise UnauthorizedException("Invalid or expired token")
@@ -68,7 +83,7 @@ async def get_current_user(
 
         return UserContext(user_id=user_id, role=user.role)
 
-    except ValueError:
+    except (ValueError, UnauthorizedException):
         return None
 
 
