@@ -64,7 +64,7 @@ A plugin is a self-contained module that extends FastCMS functionality. Plugins 
 │  ┌───────────┴──────────────┐        │
 │  │   Plugin Registry         │        │
 │  │  {                        │        │
-│  │    "langgraph": Plugin1   │        │
+│  │    "langflow": Plugin1    │        │
 │  │    "analytics": Plugin2   │        │
 │  │  }                        │        │
 │  └───────────────────────────┘        │
@@ -76,12 +76,12 @@ A plugin is a self-contained module that extends FastCMS functionality. Plugins 
 │          Plugins Directory            │
 │                                      │
 │  plugins/                            │
-│  ├── langgraph/                      │
+│  ├── langflow/                       │
 │  │   ├── __init__.py                │
 │  │   ├── plugin.py                  │
 │  │   ├── routes.py                  │
-│  │   ├── models.py                  │
-│  │   └── frontend/                  │
+│  │   ├── client.py                  │
+│  │   └── templates/                 │
 │  │                                  │
 │  └── analytics/                      │
 │      ├── __init__.py                │
@@ -288,7 +288,7 @@ Install plugins via pip:
 
 ```bash
 # Install from PyPI
-pip install fastcms-plugin-langgraph
+pip install fastcms-plugin-example
 
 # Install from Git
 pip install git+https://github.com/user/fastcms-plugin-name.git
@@ -387,18 +387,18 @@ http://localhost:8000/api/v1/plugins/hello_world/hello
 
 ## Official Plugins
 
-### LangGraph Plugin
+### Langflow Plugin
 
-Visual workflow builder for AI agents using LangGraph.
+Visual AI workflow builder powered by [Langflow](https://www.langflow.org/).
 
 **Features:**
-- Drag-and-drop node editor
-- Visual edge connections
-- Built-in LangGraph nodes
-- Real-time execution
-- Workflow templates
+- Integration with Langflow's visual editor
+- 50+ AI integrations out of the box
+- Real-time streaming execution
+- Minimal footprint - just API proxy
+- Embedded UI or external link mode
 
-[Learn more →](langgraph-plugin.md)
+[Learn more →](langflow-plugin.md)
 
 ### Analytics Plugin
 
@@ -530,7 +530,7 @@ SELECT * FROM plugin_settings WHERE name = 'my_plugin';
 ## Next Steps
 
 - [Plugin Development Guide](plugin-development.md) - Deep dive into plugin development
-- [LangGraph Plugin Spec](langgraph-plugin.md) - Build the LangGraph visual editor
+- [Langflow Plugin Guide](langflow-plugin.md) - Visual AI workflow integration
 - [Plugin Examples](https://github.com/fastcms/plugin-examples) - Example plugins to learn from
 
 ---

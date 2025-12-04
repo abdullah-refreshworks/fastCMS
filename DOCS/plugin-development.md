@@ -876,7 +876,7 @@ MIT
 
 ## Next Steps
 
-- [Create LangGraph Plugin](langgraph-plugin.md) - Build the visual workflow editor
+- [Langflow Plugin](langflow-plugin.md) - See the Langflow integration as an example
 - [Plugin Examples](https://github.com/fastcms/plugin-examples) - More examples
 - [API Reference](https://fastcms.dev/api) - Complete API documentation
 

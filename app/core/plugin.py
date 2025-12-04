@@ -20,8 +20,8 @@ class BasePlugin(ABC):
     """
 
     # Required metadata
-    name: str = ""  # Unique identifier (e.g., "langgraph")
-    display_name: str = ""  # Human-readable name (e.g., "LangGraph")
+    name: str = ""  # Unique identifier (e.g., "langflow")
+    display_name: str = ""  # Human-readable name (e.g., "Langflow")
     description: str = ""  # Short description
     version: str = "0.1.0"  # Semantic version
     author: str = ""  # Plugin author

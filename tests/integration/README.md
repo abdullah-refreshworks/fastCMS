@@ -33,16 +33,18 @@ Tests relation expansion functionality:
 python tests/integration/test_expansion.py
 ```
 
-### test_langgraph_e2e.py
-End-to-end test for the LangGraph plugin:
-- Workflow creation
-- Node creation (start, LLM, end)
-- Edge creation
-- Workflow execution
+### test_langflow_e2e.py
+End-to-end tests for the Langflow plugin:
+- Health check endpoint
+- Authentication requirements
+- Langflow client functionality
+- Configuration validation
 
 **Run:**
 ```bash
-python tests/integration/test_langgraph_e2e.py
+python tests/integration/test_langflow_e2e.py
+# or with pytest
+pytest tests/integration/test_langflow_e2e.py -v
 ```
 
 ## Prerequisites
