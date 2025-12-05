@@ -261,20 +261,90 @@
                 <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Storage Settings</h3>
                 <p class="text-sm text-gray-500 mb-6">Configure file storage settings.</p>
 
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Storage Type</label>
-                        <select x-model="storageSettings.type"
-                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                            <option value="local">Local Storage</option>
-                            <option value="s3">Amazon S3</option>
-                        </select>
+                <div class="space-y-6">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Storage Type</label>
+                            <select x-model="storageSettings.type"
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="local">Local Storage</option>
+                                <option value="s3">Amazon S3 / S3-Compatible</option>
+                                <option value="azure">Azure Blob Storage</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Max File Size (bytes)</label>
+                            <input type="number" x-model.number="storageSettings.max_file_size"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <p class="mt-1 text-xs text-gray-500">Default: 10MB (10485760 bytes)</p>
+                        </div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Max File Size (bytes)</label>
-                        <input type="number" x-model.number="storageSettings.max_file_size"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <p class="mt-1 text-xs text-gray-500">Default: 10MB (10485760 bytes)</p>
+
+                    <!-- S3 Settings -->
+                    <div x-show="storageSettings.type === 's3'" class="border-t border-gray-200 pt-6">
+                        <h4 class="text-sm font-medium text-gray-900 mb-4">S3 Configuration</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Bucket Name</label>
+                                <input type="text" x-model="storageSettings.s3_bucket" placeholder="my-bucket"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Region</label>
+                                <input type="text" x-model="storageSettings.s3_region" placeholder="us-east-1"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Access Key ID</label>
+                                <input type="text" x-model="storageSettings.s3_access_key"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Secret Access Key</label>
+                                <input type="password" x-model="storageSettings.s3_secret_key"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div class="col-span-2">
+                                <label class="block text-sm font-medium text-gray-700">Custom Endpoint (Optional)</label>
+                                <input type="text" x-model="storageSettings.s3_endpoint" placeholder="https://s3.example.com"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <p class="mt-1 text-xs text-gray-500">For S3-compatible services like MinIO, DigitalOcean Spaces, etc.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Azure Settings -->
+                    <div x-show="storageSettings.type === 'azure'" class="border-t border-gray-200 pt-6">
+                        <h4 class="text-sm font-medium text-gray-900 mb-4">Azure Blob Storage Configuration</h4>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Container Name</label>
+                                <input type="text" x-model="storageSettings.azure_container" placeholder="my-container"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Connection String (Recommended)</label>
+                                <input type="password" x-model="storageSettings.azure_connection_string"
+                                       placeholder="DefaultEndpointsProtocol=https;AccountName=..."
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <p class="mt-1 text-xs text-gray-500">Found in Azure Portal > Storage Account > Access Keys</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-md">
+                                <p class="text-xs text-gray-600 mb-2"><strong>Or use Account Name + Key:</strong></p>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Account Name</label>
+                                        <input type="text" x-model="storageSettings.azure_account_name"
+                                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700">Account Key</label>
+                                        <input type="password" x-model="storageSettings.azure_account_key"
+                                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -405,6 +475,17 @@ function settingsPage() {
         storageSettings: {
             type: 'local',
             max_file_size: 10485760,
+            // S3 settings
+            s3_bucket: '',
+            s3_region: '',
+            s3_access_key: '',
+            s3_secret_key: '',
+            s3_endpoint: '',
+            // Azure settings
+            azure_container: '',
+            azure_connection_string: '',
+            azure_account_name: '',
+            azure_account_key: '',
         },
 
         configuredProviders: [],
@@ -631,7 +712,50 @@ function settingsPage() {
             }
         },
 
+        validateStorageSettings() {
+            const errors = [];
+            const s = this.storageSettings;
+
+            if (s.type === 's3') {
+                if (!s.s3_bucket || !s.s3_bucket.trim()) {
+                    errors.push('S3 Bucket Name is required');
+                }
+                if (!s.s3_region || !s.s3_region.trim()) {
+                    errors.push('S3 Region is required');
+                }
+                if (!s.s3_access_key || !s.s3_access_key.trim()) {
+                    errors.push('S3 Access Key ID is required');
+                }
+                if (!s.s3_secret_key || !s.s3_secret_key.trim()) {
+                    errors.push('S3 Secret Access Key is required');
+                }
+            }
+
+            if (s.type === 'azure') {
+                if (!s.azure_container || !s.azure_container.trim()) {
+                    errors.push('Azure Container Name is required');
+                }
+                // Either connection string OR (account name + account key) must be provided
+                const hasConnectionString = s.azure_connection_string && s.azure_connection_string.trim();
+                const hasAccountCredentials = (s.azure_account_name && s.azure_account_name.trim()) &&
+                                              (s.azure_account_key && s.azure_account_key.trim());
+
+                if (!hasConnectionString && !hasAccountCredentials) {
+                    errors.push('Azure requires either Connection String or both Account Name and Account Key');
+                }
+            }
+
+            return errors;
+        },
+
         async saveStorageSettings() {
+            // Validate required fields
+            const validationErrors = this.validateStorageSettings();
+            if (validationErrors.length > 0) {
+                validationErrors.forEach(error => showToast(error, 'error'));
+                return;
+            }
+
             this.saving = true;
             try {
                 for (const [key, value] of Object.entries(this.storageSettings)) {

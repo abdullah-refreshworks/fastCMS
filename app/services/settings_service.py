@@ -146,8 +146,19 @@ DEFAULT_SETTINGS = {
         "s3_bucket": {"value": "", "description": "S3 bucket name"},
     },
     "storage": {
-        "type": {"value": "local", "description": "Storage type (local/s3)"},
+        "type": {"value": "local", "description": "Storage type (local/s3/azure)"},
         "max_file_size": {"value": 10485760, "description": "Max file size (10MB)"},
+        # S3 settings
+        "s3_bucket": {"value": "", "description": "S3 bucket name"},
+        "s3_region": {"value": "", "description": "S3 region"},
+        "s3_access_key": {"value": "", "description": "S3 access key"},
+        "s3_secret_key": {"value": "", "description": "S3 secret key"},
+        "s3_endpoint": {"value": "", "description": "S3 custom endpoint (optional)"},
+        # Azure settings
+        "azure_container": {"value": "", "description": "Azure container name"},
+        "azure_connection_string": {"value": "", "description": "Azure connection string"},
+        "azure_account_name": {"value": "", "description": "Azure storage account name"},
+        "azure_account_key": {"value": "", "description": "Azure storage account key"},
     },
     "logs": {
         "enabled": {"value": True, "description": "Enable request logging"},

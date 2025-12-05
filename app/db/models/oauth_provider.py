@@ -1,4 +1,4 @@
-"""OAuth2 provider configuration model - like PocketBase's auth providers."""
+"""OAuth2 provider configuration model."""
 
 from datetime import datetime, timezone
 from sqlalchemy import Boolean, String, Text, JSON
@@ -7,7 +7,7 @@ from app.db.models.base import BaseModel
 
 
 class OAuthProviderType:
-    """Supported OAuth2 provider types (matching PocketBase's 25+ providers)."""
+    """Supported OAuth2 provider types (29 providers)."""
 
     # Social & Tech Platforms
     APPLE = "apple"

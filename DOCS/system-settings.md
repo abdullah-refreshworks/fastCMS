@@ -31,8 +31,10 @@ Configure SMTP for sending emails:
 
 ### Storage Tab
 Configure file storage:
-- Storage Type (Local or S3)
+- Storage Type (Local, S3, or Azure Blob Storage)
 - Maximum File Size
+- S3 Configuration (bucket, region, credentials, custom endpoint)
+- Azure Configuration (container, connection string or account credentials)
 
 ## Setting Categories
 
@@ -98,8 +100,17 @@ FastCMS initializes with these default settings:
 ### Storage Settings
 | Key | Default | Description |
 |-----|---------|-------------|
-| `type` | "local" | Storage type (local/s3) |
+| `type` | "local" | Storage type (local/s3/azure) |
 | `max_file_size` | 10485760 | Max file size (10MB) |
+| `s3_bucket` | "" | S3 bucket name |
+| `s3_region` | "" | S3 region (e.g., us-east-1) |
+| `s3_access_key` | "" | S3 access key ID |
+| `s3_secret_key` | "" | S3 secret access key |
+| `s3_endpoint` | "" | Custom S3 endpoint (for MinIO, etc.) |
+| `azure_container` | "" | Azure container name |
+| `azure_connection_string` | "" | Azure connection string (recommended) |
+| `azure_account_name` | "" | Azure storage account name |
+| `azure_account_key` | "" | Azure storage account key |
 
 ### Logs Settings
 | Key | Default | Description |

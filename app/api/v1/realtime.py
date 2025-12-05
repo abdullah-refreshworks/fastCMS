@@ -88,8 +88,7 @@ async def event_generator(
     queue = await event_manager.subscribe(collection_name, query_filter, user_id)
 
     try:
-        # Send PB_CONNECT style initial connection event with client ID
-        # This follows PocketBase's pattern for client identification
+        # Send initial connection event with client ID
         connect_data = json.dumps({
             "clientId": client_id,
             "status": "connected",

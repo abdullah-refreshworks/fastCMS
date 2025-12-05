@@ -1,7 +1,6 @@
 /**
  * FastCMS JavaScript SDK (Lite)
  * A lightweight client for interacting with FastCMS API.
- * Inspired by PocketBase SDK.
  */
 
 class FastCMS {

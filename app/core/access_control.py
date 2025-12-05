@@ -34,7 +34,7 @@ from app.core.exceptions import ForbiddenException
 
 
 class RequestContextType:
-    """Request context type constants (like PocketBase)."""
+    """Request context type constants."""
     DEFAULT = "default"        # Regular API request
     OAUTH2 = "oauth2"          # OAuth2 authentication flow
     REALTIME = "realtime"      # SSE/WebSocket subscription
@@ -320,7 +320,7 @@ class AccessControlEngine:
         - Parentheses
         - List membership: ?= (any equal / in)
         """
-        # Convert PocketBase-style ?= operator to Python's `in` check
+        # Convert ?= operator to Python's `in` check
         # Pattern: value ?= [list] becomes value in [list]
         expression = re.sub(r"(\S+)\s*\?\s*=\s*(\[.*?\])", r"(\1 in \2)", expression)
 

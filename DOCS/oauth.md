@@ -4,7 +4,7 @@ FastCMS supports OAuth authentication with **29 providers**, allowing users to s
 
 ## Supported Providers
 
-FastCMS supports all major OAuth providers (matching PocketBase compatibility):
+FastCMS supports all major OAuth providers:
 
 | Provider | Type | Required Fields |
 |----------|------|-----------------|

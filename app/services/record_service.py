@@ -190,7 +190,7 @@ class RecordService:
         """
         Update a record with validation.
 
-        Supports PocketBase-style increment/decrement modifiers:
+        Supports increment/decrement modifiers:
         - "field+": value  -> Increment field by value
         - "field-": value  -> Decrement field by value
 
@@ -285,7 +285,7 @@ class RecordService:
         field_schemas: List[FieldSchema],
     ) -> Dict[str, Any]:
         """
-        Process PocketBase-style increment/decrement modifiers.
+        Process increment/decrement modifiers.
 
         Transforms field names ending with + or - into actual field updates:
         - "field+": value  -> field = current_value + value

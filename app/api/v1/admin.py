@@ -75,12 +75,22 @@ async def get_stats(
         for b in recent_backups_list
     ]
 
-    # Count files
-    result = await db.execute(select(func.count(File.id)).where(File.deleted == False))
+    # Count files (exclude thumbnails)
+    result = await db.execute(
+        select(func.count(File.id)).where(
+            File.deleted == False,
+            File.is_thumbnail == False
+        )
+    )
     total_files = result.scalar_one()
 
-    # Sum file sizes
-    result = await db.execute(select(func.sum(File.size)).where(File.deleted == False))
+    # Sum file sizes (exclude thumbnails)
+    result = await db.execute(
+        select(func.sum(File.size)).where(
+            File.deleted == False,
+            File.is_thumbnail == False
+        )
+    )
     total_file_size = result.scalar_one() or 0
 
     return {

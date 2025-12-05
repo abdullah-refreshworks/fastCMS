@@ -44,7 +44,7 @@
                 <div class="relative group">
                     <div class="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                         <template x-if="file.mime_type && file.mime_type.startsWith('image/')">
-                            <img :src="`/api/v1/files/${file.id}`" :alt="file.filename"
+                            <img :src="`/api/v1/files/${file.id}/download`" :alt="file.filename"
                                 class="w-full h-full object-cover">
                         </template>
                         <template x-if="!file.mime_type || !file.mime_type.startsWith('image/')">
