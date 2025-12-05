@@ -47,35 +47,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Initialize database
     await init_db()
 
-    # Discover and load plugins
-    from app.core.plugin_manager import plugin_manager
-
-    logger.info("🔌 Discovering plugins...")
-    discovered = plugin_manager.discover_plugins()
-
-    if discovered:
-        logger.info(f"Found {len(discovered)} plugins: {', '.join(discovered)}")
-
-        # Load each plugin
-        for plugin_name in discovered:
-            plugin = plugin_manager.load_plugin(plugin_name)
-            if plugin:
-                plugin_manager.register_plugin(plugin)
-
-        # Initialize all plugins
-        plugin_manager.initialize_plugins(app)
-    else:
-        logger.info("No plugins found in plugins/ directory")
-
     logger.info(f"{settings.APP_NAME} started successfully")
 
     yield
 
     # Shutdown
     logger.info(f"Shutting down {settings.APP_NAME}")
-
-    # Shutdown plugins
-    plugin_manager.shutdown_plugins()
 
     await close_db()
     logger.info("Shutdown complete")
@@ -259,16 +236,6 @@ if static_dir.exists():
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 else:
     logger.warning(f"Static directory not found at {static_dir}, skipping static files mount")
-
-# Mount plugin static files
-plugins_static_dir = Path("plugins")
-if plugins_static_dir.exists():
-    for plugin_dir in plugins_static_dir.iterdir():
-        if plugin_dir.is_dir() and (plugin_dir / "static").exists():
-            plugin_static = plugin_dir / "static"
-            mount_path = f"/static/plugins/{plugin_dir.name}"
-            app.mount(mount_path, StaticFiles(directory=str(plugin_static)), name=f"plugin_{plugin_dir.name}_static")
-            logger.info(f"Mounted plugin static files: {mount_path} -> {plugin_static}")
 
 # Add custom middleware
 from app.core.middleware import LoggingMiddleware, ReadOnlyMiddleware

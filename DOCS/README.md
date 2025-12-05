@@ -25,8 +25,7 @@ FastCMS is a headless CMS built with FastAPI and SQLite. It provides dynamic col
 - [System Settings](system-settings.md) - Application configuration
 
 ### Plugins
-- [LangGraph Plugin](langgraph-plugin.md) - Visual AI workflow builder with LangGraph
-- [LangGraph API Reference](langgraph-api-reference.md) - Complete REST API documentation (BaaS)
+- [Langflow Plugin](langflow-plugin.md) - Visual AI workflow builder powered by Langflow
 - [Plugin Development](plugin-development.md) - Creating custom plugins
 - [Available Plugins](plugins.md) - Overview of all plugins
 
