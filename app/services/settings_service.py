@@ -70,7 +70,7 @@ class SettingsService:
             select(Setting).where(Setting.category == category)
         )
         settings = result.scalars().all()
-        return {s.key: s.value for s in settings}
+        return {s.key: {"value": s.value, "description": s.description} for s in settings}
 
     async def get_all(self) -> Dict[str, Dict[str, Any]]:
         """Get all settings grouped by category"""
@@ -114,6 +114,21 @@ DEFAULT_SETTINGS = {
         "app_url": {"value": "http://localhost:8000", "description": "Application URL"},
         "rate_limit_per_minute": {"value": 100, "description": "Rate limit per minute"},
         "rate_limit_per_hour": {"value": 1000, "description": "Rate limit per hour"},
+    },
+    "auth": {
+        "password_auth_enabled": {"value": True, "description": "Enable password authentication"},
+        "otp_enabled": {"value": False, "description": "Enable OTP (email code) authentication"},
+        "mfa_enabled": {"value": False, "description": "Enable Multi-Factor Authentication"},
+        "oauth_enabled": {"value": True, "description": "Enable OAuth2 authentication"},
+        "oauth_auto_create_user": {"value": True, "description": "Auto-create user on first OAuth login"},
+        "oauth_link_by_email": {"value": True, "description": "Link OAuth to existing user by email"},
+        "password_min_length": {"value": 8, "description": "Minimum password length"},
+        "password_require_upper": {"value": False, "description": "Require uppercase letter"},
+        "password_require_number": {"value": False, "description": "Require number"},
+        "password_require_special": {"value": False, "description": "Require special character"},
+        "token_expiry_hours": {"value": 24, "description": "Access token expiry (hours)"},
+        "refresh_token_expiry_days": {"value": 7, "description": "Refresh token expiry (days)"},
+        "verification_required": {"value": False, "description": "Require email verification"},
     },
     "mail": {
         "smtp_host": {"value": "", "description": "SMTP server host"},

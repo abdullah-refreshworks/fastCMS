@@ -18,6 +18,7 @@ from app.schemas.collection import (
     CollectionUpdate,
 )
 from app.utils.field_types import FieldSchema
+from app.core.events import event_manager, Event, EventType
 
 logger = get_logger(__name__)
 
@@ -83,6 +84,20 @@ class CollectionService:
         await self.db.commit()
 
         logger.info(f"Collection '{data.name}' created with ID: {collection.id}")
+
+        # Broadcast collection created event
+        await event_manager.broadcast(
+            Event(
+                event_type=EventType.COLLECTION_CREATED,
+                collection_name="__collections__",
+                record_id=collection.id,
+                data={
+                    "id": collection.id,
+                    "name": collection.name,
+                    "type": collection.type,
+                },
+            )
+        )
 
         # Create dynamic model and table (skip for view collections)
         if data.type != "view":
@@ -202,6 +217,12 @@ class CollectionService:
         if collection.system:
             raise BadRequestException("Cannot modify system collection")
 
+        # Capture old schema before updating (for schema migration)
+        old_schema_fields = [
+            FieldSchema(**field_data)
+            for field_data in collection.schema.get("fields", [])
+        ]
+
         # Update fields
         if data.name is not None:
             # Check name uniqueness
@@ -249,9 +270,39 @@ class CollectionService:
 
         logger.info(f"Collection '{collection.name}' updated")
 
-        # TODO: Handle schema changes (add/remove columns)
-        # For now, we'll just clear the model cache
-        if collection.type != "view":
+        # Broadcast collection updated event
+        await event_manager.broadcast(
+            Event(
+                event_type=EventType.COLLECTION_UPDATED,
+                collection_name="__collections__",
+                record_id=collection.id,
+                data={
+                    "id": collection.id,
+                    "name": collection.name,
+                    "type": collection.type,
+                },
+            )
+        )
+
+        # Handle schema changes (add/remove columns) for non-view collections
+        if collection.type != "view" and data.schema is not None:
+            # Use the captured old schema before update
+            new_fields = data.schema
+
+            try:
+                migration_result = await DynamicModelGenerator.migrate_schema(
+                    engine=engine,
+                    table_name=collection.name,
+                    old_fields=old_schema_fields,
+                    new_fields=new_fields,
+                )
+                logger.info(f"Schema migration for '{collection.name}': {migration_result}")
+            except Exception as e:
+                logger.warning(f"Schema migration for '{collection.name}' failed: {e}")
+                # Clear cache anyway to regenerate model
+                DynamicModelGenerator.clear_cache(collection.name)
+        elif collection.type != "view":
+            # Just clear the model cache if no schema changes
             DynamicModelGenerator.clear_cache(collection.name)
 
         return self._to_response(collection)
@@ -295,11 +346,30 @@ class CollectionService:
             logger.warning(f"Failed to drop table/view '{collection.name}': {e}")
             # Continue with collection deletion even if drop fails
 
+        # Store collection info before deletion
+        deleted_collection_id = collection.id
+        deleted_collection_name = collection.name
+        deleted_collection_type = collection.type
+
         # Delete collection record
         await self.repo.delete(collection)
         await self.db.commit()
 
-        logger.info(f"Collection '{collection.name}' deleted")
+        logger.info(f"Collection '{deleted_collection_name}' deleted")
+
+        # Broadcast collection deleted event
+        await event_manager.broadcast(
+            Event(
+                event_type=EventType.COLLECTION_DELETED,
+                collection_name="__collections__",
+                record_id=deleted_collection_id,
+                data={
+                    "id": deleted_collection_id,
+                    "name": deleted_collection_name,
+                    "type": deleted_collection_type,
+                },
+            )
+        )
 
     async def _create_view(self, view_name: str, query: str) -> None:
         """

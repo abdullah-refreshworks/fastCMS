@@ -57,8 +57,18 @@ class RecordFilter(BaseModel):
     """Schema for filtering records."""
 
     field: str
-    operator: str = Field(..., description="eq, ne, gt, lt, gte, lte, like, in")
+    operator: str = Field(
+        ...,
+        description=(
+            "Filter operator. Standard: eq, ne, gt, lt, gte, lte, like, not_like. "
+            "Array/Any: any_eq, any_ne, any_gt, any_lt, any_gte, any_lte, any_like, any_not_like"
+        )
+    )
     value: Any
+    modifiers: Optional[List[str]] = Field(
+        default=None,
+        description="Field modifiers like :lower, :upper, :length, :isset, :excerpt(N)"
+    )
 
 
 class RecordQuery(BaseModel):

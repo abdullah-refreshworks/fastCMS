@@ -2,12 +2,14 @@
 API endpoints for collection management.
 """
 
-from typing import Any
+from typing import Any, List, Optional
 import json
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response, status, Path, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from pydantic import BaseModel, Field
 import io
 
 from app.core.dependencies import require_auth, require_admin
@@ -19,6 +21,35 @@ from app.schemas.collection import (
     CollectionUpdate,
 )
 from app.services.collection_service import CollectionService
+
+
+# ===== Index API Schemas =====
+
+class IndexField(BaseModel):
+    """Field configuration for an index."""
+    name: str = Field(..., description="Field name")
+    order: str = Field(default="asc", description="Sort order: asc or desc")
+
+
+class IndexCreate(BaseModel):
+    """Schema for creating a new index."""
+    name: str = Field(..., min_length=1, max_length=100, description="Index name")
+    fields: List[IndexField] = Field(..., min_length=1, description="Fields to index")
+    unique: bool = Field(default=False, description="Whether the index should enforce uniqueness")
+
+
+class IndexResponse(BaseModel):
+    """Response schema for an index."""
+    name: str
+    fields: List[IndexField]
+    unique: bool
+    created: bool = True
+
+
+class IndexListResponse(BaseModel):
+    """Response schema for listing indexes."""
+    items: List[IndexResponse]
+    total: int
 
 router = APIRouter()
 
@@ -313,3 +344,206 @@ async def import_collection(
                 continue
 
     return collection
+
+
+# ===== Custom Index API =====
+
+@router.get(
+    "/{collection_id}/indexes",
+    response_model=IndexListResponse,
+    summary="List collection indexes",
+    description="List all indexes defined on a collection. Requires authentication.",
+)
+async def list_indexes(
+    collection_id: str = Path(..., description="Collection ID"),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(require_auth),
+) -> IndexListResponse:
+    """
+    List all indexes on a collection.
+
+    Returns both custom indexes and system indexes.
+    """
+    service = CollectionService(db)
+    collection = await service.get_collection(collection_id)
+
+    # Get indexes from collection schema
+    indexes = collection.indexes or []
+
+    items = [
+        IndexResponse(
+            name=idx.get("name", f"idx_{i}"),
+            fields=[IndexField(**f) for f in idx.get("fields", [])],
+            unique=idx.get("unique", False),
+        )
+        for i, idx in enumerate(indexes)
+    ]
+
+    return IndexListResponse(items=items, total=len(items))
+
+
+@router.post(
+    "/{collection_id}/indexes",
+    response_model=IndexResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create an index",
+    description="Create a new index on a collection. Requires authentication.",
+)
+async def create_index(
+    collection_id: str = Path(..., description="Collection ID"),
+    data: IndexCreate = ...,
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(require_auth),
+) -> IndexResponse:
+    """
+    Create a new index on a collection.
+
+    The index will be created in the database immediately.
+
+    Example request:
+    ```json
+    {
+        "name": "idx_title_created",
+        "fields": [
+            {"name": "title", "order": "asc"},
+            {"name": "created", "order": "desc"}
+        ],
+        "unique": false
+    }
+    ```
+    """
+    service = CollectionService(db)
+    collection = await service.get_collection(collection_id)
+
+    # Check if index with same name exists
+    existing_indexes = collection.indexes or []
+    for idx in existing_indexes:
+        if idx.get("name") == data.name:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Index '{data.name}' already exists"
+            )
+
+    # Create index in database
+    table_name = collection.name
+    field_list = ", ".join([
+        f"{f.name} {'DESC' if f.order == 'desc' else 'ASC'}"
+        for f in data.fields
+    ])
+
+    unique_clause = "UNIQUE" if data.unique else ""
+    sql = f"CREATE {unique_clause} INDEX IF NOT EXISTS {data.name} ON {table_name} ({field_list})"
+
+    try:
+        await db.execute(text(sql))
+        await db.commit()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to create index: {str(e)}")
+
+    # Add to collection metadata
+    new_index = {
+        "name": data.name,
+        "fields": [f.model_dump() for f in data.fields],
+        "unique": data.unique,
+    }
+    updated_indexes = existing_indexes + [new_index]
+
+    # Update collection with new index
+    from app.schemas.collection import CollectionUpdate
+    await service.update_collection(
+        collection_id,
+        CollectionUpdate(indexes=updated_indexes)
+    )
+
+    return IndexResponse(
+        name=data.name,
+        fields=data.fields,
+        unique=data.unique,
+        created=True,
+    )
+
+
+@router.delete(
+    "/{collection_id}/indexes/{index_name}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an index",
+    description="Delete an index from a collection. Requires authentication.",
+)
+async def delete_index(
+    collection_id: str = Path(..., description="Collection ID"),
+    index_name: str = Path(..., description="Index name"),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(require_auth),
+) -> None:
+    """
+    Delete an index from a collection.
+
+    This removes the index from both the database and collection metadata.
+    """
+    service = CollectionService(db)
+    collection = await service.get_collection(collection_id)
+
+    # Check if index exists in metadata
+    existing_indexes = collection.indexes or []
+    found = False
+    updated_indexes = []
+
+    for idx in existing_indexes:
+        if idx.get("name") == index_name:
+            found = True
+        else:
+            updated_indexes.append(idx)
+
+    if not found:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Index '{index_name}' not found"
+        )
+
+    # Drop index from database
+    try:
+        await db.execute(text(f"DROP INDEX IF EXISTS {index_name}"))
+        await db.commit()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to drop index: {str(e)}")
+
+    # Update collection metadata
+    from app.schemas.collection import CollectionUpdate
+    await service.update_collection(
+        collection_id,
+        CollectionUpdate(indexes=updated_indexes)
+    )
+
+
+@router.get(
+    "/{collection_id}/indexes/{index_name}",
+    response_model=IndexResponse,
+    summary="Get index details",
+    description="Get details of a specific index. Requires authentication.",
+)
+async def get_index(
+    collection_id: str = Path(..., description="Collection ID"),
+    index_name: str = Path(..., description="Index name"),
+    db: AsyncSession = Depends(get_db),
+    user_id: str = Depends(require_auth),
+) -> IndexResponse:
+    """
+    Get details of a specific index.
+    """
+    service = CollectionService(db)
+    collection = await service.get_collection(collection_id)
+
+    # Find index in metadata
+    indexes = collection.indexes or []
+    for idx in indexes:
+        if idx.get("name") == index_name:
+            return IndexResponse(
+                name=idx.get("name"),
+                fields=[IndexField(**f) for f in idx.get("fields", [])],
+                unique=idx.get("unique", False),
+            )
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"Index '{index_name}' not found"
+    )

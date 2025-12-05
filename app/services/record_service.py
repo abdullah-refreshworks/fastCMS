@@ -1,6 +1,6 @@
 """Service for record CRUD operations with validation."""
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime
 
@@ -13,7 +13,7 @@ from app.schemas.record import (
     RecordListResponse,
     RecordFilter,
 )
-from app.utils.field_types import FieldSchema, FieldType
+from app.utils.field_types import FieldSchema, FieldType, validate_geopoint
 from app.core.exceptions import (
     NotFoundException,
     ValidationException,
@@ -107,8 +107,25 @@ class RecordService:
         order: str = "asc",
         expand: Optional[List[str]] = None,
         search: Optional[str] = None,
+        sort_fields: Optional[List[tuple]] = None,
+        fields: Optional[List[str]] = None,
+        skip_total: bool = False,
     ) -> RecordListResponse:
-        """List records with pagination, filtering, sorting, search, and relation expansion."""
+        """
+        List records with pagination, filtering, sorting, search, and relation expansion.
+
+        Args:
+            page: Page number (1-indexed)
+            per_page: Number of records per page
+            filters: List of RecordFilter or FilterGroup
+            sort: Single sort field (deprecated, use sort_fields)
+            order: Sort order for single field (deprecated, use sort_fields)
+            expand: List of relation fields to expand (supports nested: author.company)
+            search: Full-text search term
+            sort_fields: List of (field, order) tuples for multi-field sorting
+            fields: List of fields to return (field selection)
+            skip_total: Skip total count for faster queries
+        """
         # Validate collection exists
         collection = await self.collection_repo.get_by_name(self.collection_name)
         if not collection:
@@ -123,35 +140,43 @@ class RecordService:
         # Identify searchable fields (text and editor types)
         search_fields = None
         if search:
-            fields = collection.schema.get("fields", [])
+            schema_fields = collection.schema.get("fields", [])
             search_fields = [
-                f["name"] for f in fields
+                f["name"] for f in schema_fields
                 if f.get("type") in ["text", "editor", "email", "url"]
             ]
 
-        # Get records and total count
+        # Handle backwards compatibility: convert sort/order to sort_fields
+        if sort_fields is None and sort is not None:
+            sort_fields = [(sort, order)]
+
+        # Get records
         records = await self.repo.get_all(
             skip=skip,
             limit=per_page,
             filters=filters,
-            sort_field=sort,
-            sort_order=order,
-            search=search,
-            search_fields=search_fields,
-        )
-        total = await self.repo.count(
-            filters=filters,
+            sort_fields=sort_fields,
             search=search,
             search_fields=search_fields,
         )
 
-        items = [self._to_response(record) for record in records]
+        # Get total count (skip if requested for performance)
+        if skip_total:
+            total = -1  # Indicate total was skipped
+            total_pages = -1
+        else:
+            total = await self.repo.count(
+                filters=filters,
+                search=search,
+                search_fields=search_fields,
+            )
+            total_pages = math.ceil(total / per_page) if total > 0 else 0
+
+        items = [self._to_response(record, fields) for record in records]
 
         # Expand relations if requested
         if expand:
             items = await self._expand_relations(items, collection, expand)
-
-        total_pages = math.ceil(total / per_page) if total > 0 else 0
 
         return RecordListResponse(
             items=items,
@@ -162,7 +187,16 @@ class RecordService:
         )
 
     async def update_record(self, record_id: str, data: RecordUpdate) -> RecordResponse:
-        """Update a record with validation."""
+        """
+        Update a record with validation.
+
+        Supports PocketBase-style increment/decrement modifiers:
+        - "field+": value  -> Increment field by value
+        - "field-": value  -> Decrement field by value
+
+        Example:
+            {"views+": 1, "likes-": 2}  -> Increment views by 1, decrement likes by 2
+        """
         # Check if record exists
         existing = await self.repo.get_by_id(record_id)
         if not existing:
@@ -186,8 +220,11 @@ class RecordService:
         fields = collection.schema.get("fields", [])
         field_schemas = [FieldSchema(**field) for field in fields]
 
+        # Process increment/decrement modifiers (e.g., views+: 1, likes-: 2)
+        processed_data = self._process_increment_modifiers(data.data, record_data, field_schemas)
+
         # Validate data against schema
-        validated_data = self._validate_fields(data.data, field_schemas, is_create=False)
+        validated_data = self._validate_fields(processed_data, field_schemas, is_create=False)
 
         # Update record
         updated_record = await self.repo.update(record_id, validated_data)
@@ -240,6 +277,76 @@ class RecordService:
                 data={"id": record_id},
             )
         )
+
+    def _process_increment_modifiers(
+        self,
+        data: Dict[str, Any],
+        current_data: Dict[str, Any],
+        field_schemas: List[FieldSchema],
+    ) -> Dict[str, Any]:
+        """
+        Process PocketBase-style increment/decrement modifiers.
+
+        Transforms field names ending with + or - into actual field updates:
+        - "field+": value  -> field = current_value + value
+        - "field-": value  -> field = current_value - value
+
+        Args:
+            data: Input data with potential modifiers
+            current_data: Current record data (for reading current values)
+            field_schemas: Field schemas for type checking
+
+        Returns:
+            Processed data with modifiers resolved to actual values
+        """
+        # Build field type map for validation
+        number_fields = {
+            f.name for f in field_schemas if f.type == FieldType.NUMBER
+        }
+
+        processed = {}
+        for key, value in data.items():
+            # Check for increment modifier (field+)
+            if key.endswith("+"):
+                field_name = key[:-1]
+                if field_name in number_fields:
+                    current_value = current_data.get(field_name, 0) or 0
+                    try:
+                        increment = float(value)
+                        processed[field_name] = current_value + increment
+                    except (TypeError, ValueError):
+                        raise ValidationException(
+                            f"Increment value for '{field_name}' must be a number",
+                            details={"field": field_name, "value": value}
+                        )
+                else:
+                    raise ValidationException(
+                        f"Increment modifier (+) can only be used on number fields",
+                        details={"field": key}
+                    )
+            # Check for decrement modifier (field-)
+            elif key.endswith("-") and not key.startswith("-"):
+                field_name = key[:-1]
+                if field_name in number_fields:
+                    current_value = current_data.get(field_name, 0) or 0
+                    try:
+                        decrement = float(value)
+                        processed[field_name] = current_value - decrement
+                    except (TypeError, ValueError):
+                        raise ValidationException(
+                            f"Decrement value for '{field_name}' must be a number",
+                            details={"field": field_name, "value": value}
+                        )
+                else:
+                    raise ValidationException(
+                        f"Decrement modifier (-) can only be used on number fields",
+                        details={"field": key}
+                    )
+            else:
+                # Normal field, pass through
+                processed[key] = value
+
+        return processed
 
     def _validate_fields(
         self, data: Dict[str, Any], field_schemas: List[FieldSchema], is_create: bool
@@ -363,17 +470,93 @@ class RecordService:
             # JSON accepts any structure
             pass
 
+        elif field_schema.type == FieldType.GEOPOINT:
+            # Validate GeoPoint coordinates
+            return validate_geopoint(value, field_schema.geopoint)
+
         return value
 
-    def _to_response(self, record) -> RecordResponse:
-        """Convert record model to response schema."""
+    def _to_response(self, record, fields: Optional[List[str]] = None) -> RecordResponse:
+        """
+        Convert record model to response schema.
+
+        Args:
+            record: Database record model
+            fields: Optional list of fields to include/exclude (field selection)
+                   Supports:
+                   - Positive selection: ["id", "title", "author"]
+                   - Exclude fields: ["-password", "-internal_notes"]
+                   - Field modifiers: ["title:excerpt(50)", "content:lower"]
+        """
         data = self._record_to_dict(record)
+
+        # Apply field selection if specified
+        if fields:
+            data = self._apply_field_selection(data, fields)
+
         return RecordResponse(
             id=record.id,
             data=data,
             created=record.created,
             updated=record.updated,
         )
+
+    def _apply_field_selection(self, data: Dict[str, Any], fields: List[str]) -> Dict[str, Any]:
+        """
+        Apply field selection with include/exclude and modifiers.
+
+        Args:
+            data: Original record data
+            fields: Field selection list
+
+        Supports:
+        - Include: "title" - include only specified fields
+        - Exclude: "-password" - exclude specific fields (starts with -)
+        - Modifier: "title:excerpt(100)" - apply modifier to field value
+        """
+        from app.utils.query_parser import QueryParser
+
+        # Separate include, exclude, and modifiers
+        include_fields = []
+        exclude_fields = []
+        field_modifiers: Dict[str, List[str]] = {}
+
+        for field_spec in fields:
+            if field_spec.startswith("-"):
+                # Exclude field
+                exclude_fields.append(field_spec[1:])
+            elif ":" in field_spec:
+                # Field with modifier
+                field_name, modifiers = QueryParser.parse_field_with_modifiers(field_spec)
+                include_fields.append(field_name)
+                if modifiers:
+                    field_modifiers[field_name] = modifiers
+            else:
+                # Include field
+                include_fields.append(field_spec)
+
+        # Determine which fields to include
+        if include_fields:
+            # Positive selection - only include specified fields
+            result = {}
+            for field in include_fields:
+                if field in data:
+                    value = data[field]
+                    # Apply modifiers if any
+                    if field in field_modifiers:
+                        value = QueryParser.apply_filter_modifiers(value, field_modifiers[field])
+                    result[field] = value
+            return result
+        elif exclude_fields:
+            # Negative selection - exclude specified fields
+            result = {}
+            for field, value in data.items():
+                if field not in exclude_fields:
+                    result[field] = value
+            return result
+        else:
+            # No selection, return all
+            return data
 
     def _record_to_dict(self, record) -> Dict[str, Any]:
         """Extract record data as dictionary."""
@@ -391,22 +574,32 @@ class RecordService:
         responses: List[RecordResponse] | RecordResponse,
         collection: Any,
         expand_fields: List[str],
+        depth: int = 0,
+        max_depth: int = 3,
     ) -> List[RecordResponse] | RecordResponse:
         """
         Expand relation fields in record responses using batch fetching.
-        
+        Supports:
+        - Nested expansion (e.g., author.company)
+        - Back-relation expansion (e.g., posts_via_author)
+
         Args:
             responses: Single RecordResponse or list of RecordResponses
             collection: Collection model containing schema
             expand_fields: List of field names to expand
-            
+                          - Direct: author, company
+                          - Nested: author.company
+                          - Back-relation: posts_via_author (find posts where author = this record)
+            depth: Current recursion depth
+            max_depth: Maximum recursion depth to prevent infinite loops
+
         Returns:
             Same type as input (single or list) with 'expand' field populated
         """
         is_single = isinstance(responses, RecordResponse)
         items = [responses] if is_single else responses
-        
-        if not items or not expand_fields:
+
+        if not items or not expand_fields or depth >= max_depth:
             return responses
 
         # Get relation fields from collection schema
@@ -415,17 +608,39 @@ class RecordService:
             f["name"]: f for f in fields if f.get("type") == "relation"
         }
 
-        # Filter valid expand fields
-        valid_expand = [f for f in expand_fields if f in relation_fields]
-        if not valid_expand:
-            return responses
+        # Separate top-level, nested, and back-relation expand fields
+        top_level_expands = []
+        nested_expands: Dict[str, List[str]] = {}  # parent -> [nested_fields]
+        back_relation_expands = []  # (collection_name, field_name, expand_key)
 
-        # Process each expand field
-        for field_name in valid_expand:
+        for field_path in expand_fields:
+            # Check for back-relation pattern: collection_via_field
+            if "_via_" in field_path and "." not in field_path:
+                parts = field_path.split("_via_")
+                if len(parts) == 2:
+                    target_collection, via_field = parts
+                    back_relation_expands.append((target_collection, via_field, field_path))
+                continue
+
+            if "." in field_path:
+                # Nested expand (e.g., author.company)
+                parent, rest = field_path.split(".", 1)
+                if parent not in nested_expands:
+                    nested_expands[parent] = []
+                nested_expands[parent].append(rest)
+                # Ensure parent is expanded first
+                if parent not in top_level_expands and parent in relation_fields:
+                    top_level_expands.append(parent)
+            else:
+                if field_path in relation_fields:
+                    top_level_expands.append(field_path)
+
+        # Process each top-level expand field
+        for field_name in top_level_expands:
             field_config = relation_fields[field_name]
             # Try to get collection from relation options, fallback to validation for backward compat
             target_collection_name = (
-                field_config.get("relation", {}).get("collection") or 
+                field_config.get("relation", {}).get("collection") or
                 field_config.get("validation", {}).get("collection_name")
             )
 
@@ -448,14 +663,13 @@ class RecordService:
             # Batch fetch related records
             try:
                 target_repo = RecordRepository(self.db, target_collection_name)
-                # We need a way to fetch multiple IDs. 
-                # Since get_all supports filters, we can use 'id in [...]'
-                
+                target_collection = await self.collection_repo.get_by_name(target_collection_name)
+
                 # Chunk IDs to avoid query limits (e.g. 100 at a time)
                 fetched_records = {}
                 id_list = list(ids_to_fetch)
                 chunk_size = 100
-                
+
                 for i in range(0, len(id_list), chunk_size):
                     chunk = id_list[i : i + chunk_size]
                     records = await target_repo.get_all(
@@ -463,7 +677,20 @@ class RecordService:
                         filters=[RecordFilter(field="id", operator="in", value=chunk)]
                     )
                     for r in records:
-                        fetched_records[r.id] = self._to_response(r).model_dump()
+                        response = self._to_response(r)
+                        fetched_records[r.id] = response
+
+                # Handle nested expand for this field if needed
+                if field_name in nested_expands and target_collection:
+                    nested_responses = list(fetched_records.values())
+                    if nested_responses:
+                        await self._expand_relations(
+                            nested_responses,
+                            target_collection,
+                            nested_expands[field_name],
+                            depth=depth + 1,
+                            max_depth=max_depth,
+                        )
 
                 # Map back to items
                 for item in items:
@@ -476,15 +703,72 @@ class RecordService:
 
                     if isinstance(value, list):
                         item.expand[field_name] = [
-                            fetched_records[rid] for rid in value if rid in fetched_records
+                            fetched_records[rid].model_dump() if rid in fetched_records else None
+                            for rid in value if rid in fetched_records
                         ]
                     else:
                         if value in fetched_records:
-                            item.expand[field_name] = fetched_records[value]
+                            item.expand[field_name] = fetched_records[value].model_dump()
 
             except Exception as e:
                 # Log error but don't fail the request
                 # logger.warning(f"Failed to expand field {field_name}: {e}")
+                pass
+
+        # Process back-relation expands (e.g., posts_via_author)
+        for target_collection, via_field, expand_key in back_relation_expands:
+            try:
+                # Check if target collection exists
+                target_collection_model = await self.collection_repo.get_by_name(target_collection)
+                if not target_collection_model:
+                    continue
+
+                # Verify the target collection has a relation field pointing to this collection
+                target_fields = target_collection_model.schema.get("fields", [])
+                via_field_config = None
+                for field in target_fields:
+                    if field.get("name") == via_field and field.get("type") == "relation":
+                        via_field_config = field
+                        break
+
+                if not via_field_config:
+                    continue
+
+                # Get all record IDs we need to find back-relations for
+                record_ids = [item.id for item in items]
+
+                # Create repository for target collection
+                target_repo = RecordRepository(self.db, target_collection)
+
+                # For each record, find records in target collection that reference it
+                # We batch this by querying for all related records at once
+                related_records = await target_repo.get_all(
+                    limit=1000,  # Reasonable limit for back-relations
+                    filters=[RecordFilter(field=via_field, operator="in", value=record_ids)]
+                )
+
+                # Group related records by the via_field value
+                records_by_parent: Dict[str, List[Dict[str, Any]]] = {}
+                for record in related_records:
+                    response = self._to_response(record)
+                    parent_id = response.data.get(via_field)
+                    if parent_id:
+                        if parent_id not in records_by_parent:
+                            records_by_parent[parent_id] = []
+                        records_by_parent[parent_id].append(response.model_dump())
+
+                # Map back to items
+                for item in items:
+                    if item.expand is None:
+                        item.expand = {}
+
+                    # Get related records for this item
+                    related = records_by_parent.get(item.id, [])
+                    item.expand[expand_key] = related
+
+            except Exception as e:
+                # Log error but don't fail the request
+                # logger.warning(f"Failed to expand back-relation {expand_key}: {e}")
                 pass
 
         return items[0] if is_single else items

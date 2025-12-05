@@ -17,14 +17,14 @@ class SettingUpdate(BaseModel):
     description: str = None
 
 
-@router.get("/settings", dependencies=[Depends(require_admin)])
+@router.get("", dependencies=[Depends(require_admin)])
 async def get_all_settings(db: AsyncSession = Depends(get_db)):
     """Get all settings (admin only)"""
     service = SettingsService(db)
     return await service.get_all()
 
 
-@router.get("/settings/{category}", dependencies=[Depends(require_admin)])
+@router.get("/{category}", dependencies=[Depends(require_admin)])
 async def get_category_settings(
     category: str,
     db: AsyncSession = Depends(get_db),
@@ -34,7 +34,7 @@ async def get_category_settings(
     return await service.get_category(category)
 
 
-@router.post("/settings", dependencies=[Depends(require_admin)])
+@router.post("", dependencies=[Depends(require_admin)])
 async def update_setting(
     setting: SettingUpdate,
     db: AsyncSession = Depends(get_db),
@@ -55,7 +55,7 @@ async def update_setting(
     }
 
 
-@router.delete("/settings/{key}", dependencies=[Depends(require_admin)])
+@router.delete("/{key}", dependencies=[Depends(require_admin)])
 async def delete_setting(
     key: str,
     db: AsyncSession = Depends(get_db),

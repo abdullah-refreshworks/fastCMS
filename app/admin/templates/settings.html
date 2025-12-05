@@ -3,163 +3,364 @@
 {% block title %}Settings{% endblock %}
 
 {% block content %}
-<div x-data="settingsData()" x-init="loadSettings()">
-    <div class="px-4 sm:px-0">
-        <h1 class="text-3xl font-bold text-gray-900">System Settings</h1>
-        <p class="mt-2 text-sm text-gray-700">Configure OAuth providers and other system settings</p>
+<div x-data="settingsPage()" x-init="init()">
+    <!-- Header -->
+    <div class="px-4 sm:px-0 flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
+            <p class="mt-2 text-sm text-gray-700">Configure authentication, OAuth providers, and system settings</p>
+        </div>
     </div>
 
-    <!-- OAuth Settings -->
-    <div class="mt-6 bg-white shadow sm:rounded-lg">
-        <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
-                <i class="fas fa-shield-alt text-indigo-600 mr-2"></i>OAuth Provider Settings
-            </h3>
-            <p class="text-sm text-gray-500 mb-6">
-                Configure social login providers. Users will see login buttons for enabled providers.
-            </p>
+    <!-- Tabs -->
+    <div class="mt-6 border-b border-gray-200">
+        <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+            <button @click="activeTab = 'auth'"
+                    :class="activeTab === 'auth' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                <i class="fas fa-key mr-2"></i>Authentication
+            </button>
+            <button @click="activeTab = 'oauth'"
+                    :class="activeTab === 'oauth' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                <i class="fas fa-shield-alt mr-2"></i>OAuth Providers
+            </button>
+            <button @click="activeTab = 'mail'"
+                    :class="activeTab === 'mail' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                <i class="fas fa-envelope mr-2"></i>Mail
+            </button>
+            <button @click="activeTab = 'storage'"
+                    :class="activeTab === 'storage' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                    class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                <i class="fas fa-database mr-2"></i>Storage
+            </button>
+        </nav>
+    </div>
 
-            <!-- Google OAuth -->
-            <div class="border-b border-gray-200 pb-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center">
-                        <svg class="h-8 w-8 mr-3" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                        </svg>
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-900">Google OAuth</h4>
-                            <p class="text-xs text-gray-500">Allow users to sign in with Google</p>
+    <!-- Auth Settings Tab -->
+    <div x-show="activeTab === 'auth'" class="mt-6">
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                    Authentication Settings
+                </h3>
+                <p class="text-sm text-gray-500 mb-6">Configure how users can authenticate to your application.</p>
+
+                <div class="space-y-6">
+                    <!-- Auth Methods -->
+                    <div class="border-b border-gray-200 pb-6">
+                        <h4 class="text-sm font-medium text-gray-900 mb-4">Authentication Methods</h4>
+                        <div class="space-y-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.password_auth_enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">Password Authentication</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.oauth_enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">OAuth2 Authentication</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.otp_enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">OTP (Email Code) Authentication</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.mfa_enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">Multi-Factor Authentication (MFA)</span>
+                            </label>
                         </div>
                     </div>
-                    <span :class="settings.google_client_id && settings.google_client_secret ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
-                          class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                        <span x-text="settings.google_client_id && settings.google_client_secret ? 'Configured' : 'Not Configured'"></span>
-                    </span>
-                </div>
-                <div class="grid grid-cols-1 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Client ID</label>
-                        <input type="text" x-model="settings.google_client_id" placeholder="Your Google OAuth Client ID"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Client Secret</label>
-                        <input type="password" x-model="settings.google_client_secret" placeholder="Your Google OAuth Client Secret"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Redirect URI</label>
-                        <input type="text" x-model="settings.google_redirect_uri" placeholder="http://localhost:8000/api/v1/oauth/google/callback"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <p class="mt-1 text-xs text-gray-500">Use this in your Google OAuth console</p>
-                    </div>
-                </div>
-            </div>
 
-            <!-- GitHub OAuth -->
-            <div class="border-b border-gray-200 pb-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center">
-                        <svg class="h-8 w-8 mr-3" fill="#181717" viewBox="0 0 24 24">
-                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                        </svg>
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-900">GitHub OAuth</h4>
-                            <p class="text-xs text-gray-500">Allow users to sign in with GitHub</p>
+                    <!-- OAuth Settings -->
+                    <div class="border-b border-gray-200 pb-6">
+                        <h4 class="text-sm font-medium text-gray-900 mb-4">OAuth Behavior</h4>
+                        <div class="space-y-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.oauth_auto_create_user" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">Auto-create user on first OAuth login</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.oauth_link_by_email" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">Link OAuth to existing user by email</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.verification_required" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">Require email verification</span>
+                            </label>
                         </div>
                     </div>
-                    <span :class="settings.github_client_id && settings.github_client_secret ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
-                          class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                        <span x-text="settings.github_client_id && settings.github_client_secret ? 'Configured' : 'Not Configured'"></span>
-                    </span>
-                </div>
-                <div class="grid grid-cols-1 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Client ID</label>
-                        <input type="text" x-model="settings.github_client_id" placeholder="Your GitHub OAuth Client ID"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Client Secret</label>
-                        <input type="password" x-model="settings.github_client_secret" placeholder="Your GitHub OAuth Client Secret"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Redirect URI</label>
-                        <input type="text" x-model="settings.github_redirect_uri" placeholder="http://localhost:8000/api/v1/oauth/github/callback"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <p class="mt-1 text-xs text-gray-500">Use this in your GitHub OAuth app settings</p>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Microsoft OAuth -->
-            <div class="pb-6 mb-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center">
-                        <svg class="h-8 w-8 mr-3" viewBox="0 0 23 23">
-                            <path fill="#f3f3f3" d="M0 0h23v23H0z"/>
-                            <path fill="#f35325" d="M1 1h10v10H1z"/>
-                            <path fill="#81bc06" d="M12 1h10v10H12z"/>
-                            <path fill="#05a6f0" d="M1 12h10v10H1z"/>
-                            <path fill="#ffba08" d="M12 12h10v10H12z"/>
-                        </svg>
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-900">Microsoft OAuth</h4>
-                            <p class="text-xs text-gray-500">Allow users to sign in with Microsoft</p>
+                    <!-- Password Requirements -->
+                    <div class="border-b border-gray-200 pb-6">
+                        <h4 class="text-sm font-medium text-gray-900 mb-4">Password Requirements</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-gray-700">Minimum Length</label>
+                                <input type="number" x-model.number="authSettings.password_min_length" min="4" max="32"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                        <div class="mt-4 space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.password_require_upper" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">Require uppercase letter</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.password_require_number" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">Require number</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="authSettings.password_require_special" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-3 text-sm text-gray-700">Require special character</span>
+                            </label>
                         </div>
                     </div>
-                    <span :class="settings.microsoft_client_id && settings.microsoft_client_secret ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
-                          class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full">
-                        <span x-text="settings.microsoft_client_id && settings.microsoft_client_secret ? 'Configured' : 'Not Configured'"></span>
-                    </span>
-                </div>
-                <div class="grid grid-cols-1 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Client ID</label>
-                        <input type="text" x-model="settings.microsoft_client_id" placeholder="Your Microsoft OAuth Client ID"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Client Secret</label>
-                        <input type="password" x-model="settings.microsoft_client_secret" placeholder="Your Microsoft OAuth Client Secret"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Redirect URI</label>
-                        <input type="text" x-model="settings.microsoft_redirect_uri" placeholder="http://localhost:8000/api/v1/oauth/microsoft/callback"
-                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-                        <p class="mt-1 text-xs text-gray-500">Use this in your Microsoft Azure app registration</p>
-                    </div>
-                </div>
-            </div>
 
-            <div class="flex justify-end">
-                <button @click="saveSettings()"
-                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    <i class="fas fa-save mr-2"></i>Save Settings
-                </button>
+                    <!-- Token Settings -->
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900 mb-4">Token Settings</h4>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm text-gray-700">Access Token Expiry (hours)</label>
+                                <input type="number" x-model.number="authSettings.token_expiry_hours" min="1" max="720"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm text-gray-700">Refresh Token Expiry (days)</label>
+                                <input type="number" x-model.number="authSettings.refresh_token_expiry_days" min="1" max="365"
+                                       class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button @click="saveAuthSettings()" :disabled="saving"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
+                        <i class="fas fa-save mr-2"></i>
+                        <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Help Box -->
-    <div class="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4">
-        <div class="flex">
-            <div class="flex-shrink-0">
-                <i class="fas fa-info-circle text-blue-400"></i>
+    <!-- OAuth Providers Tab -->
+    <div x-show="activeTab === 'oauth'" class="mt-6">
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">OAuth Providers</h3>
+                        <p class="mt-1 text-sm text-gray-500">Configure social login providers for your application.</p>
+                    </div>
+                    <button @click="showAddProvider = true"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                        <i class="fas fa-plus mr-2"></i>Add Provider
+                    </button>
+                </div>
+
+                <!-- Configured Providers -->
+                <div class="space-y-4">
+                    <template x-for="provider in configuredProviders" :key="provider.id">
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0">
+                                        <span class="inline-flex items-center justify-center h-10 w-10 rounded-full"
+                                              :class="provider.enabled ? 'bg-green-100' : 'bg-gray-100'">
+                                            <i class="fab" :class="getProviderIcon(provider.provider_type)"></i>
+                                        </span>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h4 class="text-sm font-medium text-gray-900" x-text="provider.name"></h4>
+                                        <p class="text-xs text-gray-500" x-text="'Client ID: ' + provider.client_id"></p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <span :class="provider.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'"
+                                          class="px-2 py-1 text-xs font-medium rounded-full"
+                                          x-text="provider.enabled ? 'Enabled' : 'Disabled'"></span>
+                                    <button @click="editProvider(provider)" class="text-indigo-600 hover:text-indigo-900">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button @click="deleteProvider(provider.id)" class="text-red-600 hover:text-red-900">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div x-show="configuredProviders.length === 0" class="text-center py-12">
+                        <i class="fas fa-shield-alt text-4xl text-gray-300 mb-4"></i>
+                        <p class="text-gray-500">No OAuth providers configured yet.</p>
+                        <button @click="showAddProvider = true" class="mt-4 text-indigo-600 hover:text-indigo-500">
+                            Add your first provider
+                        </button>
+                    </div>
+                </div>
             </div>
-            <div class="ml-3">
-                <h3 class="text-sm font-medium text-blue-800">How to get OAuth credentials</h3>
-                <div class="mt-2 text-sm text-blue-700">
-                    <ul class="list-disc list-inside space-y-1">
-                        <li><strong>Google:</strong> Visit <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="underline">Google Cloud Console</a></li>
-                        <li><strong>GitHub:</strong> Go to <a href="https://github.com/settings/developers" target="_blank" class="underline">GitHub Developer Settings</a></li>
-                        <li><strong>Microsoft:</strong> Use <a href="https://portal.azure.com/#blade/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank" class="underline">Azure Portal</a></li>
-                    </ul>
+        </div>
+    </div>
+
+    <!-- Mail Settings Tab -->
+    <div x-show="activeTab === 'mail'" class="mt-6">
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Mail Settings</h3>
+                <p class="text-sm text-gray-500 mb-6">Configure SMTP settings for sending emails.</p>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">SMTP Host</label>
+                        <input type="text" x-model="mailSettings.smtp_host" placeholder="smtp.example.com"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">SMTP Port</label>
+                        <input type="number" x-model.number="mailSettings.smtp_port" placeholder="587"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">SMTP Username</label>
+                        <input type="text" x-model="mailSettings.smtp_user"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">SMTP Password</label>
+                        <input type="password" x-model="mailSettings.smtp_password"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">From Email</label>
+                        <input type="email" x-model="mailSettings.from_email" placeholder="noreply@example.com"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">From Name</label>
+                        <input type="text" x-model="mailSettings.from_name" placeholder="FastCMS"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button @click="saveMailSettings()" :disabled="saving"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
+                        <i class="fas fa-save mr-2"></i>Save Mail Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storage Settings Tab -->
+    <div x-show="activeTab === 'storage'" class="mt-6">
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-4 py-5 sm:p-6">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Storage Settings</h3>
+                <p class="text-sm text-gray-500 mb-6">Configure file storage settings.</p>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Storage Type</label>
+                        <select x-model="storageSettings.type"
+                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                            <option value="local">Local Storage</option>
+                            <option value="s3">Amazon S3</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Max File Size (bytes)</label>
+                        <input type="number" x-model.number="storageSettings.max_file_size"
+                               class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <p class="mt-1 text-xs text-gray-500">Default: 10MB (10485760 bytes)</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button @click="saveStorageSettings()" :disabled="saving"
+                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">
+                        <i class="fas fa-save mr-2"></i>Save Storage Settings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Provider Modal -->
+    <div x-show="showAddProvider" x-cloak class="fixed inset-0 z-50 overflow-y-auto" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showAddProvider = false"></div>
+
+            <div class="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                <div>
+                    <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">
+                        <span x-text="editingProvider ? 'Edit Provider' : 'Add OAuth Provider'"></span>
+                    </h3>
+
+                    <div class="space-y-4">
+                        <!-- Provider Type -->
+                        <div x-show="!editingProvider">
+                            <label class="block text-sm font-medium text-gray-700">Provider Type</label>
+                            <select x-model="newProvider.provider_type" @change="updateProviderName()"
+                                    class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <option value="">Select a provider...</option>
+                                <template x-for="type in availableProviderTypes" :key="type.type">
+                                    <option :value="type.type" x-text="type.name"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Display Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Display Name</label>
+                            <input type="text" x-model="newProvider.name"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+
+                        <!-- Client ID -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Client ID</label>
+                            <input type="text" x-model="newProvider.client_id" required
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+
+                        <!-- Client Secret -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Client Secret</label>
+                            <input type="password" x-model="newProvider.client_secret" :required="!editingProvider"
+                                   :placeholder="editingProvider ? '(unchanged)' : ''"
+                                   class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        </div>
+
+                        <!-- Enabled -->
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="newProvider.enabled" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-2 text-sm text-gray-700">Enabled</span>
+                            </label>
+                        </div>
+
+                        <!-- Redirect URL Info -->
+                        <div class="bg-blue-50 p-3 rounded-md">
+                            <p class="text-xs text-blue-800">
+                                <strong>Redirect URL:</strong>
+                                <code class="bg-blue-100 px-1 rounded" x-text="window.location.origin + '/api/v1/oauth/' + (newProvider.provider_type || 'PROVIDER') + '/callback'"></code>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
+                    <button @click="saveProvider()" :disabled="saving"
+                            class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:col-start-2 sm:text-sm disabled:opacity-50">
+                        <span x-text="saving ? 'Saving...' : (editingProvider ? 'Update' : 'Add Provider')"></span>
+                    </button>
+                    <button @click="closeProviderModal()" type="button"
+                            class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm">
+                        Cancel
+                    </button>
                 </div>
             </div>
         </div>
@@ -169,66 +370,288 @@
 
 {% block scripts %}
 <script>
-    function settingsData() {
-        return {
-            settings: {
-                google_client_id: '',
-                google_client_secret: '',
-                google_redirect_uri: '',
-                github_client_id: '',
-                github_client_secret: '',
-                github_redirect_uri: '',
-                microsoft_client_id: '',
-                microsoft_client_secret: '',
-                microsoft_redirect_uri: ''
-            },
+function settingsPage() {
+    return {
+        activeTab: 'auth',
+        saving: false,
+        showAddProvider: false,
+        editingProvider: null,
 
-            async loadSettings() {
-                try {
-                    // Load all OAuth settings
-                    const keys = Object.keys(this.settings);
-                    for (const key of keys) {
-                        try {
-                            const data = await apiRequest(`/settings/oauth.${key}`);
-                            if (data && data.value) {
-                                this.settings[key] = data.value;
-                            }
-                        } catch (e) {
-                            // Setting doesn't exist yet, that's ok
+        authSettings: {
+            password_auth_enabled: true,
+            otp_enabled: false,
+            mfa_enabled: false,
+            oauth_enabled: true,
+            oauth_auto_create_user: true,
+            oauth_link_by_email: true,
+            password_min_length: 8,
+            password_require_upper: false,
+            password_require_number: false,
+            password_require_special: false,
+            token_expiry_hours: 24,
+            refresh_token_expiry_days: 7,
+            verification_required: false,
+        },
+
+        mailSettings: {
+            smtp_host: '',
+            smtp_port: 587,
+            smtp_user: '',
+            smtp_password: '',
+            from_email: '',
+            from_name: 'FastCMS',
+        },
+
+        storageSettings: {
+            type: 'local',
+            max_file_size: 10485760,
+        },
+
+        configuredProviders: [],
+        availableProviderTypes: [],
+
+        newProvider: {
+            provider_type: '',
+            name: '',
+            client_id: '',
+            client_secret: '',
+            enabled: true,
+        },
+
+        async init() {
+            await Promise.all([
+                this.loadAuthSettings(),
+                this.loadMailSettings(),
+                this.loadStorageSettings(),
+                this.loadProviderTypes(),
+                this.loadConfiguredProviders(),
+            ]);
+        },
+
+        async loadAuthSettings() {
+            try {
+                const data = await apiRequest('/settings/auth');
+                if (data) {
+                    Object.keys(this.authSettings).forEach(key => {
+                        if (data[key] !== undefined) {
+                            this.authSettings[key] = data[key].value;
                         }
-                    }
-                } catch (error) {
-                    console.error('Failed to load settings:', error);
-                    showToast('Failed to load settings', 'error');
+                    });
                 }
-            },
-
-            async saveSettings() {
-                try {
-                    showToast('Saving settings...', 'info');
-
-                    // Save each setting
-                    for (const [key, value] of Object.entries(this.settings)) {
-                        if (value) {  // Only save non-empty values
-                            await apiRequest(`/settings`, {
-                                method: 'PUT',
-                                body: JSON.stringify({
-                                    key: `oauth.${key}`,
-                                    value: value,
-                                    category: 'oauth',
-                                    description: `OAuth ${key.replace('_', ' ')}`
-                                })
-                            });
-                        }
-                    }
-
-                    showToast('Settings saved successfully', 'success');
-                } catch (error) {
-                    console.error('Failed to save settings:', error);
-                    showToast(error.message || 'Failed to save settings', 'error');
-                }
+            } catch (e) {
+                console.log('No auth settings found, using defaults');
             }
-        };
-    }
+        },
+
+        async loadMailSettings() {
+            try {
+                const data = await apiRequest('/settings/mail');
+                if (data) {
+                    Object.keys(this.mailSettings).forEach(key => {
+                        if (data[key] !== undefined) {
+                            this.mailSettings[key] = data[key].value;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.log('No mail settings found, using defaults');
+            }
+        },
+
+        async loadStorageSettings() {
+            try {
+                const data = await apiRequest('/settings/storage');
+                if (data) {
+                    Object.keys(this.storageSettings).forEach(key => {
+                        if (data[key] !== undefined) {
+                            this.storageSettings[key] = data[key].value;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.log('No storage settings found, using defaults');
+            }
+        },
+
+        async loadProviderTypes() {
+            try {
+                this.availableProviderTypes = await apiRequest('/oauth/providers/types');
+            } catch (e) {
+                console.error('Failed to load provider types:', e);
+            }
+        },
+
+        async loadConfiguredProviders() {
+            try {
+                this.configuredProviders = await apiRequest('/oauth/providers');
+            } catch (e) {
+                console.error('Failed to load configured providers:', e);
+            }
+        },
+
+        updateProviderName() {
+            const type = this.availableProviderTypes.find(t => t.type === this.newProvider.provider_type);
+            if (type) {
+                this.newProvider.name = type.name;
+            }
+        },
+
+        getProviderIcon(type) {
+            const icons = {
+                'google': 'fa-google',
+                'github': 'fa-github',
+                'microsoft': 'fa-microsoft',
+                'facebook': 'fa-facebook',
+                'twitter': 'fa-twitter',
+                'discord': 'fa-discord',
+                'apple': 'fa-apple',
+                'gitlab': 'fa-gitlab',
+                'bitbucket': 'fa-bitbucket',
+                'linkedin': 'fa-linkedin',
+            };
+            return icons[type] || 'fa-key';
+        },
+
+        editProvider(provider) {
+            this.editingProvider = provider;
+            this.newProvider = {
+                provider_type: provider.provider_type,
+                name: provider.name,
+                client_id: provider.client_id,
+                client_secret: '',
+                enabled: provider.enabled,
+            };
+            this.showAddProvider = true;
+        },
+
+        closeProviderModal() {
+            this.showAddProvider = false;
+            this.editingProvider = null;
+            this.newProvider = {
+                provider_type: '',
+                name: '',
+                client_id: '',
+                client_secret: '',
+                enabled: true,
+            };
+        },
+
+        async saveProvider() {
+            if (!this.newProvider.provider_type || !this.newProvider.client_id) {
+                showToast('Please fill in all required fields', 'error');
+                return;
+            }
+
+            if (!this.editingProvider && !this.newProvider.client_secret) {
+                showToast('Client secret is required', 'error');
+                return;
+            }
+
+            this.saving = true;
+            try {
+                const data = {...this.newProvider};
+                if (this.editingProvider && !data.client_secret) {
+                    delete data.client_secret;
+                }
+
+                if (this.editingProvider) {
+                    await apiRequest(`/oauth/providers/${this.editingProvider.id}`, {
+                        method: 'PATCH',
+                        body: JSON.stringify(data),
+                    });
+                    showToast('Provider updated successfully', 'success');
+                } else {
+                    await apiRequest('/oauth/providers', {
+                        method: 'POST',
+                        body: JSON.stringify(data),
+                    });
+                    showToast('Provider added successfully', 'success');
+                }
+
+                await this.loadConfiguredProviders();
+                this.closeProviderModal();
+            } catch (e) {
+                showToast(e.message || 'Failed to save provider', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async deleteProvider(id) {
+            if (!confirm('Are you sure you want to delete this provider?')) return;
+
+            try {
+                await apiRequest(`/oauth/providers/${id}`, { method: 'DELETE' });
+                showToast('Provider deleted successfully', 'success');
+                await this.loadConfiguredProviders();
+            } catch (e) {
+                showToast(e.message || 'Failed to delete provider', 'error');
+            }
+        },
+
+        async saveAuthSettings() {
+            this.saving = true;
+            try {
+                for (const [key, value] of Object.entries(this.authSettings)) {
+                    await apiRequest('/settings', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            key: key,
+                            value: value,
+                            category: 'auth',
+                        }),
+                    });
+                }
+                showToast('Auth settings saved successfully', 'success');
+            } catch (e) {
+                showToast(e.message || 'Failed to save settings', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async saveMailSettings() {
+            this.saving = true;
+            try {
+                for (const [key, value] of Object.entries(this.mailSettings)) {
+                    await apiRequest('/settings', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            key: key,
+                            value: value,
+                            category: 'mail',
+                        }),
+                    });
+                }
+                showToast('Mail settings saved successfully', 'success');
+            } catch (e) {
+                showToast(e.message || 'Failed to save settings', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async saveStorageSettings() {
+            this.saving = true;
+            try {
+                for (const [key, value] of Object.entries(this.storageSettings)) {
+                    await apiRequest('/settings', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            key: key,
+                            value: value,
+                            category: 'storage',
+                        }),
+                    });
+                }
+                showToast('Storage settings saved successfully', 'success');
+            } catch (e) {
+                showToast(e.message || 'Failed to save settings', 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+    };
+}
 </script>
 {% endblock %}

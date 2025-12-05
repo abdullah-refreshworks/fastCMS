@@ -81,11 +81,26 @@ async def event_generator(
     Yields:
         SSE formatted messages
     """
+    # Generate unique client ID for this connection
+    client_id = str(uuid.uuid4())
+
     # Subscribe to events
     queue = await event_manager.subscribe(collection_name, query_filter, user_id)
 
     try:
-        # Send initial connection message
+        # Send PB_CONNECT style initial connection event with client ID
+        # This follows PocketBase's pattern for client identification
+        connect_data = json.dumps({
+            "clientId": client_id,
+            "status": "connected",
+            "subscriptions": {
+                "collection": collection_name or "*",
+                "hasFilter": query_filter is not None,
+            }
+        })
+        yield f"event: PB_CONNECT\ndata: {connect_data}\n\n"
+
+        # Also send legacy connected event for backwards compatibility
         yield "event: connected\ndata: {\"status\": \"connected\"}\n\n"
 
         while True:
@@ -387,7 +402,182 @@ async def websocket_realtime(websocket: WebSocket, token: Optional[str] = Query(
             await connection_manager.disconnect(connection_id)
 
 
+@router.get(
+    "/realtime/{collection_name}/{record_id}",
+    summary="Subscribe to real-time updates (specific record)",
+)
+async def realtime_record(
+    collection_name: str,
+    record_id: str,
+    request: Request,
+    user_id: Optional[str] = Query(None, description="Optional user ID for presence tracking"),
+):
+    """
+    Subscribe to real-time updates for a specific record.
+
+    This endpoint uses Server-Sent Events (SSE) to push updates when the
+    specific record is created, updated, or deleted.
+
+    Args:
+        collection_name: Name of the collection
+        record_id: ID of the record to subscribe to
+        user_id: Optional user ID for presence tracking
+
+    Example usage (JavaScript):
+    ```javascript
+    const eventSource = new EventSource('/api/v1/realtime/posts/abc123');
+
+    eventSource.addEventListener('record.updated', (e) => {
+        const data = JSON.parse(e.data);
+        console.log('Record updated:', data);
+    });
+
+    eventSource.addEventListener('record.deleted', (e) => {
+        const data = JSON.parse(e.data);
+        console.log('Record deleted:', data);
+        eventSource.close(); // Close connection when record is deleted
+    });
+    ```
+    """
+    # Create a filter that only matches this specific record
+    def record_filter(data):
+        return data.get("id") == record_id
+
+    return StreamingResponse(
+        event_generator(request, collection_name, record_filter, user_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
+
+
 @router.get("/stats")
 async def get_realtime_stats():
     """Get realtime connection statistics."""
     return connection_manager.get_stats()
+
+
+# ===== Presence REST API =====
+
+@router.get(
+    "/presence",
+    summary="Get all online users",
+    response_model=dict,
+)
+async def get_presence():
+    """
+    Get a list of all currently online users.
+
+    Returns presence information for all connected users including:
+    - user_id: User's ID
+    - user_name: User's display name (if provided)
+    - last_seen: Last activity timestamp
+    - connections: Number of active connections
+
+    Example response:
+    ```json
+    {
+        "users": [
+            {
+                "user_id": "user123",
+                "user_name": "John Doe",
+                "last_seen": "2024-01-15T10:30:00Z",
+                "connections": 2
+            }
+        ],
+        "total": 1
+    }
+    ```
+    """
+    users = event_manager.get_presence()
+    return {
+        "users": users,
+        "total": len(users)
+    }
+
+
+@router.get(
+    "/presence/{user_id}",
+    summary="Get specific user's presence",
+    response_model=dict,
+)
+async def get_user_presence(user_id: str):
+    """
+    Get presence information for a specific user.
+
+    Args:
+        user_id: The user ID to check
+
+    Returns:
+        Presence information if user is online, or {"online": false} if offline.
+
+    Example response (online):
+    ```json
+    {
+        "online": true,
+        "user_id": "user123",
+        "user_name": "John Doe",
+        "last_seen": "2024-01-15T10:30:00Z",
+        "connections": 2
+    }
+    ```
+
+    Example response (offline):
+    ```json
+    {
+        "online": false,
+        "user_id": "user123"
+    }
+    ```
+    """
+    presence = event_manager.get_user_presence(user_id)
+    if presence:
+        return {
+            "online": True,
+            **presence
+        }
+    return {
+        "online": False,
+        "user_id": user_id
+    }
+
+
+@router.get(
+    "/presence/collection/{collection_name}",
+    summary="Get users viewing a collection",
+    response_model=dict,
+)
+async def get_collection_presence(collection_name: str):
+    """
+    Get a list of users currently subscribed to a specific collection.
+
+    This is useful for showing who is currently viewing/editing records
+    in a collection (collaborative editing awareness).
+
+    Args:
+        collection_name: The collection to check
+
+    Returns:
+        List of users subscribed to the collection.
+    """
+    # Get subscribers from WebSocket manager
+    stats = connection_manager.get_stats()
+    collection_count = stats.get("collection_subscribers", {}).get(collection_name, 0)
+
+    # For detailed user info, we'd need to track this in the connection manager
+    # For now, return count and any presence info
+    users = []
+    for sub in event_manager._subscriptions:
+        if sub.collection_name == collection_name and sub.user_id:
+            presence = event_manager.get_user_presence(sub.user_id)
+            if presence:
+                users.append(presence)
+
+    return {
+        "collection": collection_name,
+        "subscriber_count": collection_count + len(users),
+        "users": users
+    }

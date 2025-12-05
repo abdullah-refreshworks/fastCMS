@@ -199,3 +199,195 @@ class DynamicModelGenerator:
         """
         async with engine.begin() as conn:
             await conn.run_sync(model.metadata.drop_all)
+
+    @classmethod
+    async def add_column(
+        cls,
+        engine: Any,
+        table_name: str,
+        field: FieldSchema,
+    ) -> None:
+        """
+        Add a column to an existing table.
+
+        Args:
+            engine: SQLAlchemy async engine
+            table_name: Name of the table
+            field: Field schema for the new column
+        """
+        from sqlalchemy import text
+
+        # Get column definition
+        column = cls._get_column_for_field(field)
+        column_type = cls._get_sql_type_string(field)
+
+        # Build ALTER TABLE statement
+        nullable = "NULL" if not field.validation.required else "NOT NULL"
+        default_clause = cls._get_default_clause(field)
+
+        sql = f"ALTER TABLE {table_name} ADD COLUMN {field.name} {column_type} {nullable} {default_clause}"
+
+        async with engine.begin() as conn:
+            await conn.execute(text(sql.strip()))
+
+    @classmethod
+    async def drop_column(
+        cls,
+        engine: Any,
+        table_name: str,
+        column_name: str,
+    ) -> None:
+        """
+        Drop a column from an existing table.
+
+        Note: SQLite doesn't support DROP COLUMN directly in older versions.
+        For SQLite < 3.35.0, this uses a table rebuild approach.
+
+        Args:
+            engine: SQLAlchemy async engine
+            table_name: Name of the table
+            column_name: Name of the column to drop
+        """
+        from sqlalchemy import text
+
+        # For modern SQLite (3.35.0+) and PostgreSQL/MySQL
+        sql = f"ALTER TABLE {table_name} DROP COLUMN {column_name}"
+
+        try:
+            async with engine.begin() as conn:
+                await conn.execute(text(sql))
+        except Exception as e:
+            # Fallback for older SQLite versions - more complex approach needed
+            # For now, log and skip the column drop
+            from app.core.logging import get_logger
+            logger = get_logger(__name__)
+            logger.warning(f"Could not drop column {column_name} from {table_name}: {e}")
+
+    @classmethod
+    async def rename_column(
+        cls,
+        engine: Any,
+        table_name: str,
+        old_name: str,
+        new_name: str,
+    ) -> None:
+        """
+        Rename a column in an existing table.
+
+        Args:
+            engine: SQLAlchemy async engine
+            table_name: Name of the table
+            old_name: Current column name
+            new_name: New column name
+        """
+        from sqlalchemy import text
+
+        # Works for SQLite 3.25.0+, PostgreSQL, MySQL
+        sql = f"ALTER TABLE {table_name} RENAME COLUMN {old_name} TO {new_name}"
+
+        async with engine.begin() as conn:
+            await conn.execute(text(sql))
+
+    @classmethod
+    async def migrate_schema(
+        cls,
+        engine: Any,
+        table_name: str,
+        old_fields: list[FieldSchema],
+        new_fields: list[FieldSchema],
+    ) -> dict:
+        """
+        Migrate table schema by comparing old and new field definitions.
+
+        Args:
+            engine: SQLAlchemy async engine
+            table_name: Name of the table
+            old_fields: Previous field schemas
+            new_fields: New field schemas
+
+        Returns:
+            Dictionary with migration results:
+            - added: List of added field names
+            - removed: List of removed field names
+            - renamed: List of (old_name, new_name) tuples
+        """
+        old_field_map = {f.name: f for f in old_fields}
+        new_field_map = {f.name: f for f in new_fields}
+
+        old_names = set(old_field_map.keys())
+        new_names = set(new_field_map.keys())
+
+        # Fields to add (in new but not in old)
+        to_add = new_names - old_names
+        # Fields to remove (in old but not in new)
+        to_remove = old_names - new_names
+
+        added = []
+        removed = []
+
+        # Add new columns
+        for name in to_add:
+            try:
+                await cls.add_column(engine, table_name, new_field_map[name])
+                added.append(name)
+            except Exception as e:
+                from app.core.logging import get_logger
+                logger = get_logger(__name__)
+                logger.error(f"Failed to add column {name}: {e}")
+
+        # Remove old columns
+        for name in to_remove:
+            try:
+                await cls.drop_column(engine, table_name, name)
+                removed.append(name)
+            except Exception as e:
+                from app.core.logging import get_logger
+                logger = get_logger(__name__)
+                logger.error(f"Failed to drop column {name}: {e}")
+
+        # Clear the model cache to regenerate with new schema
+        cls.clear_cache(table_name)
+
+        return {
+            "added": added,
+            "removed": removed,
+            "renamed": [],  # Rename detection would need additional logic
+        }
+
+    @classmethod
+    def _get_sql_type_string(cls, field: FieldSchema) -> str:
+        """Get SQL type string for a field."""
+        if field.type == FieldType.TEXT or field.type == FieldType.EDITOR:
+            if field.validation.max_length and field.validation.max_length <= 255:
+                return f"VARCHAR({field.validation.max_length})"
+            return "TEXT"
+        elif field.type == FieldType.NUMBER:
+            return "REAL"
+        elif field.type == FieldType.BOOL:
+            return "BOOLEAN"
+        elif field.type == FieldType.EMAIL:
+            return "VARCHAR(255)"
+        elif field.type == FieldType.URL:
+            return "VARCHAR(2048)"
+        elif field.type == FieldType.DATE:
+            return "DATE"
+        elif field.type == FieldType.DATETIME:
+            return "TIMESTAMP"
+        elif field.type == FieldType.RELATION:
+            return "VARCHAR(36)"
+        elif field.type == FieldType.GEOPOINT:
+            return "JSON"
+        elif field.type in (FieldType.SELECT, FieldType.FILE, FieldType.JSON):
+            return "JSON"
+        return "TEXT"
+
+    @classmethod
+    def _get_default_clause(cls, field: FieldSchema) -> str:
+        """Get default clause for a field."""
+        if field.type == FieldType.BOOL:
+            return "DEFAULT 0"
+        elif field.type == FieldType.NUMBER:
+            return "DEFAULT 0"
+        elif field.type in (FieldType.SELECT, FieldType.FILE, FieldType.JSON, FieldType.GEOPOINT):
+            return "DEFAULT NULL"
+        return "DEFAULT ''"

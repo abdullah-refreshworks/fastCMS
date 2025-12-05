@@ -55,51 +55,80 @@ async def list_records(
     filter: Optional[str] = Query(
         None, description="Filter expression (e.g., age>=18&&status=active)"
     ),
-    sort: Optional[str] = Query(None, description="Sort field (prefix with - for desc)"),
-    expand: Optional[str] = Query(None, description="Comma-separated relation fields to expand"),
+    sort: Optional[str] = Query(
+        None,
+        description="Sort fields. Single: -created, Multi: -created,+title, Random: @random"
+    ),
+    expand: Optional[str] = Query(None, description="Comma-separated relation fields to expand (supports nested: author.posts)"),
     search: Optional[str] = Query(None, description="Search term to find in text fields"),
+    fields: Optional[str] = Query(None, description="Comma-separated fields to return (e.g., id,title,created)"),
+    skipTotal: bool = Query(False, description="Skip total count for faster queries"),
     db: AsyncSession = Depends(get_db),
     user_context: Optional[UserContext] = Depends(get_optional_user),
 ):
     """
     List records with advanced filtering, sorting, and full-text search.
 
-    Search examples:
-    - ?search=fastcms (searches across all text/editor fields)
-    - ?search=john&filter=status=active (combine search with filters)
+    **Filter Operators:**
+    - `=` Equal: `status=active`
+    - `!=` Not equal: `status!=deleted`
+    - `>` Greater: `age>18`
+    - `>=` Greater or equal: `views>=100`
+    - `<` Less: `price<100`
+    - `<=` Less or equal: `stock<=10`
+    - `~` Contains: `title~hello`
+    - `!~` Not contains: `title!~spam`
+    - `?=` Any equal: `tags?=[news,tech]`
+    - `?!=` Not any: `category?!=[spam,ads]`
 
-    Filter examples:
-    - ?filter=age>=18
-    - ?filter=status=active&&verified=true
-    - ?filter=email~gmail.com
+    **DateTime Macros:**
+    - `@now`, `@today`, `@yesterday`, `@tomorrow`
+    - `@todayStart`, `@todayEnd`, `@monthStart`, `@monthEnd`
+    - `@day+7`, `@hour-2`, `@month-1` (relative offsets)
 
-    Sort examples:
-    - ?sort=created (ascending)
-    - ?sort=-created (descending)
+    **Filter Examples:**
+    - `?filter=age>=18`
+    - `?filter=created>@yesterday`
+    - `?filter=status=active&&verified=true`
+    - `?filter=status=active||featured=true`
 
-    Expand examples:
-    - ?expand=author
-    - ?expand=author,category
+    **Sort Examples:**
+    - `?sort=created` (ascending)
+    - `?sort=-created` (descending)
+    - `?sort=-created,+title` (multi-field)
+    - `?sort=@random` (random order)
+
+    **Expand Examples:**
+    - `?expand=author`
+    - `?expand=author,category`
+    - `?expand=author.company` (nested)
+
+    **Field Selection:**
+    - `?fields=id,title,created` (only return these fields)
     """
     service = RecordService(db, collection_name, user_context)
 
     # Parse filters
     filters = QueryParser.parse_filter(filter) if filter else None
 
-    # Parse sort
-    sort_field, sort_order = QueryParser.parse_sort(sort) if sort else (None, "asc")
+    # Parse sort (supports multi-field and @random)
+    sort_fields = QueryParser.parse_multi_sort(sort) if sort else None
 
-    # Parse expand
+    # Parse expand (supports nested)
     expand_fields = expand.split(",") if expand else None
+
+    # Parse fields selection
+    selected_fields = [f.strip() for f in fields.split(",")] if fields else None
 
     return await service.list_records(
         page=page,
         per_page=per_page,
         filters=filters,
-        sort=sort_field,
-        order=sort_order,
+        sort_fields=sort_fields,
         expand=expand_fields,
         search=search,
+        fields=selected_fields,
+        skip_total=skipTotal,
     )
 
 

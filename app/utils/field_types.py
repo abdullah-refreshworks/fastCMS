@@ -23,6 +23,7 @@ class FieldType(str, Enum):
     RELATION = "relation"
     JSON = "json"
     EDITOR = "editor"
+    GEOPOINT = "geopoint"  # Geographic coordinates (lat, lng)
 
 
 class FieldValidation(BaseModel):
@@ -139,6 +140,19 @@ class FileOptions(BaseModel):
     )
 
 
+class GeoPointOptions(BaseModel):
+    """Options for GeoPoint fields."""
+
+    require_altitude: bool = Field(
+        default=False,
+        description="Whether altitude is required"
+    )
+    min_lat: float = Field(default=-90.0, ge=-90.0, le=90.0)
+    max_lat: float = Field(default=90.0, ge=-90.0, le=90.0)
+    min_lng: float = Field(default=-180.0, ge=-180.0, le=180.0)
+    max_lng: float = Field(default=180.0, ge=-180.0, le=180.0)
+
+
 class FieldSchema(BaseModel):
     """Complete schema definition for a field."""
 
@@ -150,6 +164,7 @@ class FieldSchema(BaseModel):
     relation: Optional[RelationOptions] = None
     select: Optional[SelectOptions] = None
     file: Optional[FileOptions] = None
+    geopoint: Optional[GeoPointOptions] = None
 
     # Display options
     label: Optional[str] = None
@@ -204,6 +219,7 @@ FIELD_TYPE_SQL_MAP: Dict[FieldType, str] = {
     FieldType.RELATION: "VARCHAR(36)",  # UUID
     FieldType.JSON: "JSON",
     FieldType.EDITOR: "TEXT",
+    FieldType.GEOPOINT: "JSON",  # Stores as {"lat": float, "lng": float, "alt": float?}
 }
 
 
@@ -221,4 +237,94 @@ FIELD_TYPE_PYTHON_MAP: Dict[FieldType, type] = {
     FieldType.RELATION: str,
     FieldType.JSON: (dict, list),
     FieldType.EDITOR: str,
+    FieldType.GEOPOINT: dict,  # {"lat": float, "lng": float, "alt": float?}
 }
+
+
+def validate_geopoint(value: Any, options: Optional[GeoPointOptions] = None) -> dict:
+    """
+    Validate a GeoPoint value.
+
+    Args:
+        value: Dict with 'lat', 'lng', and optional 'alt' keys
+        options: Optional GeoPointOptions for validation
+
+    Returns:
+        Validated GeoPoint dict
+
+    Raises:
+        ValueError: If validation fails
+    """
+    if not isinstance(value, dict):
+        raise ValueError("GeoPoint must be an object with 'lat' and 'lng' properties")
+
+    lat = value.get("lat")
+    lng = value.get("lng")
+    alt = value.get("alt")
+
+    if lat is None or lng is None:
+        raise ValueError("GeoPoint requires 'lat' and 'lng' properties")
+
+    try:
+        lat = float(lat)
+        lng = float(lng)
+    except (TypeError, ValueError):
+        raise ValueError("GeoPoint 'lat' and 'lng' must be numbers")
+
+    # Validate latitude range
+    if lat < -90 or lat > 90:
+        raise ValueError("Latitude must be between -90 and 90")
+
+    # Validate longitude range
+    if lng < -180 or lng > 180:
+        raise ValueError("Longitude must be between -180 and 180")
+
+    # Apply options validation
+    if options:
+        if lat < options.min_lat or lat > options.max_lat:
+            raise ValueError(f"Latitude must be between {options.min_lat} and {options.max_lat}")
+        if lng < options.min_lng or lng > options.max_lng:
+            raise ValueError(f"Longitude must be between {options.min_lng} and {options.max_lng}")
+        if options.require_altitude and alt is None:
+            raise ValueError("Altitude is required for this GeoPoint field")
+
+    result = {"lat": lat, "lng": lng}
+    if alt is not None:
+        try:
+            result["alt"] = float(alt)
+        except (TypeError, ValueError):
+            raise ValueError("GeoPoint 'alt' must be a number")
+
+    return result
+
+
+def calculate_distance(point1: dict, point2: dict, unit: str = "km") -> float:
+    """
+    Calculate distance between two GeoPoints using the Haversine formula.
+
+    Args:
+        point1: First GeoPoint {"lat": float, "lng": float}
+        point2: Second GeoPoint {"lat": float, "lng": float}
+        unit: Distance unit - "km" (kilometers), "mi" (miles), "m" (meters)
+
+    Returns:
+        Distance between the two points in the specified unit
+    """
+    import math
+
+    # Earth's radius
+    R_km = 6371.0  # kilometers
+    R_mi = 3958.8  # miles
+    R_m = 6371000.0  # meters
+
+    radius = {"km": R_km, "mi": R_mi, "m": R_m}.get(unit, R_km)
+
+    lat1 = math.radians(point1["lat"])
+    lat2 = math.radians(point2["lat"])
+    dlat = math.radians(point2["lat"] - point1["lat"])
+    dlng = math.radians(point2["lng"] - point1["lng"])
+
+    a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    return radius * c
