@@ -1,1 +1,0 @@
-"""FastCMS Plugins."""
