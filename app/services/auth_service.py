@@ -152,6 +152,30 @@ class AuthService:
         # if not user.verified:
         #     raise UnauthorizedException("Email not verified")
 
+        # Check 2FA requirement
+        if user.two_factor_enabled:
+            if not data.two_factor_code:
+                # Return response indicating 2FA is required
+                logger.info(f"2FA required for: {user.email}")
+                return AuthResponse(
+                    user=self._to_user_response(user),
+                    token=TokenResponse(
+                        access_token="",
+                        refresh_token="",
+                        token_type="bearer",
+                        expires_in=0,
+                    ),
+                    requires_2fa=True,
+                    message="Two-factor authentication required",
+                )
+
+            # Verify 2FA code
+            from app.services.two_factor_service import TwoFactorService
+            two_factor_service = TwoFactorService(self.db)
+            if not await two_factor_service._verify_code(user, data.two_factor_code):
+                logger.warning(f"Invalid 2FA code for: {data.email}")
+                raise UnauthorizedException("Invalid two-factor authentication code")
+
         logger.info(f"User logged in: {user.email}")
 
         # Generate tokens

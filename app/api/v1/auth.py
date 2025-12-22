@@ -394,3 +394,106 @@ async def revoke_session(
     """
     service = AuthService(db)
     await service.revoke_session(user_id, session_id)
+
+
+# ===== Two-Factor Authentication Endpoints =====
+
+from app.schemas.auth import (
+    TwoFactorSetupResponse,
+    TwoFactorVerifyRequest,
+    TwoFactorEnableResponse,
+    TwoFactorDisableRequest,
+    TwoFactorStatusResponse,
+    TwoFactorBackupCodesResponse,
+)
+from app.services.two_factor_service import TwoFactorService
+
+
+@router.get(
+    "/2fa/status",
+    response_model=TwoFactorStatusResponse,
+    summary="Get 2FA status",
+    description="Check if 2FA is enabled for the current user.",
+)
+async def get_2fa_status(
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> TwoFactorStatusResponse:
+    """Get 2FA status for the current user."""
+    service = TwoFactorService(db)
+    return await service.get_status(user_id)
+
+
+@router.post(
+    "/2fa/setup",
+    response_model=TwoFactorSetupResponse,
+    summary="Setup 2FA",
+    description="Generate TOTP secret and QR code for 2FA setup. Scan the QR code with an authenticator app.",
+)
+async def setup_2fa(
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> TwoFactorSetupResponse:
+    """
+    Initialize 2FA setup.
+
+    Returns the secret and QR code. User must verify with a code to complete setup.
+    """
+    service = TwoFactorService(db)
+    return await service.generate_setup(user_id)
+
+
+@router.post(
+    "/2fa/enable",
+    response_model=TwoFactorEnableResponse,
+    summary="Enable 2FA",
+    description="Verify TOTP code and enable 2FA. Returns backup codes - save them securely!",
+)
+async def enable_2fa(
+    data: TwoFactorVerifyRequest,
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> TwoFactorEnableResponse:
+    """
+    Enable 2FA after verifying the setup code.
+
+    The code should be from your authenticator app.
+    """
+    service = TwoFactorService(db)
+    return await service.enable(user_id, data.code)
+
+
+@router.post(
+    "/2fa/disable",
+    status_code=status.HTTP_200_OK,
+    summary="Disable 2FA",
+    description="Disable 2FA using a TOTP code or backup code.",
+)
+async def disable_2fa(
+    data: TwoFactorDisableRequest,
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Disable 2FA for the current user."""
+    service = TwoFactorService(db)
+    return await service.disable(user_id, data.code)
+
+
+@router.post(
+    "/2fa/backup-codes",
+    response_model=TwoFactorBackupCodesResponse,
+    summary="Regenerate backup codes",
+    description="Generate new backup codes. Previous codes will be invalidated.",
+)
+async def regenerate_backup_codes(
+    data: TwoFactorVerifyRequest,
+    user_id: str = Depends(require_auth),
+    db: AsyncSession = Depends(get_db),
+) -> TwoFactorBackupCodesResponse:
+    """
+    Regenerate backup codes.
+
+    Requires a valid TOTP code (not a backup code).
+    """
+    service = TwoFactorService(db)
+    return await service.regenerate_backup_codes(user_id, data.code)

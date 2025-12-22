@@ -81,6 +81,8 @@ orjson==3.11.4
 ormsgpack==1.12.0
 packaging==25.0
 passlib==1.7.4
+pyotp==2.9.0
+qrcode==7.4.2
 pathspec==0.12.1
 pillow==11.0.0
 platformdirs==4.5.0

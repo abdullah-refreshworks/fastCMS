@@ -2,6 +2,7 @@
 User model for authentication.
 """
 
+from typing import Optional
 from sqlalchemy import Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,6 +20,9 @@ class User(BaseModel):
     - email_visibility: Control email exposure in API
     - token_key: Used to invalidate all user sessions
     - name: Optional display name
+    - two_factor_enabled: Whether 2FA is enabled
+    - two_factor_secret: TOTP secret key (encrypted)
+    - two_factor_backup_codes: JSON array of backup codes
     """
 
     __tablename__ = "users"
@@ -73,9 +77,29 @@ class User(BaseModel):
         default="user",
     )
 
+    # Two-Factor Authentication (2FA/TOTP)
+    two_factor_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+
+    two_factor_secret: Mapped[Optional[str]] = mapped_column(
+        String(255),
+        nullable=True,
+        default=None,
+    )
+
+    # Backup codes stored as JSON array (hashed)
+    two_factor_backup_codes: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        default=None,
+    )
+
     def __repr__(self) -> str:
         """String representation."""
-        return f"<User(email={self.email}, role={self.role}, verified={self.verified})>"
+        return f"<User(email={self.email}, role={self.role}, verified={self.verified}, 2fa={self.two_factor_enabled})>"
 
 
 class RefreshToken(BaseModel):

@@ -46,6 +46,7 @@ class UserLogin(BaseModel):
 
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., description="User password")
+    two_factor_code: Optional[str] = Field(None, description="2FA code (if enabled)")
 
 
 class TokenResponse(BaseModel):
@@ -72,6 +73,7 @@ class UserResponse(BaseModel):
     name: Optional[str]
     avatar: Optional[str]
     role: str
+    two_factor_enabled: bool = False
     created: datetime
     updated: datetime
     message: Optional[str] = None
@@ -86,6 +88,7 @@ class AuthResponse(BaseModel):
     user: UserResponse
     token: TokenResponse
     message: Optional[str] = None
+    requires_2fa: bool = False  # True if 2FA is needed to complete login
 
 
 class PasswordResetRequest(BaseModel):
@@ -195,3 +198,47 @@ class UserAdminUpdate(BaseModel):
             raise ValueError("Password must contain at least one letter and one number")
 
         return v
+
+
+# ===== Two-Factor Authentication Schemas =====
+
+class TwoFactorSetupResponse(BaseModel):
+    """Response for 2FA setup initiation."""
+
+    secret: str = Field(..., description="TOTP secret key (base32)")
+    qr_code: str = Field(..., description="QR code as base64 data URL")
+    otpauth_url: str = Field(..., description="OTPAuth URL for manual entry")
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    """Request to verify/enable 2FA."""
+
+    code: str = Field(..., min_length=6, max_length=10, description="6-digit TOTP code")
+
+
+class TwoFactorEnableResponse(BaseModel):
+    """Response after enabling 2FA."""
+
+    enabled: bool = True
+    backup_codes: list[str] = Field(..., description="One-time backup codes")
+    message: str
+
+
+class TwoFactorDisableRequest(BaseModel):
+    """Request to disable 2FA."""
+
+    code: str = Field(..., description="TOTP code or backup code")
+
+
+class TwoFactorStatusResponse(BaseModel):
+    """2FA status response."""
+
+    enabled: bool
+    backup_codes_remaining: int = 0
+
+
+class TwoFactorBackupCodesResponse(BaseModel):
+    """Response with new backup codes."""
+
+    backup_codes: list[str]
+    message: str
