@@ -253,10 +253,11 @@ else:
     logger.warning(f"Static directory not found at {static_dir}, skipping static files mount")
 
 # Add custom middleware
-from app.core.middleware import LoggingMiddleware, ReadOnlyMiddleware
+from app.core.middleware import LoggingMiddleware, ReadOnlyMiddleware, SecurityHeadersMiddleware
 
 app.add_middleware(ReadOnlyMiddleware)
 app.add_middleware(LoggingMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Include API routers
 from app.admin import routes as admin_routes
