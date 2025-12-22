@@ -18,6 +18,7 @@ FastCMS is a headless CMS built with FastAPI and SQLite. It provides dynamic col
 - [Two-Factor Authentication](two-factor-auth.md) - TOTP-based 2FA with backup codes
 - [Email Verification & Password Reset](email-verification.md) - Email workflows
 - [OAuth Authentication](oauth.md) - Social login with Google, GitHub, Microsoft
+- [API Keys](api-keys.md) - Service-to-service authentication
 - [Access Control Rules](access-control.md) - Controlling who can access what
 - [CSV Import/Export](csv-import-export.md) - Bulk data import and export
 - [Bulk Operations](bulk-operations.md) - Update and delete multiple records

@@ -261,7 +261,7 @@ app.add_middleware(LoggingMiddleware)
 # Include API routers
 from app.admin import routes as admin_routes
 from app.api.v1 import (
-    admin, auth, auth_collections, backup, backups, batch, collections, files,
+    admin, api_keys, auth, auth_collections, backup, backups, batch, collections, files,
     health, logs, oauth, oauth_providers, realtime, records, search,
     settings as settings_router, setup, views, webhooks
 )
@@ -270,6 +270,7 @@ from fastapi.responses import RedirectResponse
 app.include_router(health.router, tags=["Health"])
 app.include_router(setup.router, prefix="/api/v1/setup", tags=["Setup"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(api_keys.router, prefix="/api/v1/api-keys", tags=["API Keys"])
 app.include_router(auth_collections.router, prefix="/api/v1/collections", tags=["Auth Collections"])
 app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["OAuth"])
 app.include_router(oauth_providers.router, prefix="/api/v1/oauth/providers", tags=["OAuth Providers"])

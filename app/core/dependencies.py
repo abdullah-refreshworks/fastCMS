@@ -2,7 +2,7 @@
 FastAPI dependencies for dependency injection.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from fastapi import Cookie, Depends, Header, HTTPException, Request, status
@@ -19,31 +19,40 @@ class UserContext:
 
     user_id: str
     role: str = "user"
+    auth_type: str = "jwt"  # "jwt" or "api_key"
+    api_key_id: Optional[str] = None
+    api_key_scopes: Optional[str] = None
 
 
 async def get_current_user(
+    request: Request,
     authorization: Optional[str] = Header(None),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     access_token: Optional[str] = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[UserContext]:
     """
-    Get current authenticated user context from JWT token.
-    Checks both Authorization header and access_token cookie.
+    Get current authenticated user context from JWT token or API key.
+    Checks: X-API-Key header, Authorization header, access_token cookie.
 
     Args:
+        request: FastAPI request object
         authorization: Authorization header with Bearer token
+        x_api_key: X-API-Key header for API key auth
         access_token: JWT token from cookie
         db: Database session
 
     Returns:
         UserContext with user_id and role, or None if not authenticated
-
-    Raises:
-        UnauthorizedException: If token is invalid
     """
+    # Check API Key first (for service-to-service auth)
+    if x_api_key:
+        return await _validate_api_key(x_api_key, request, db)
+
+    # Check JWT token
     token = None
 
-    # Check Authorization header first
+    # Check Authorization header
     if authorization:
         try:
             scheme, token = authorization.split()
@@ -81,9 +90,57 @@ async def get_current_user(
         if not user:
             raise UnauthorizedException("User not found")
 
-        return UserContext(user_id=user_id, role=user.role)
+        return UserContext(user_id=user_id, role=user.role, auth_type="jwt")
 
     except (ValueError, UnauthorizedException):
+        return None
+
+
+async def _validate_api_key(
+    api_key: str,
+    request: Request,
+    db: AsyncSession,
+) -> Optional[UserContext]:
+    """
+    Validate an API key and return UserContext.
+
+    Args:
+        api_key: The API key string
+        request: FastAPI request object
+        db: Database session
+
+    Returns:
+        UserContext if valid, None otherwise
+    """
+    try:
+        from app.services.api_key_service import APIKeyService
+        from app.db.repositories.user import UserRepository
+
+        service = APIKeyService(db)
+        ip_address = (
+            request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+            or request.headers.get("x-real-ip")
+            or (request.client.host if request.client else None)
+        )
+
+        result = await service.validate_key(api_key, ip_address)
+
+        # Get user role
+        user_repo = UserRepository(db)
+        user = await user_repo.get_by_id(result["user_id"])
+
+        if not user:
+            return None
+
+        return UserContext(
+            user_id=result["user_id"],
+            role=user.role,
+            auth_type="api_key",
+            api_key_id=result["key_id"],
+            api_key_scopes=result["scopes"],
+        )
+
+    except Exception:
         return None
 
 
