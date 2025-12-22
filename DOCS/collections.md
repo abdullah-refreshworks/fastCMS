@@ -100,8 +100,16 @@ curl -X POST http://localhost:8000/api/v1/collections \
   }'
 ```
 
+## Collections vs Records
+
+| Concept | Description | API Endpoint |
+|---------|-------------|--------------|
+| **Collection** | The schema/structure (like a table definition) | `/api/v1/collections` |
+| **Record** | The data entries within a collection (rows) | `/api/v1/collections/{name}/records` |
+
 ## Next Steps
 
+- [Working with Records](records.md) - CRUD operations for data
 - [Learn about Field Types](field-types.md)
 - [Set up Access Control](access-control.md)
 - [Use the API](api-reference.md)

@@ -10,6 +10,7 @@ FastCMS is a headless CMS built with FastAPI and SQLite. It provides dynamic col
 
 ### Core Concepts
 - [Collections](collections.md) - Understanding collection types (Base, Auth, View)
+- [Records](records.md) - CRUD operations, filtering, sorting, and pagination
 - [Field Types](field-types.md) - Available field types and validation
 
 ### Features
