@@ -545,213 +545,109 @@ GET /records?expand=author.company.ceo
 
 ## Real-time Subscriptions
 
-FastCMS supports real-time updates via Server-Sent Events (SSE) and WebSockets.
-
-### SSE Endpoints
-
-#### Subscribe to All Events
-
-```http
-GET /api/v1/realtime
-```
-
-Receives all record AND collection events.
-
-#### Subscribe to Collection Events
-
-```http
-GET /api/v1/realtime/{collection_name}
-```
-
-Receives events only for the specified collection.
-
-#### Subscribe to Single Record
-
-```http
-GET /api/v1/realtime/{collection_name}/{record_id}
-```
-
-Receives events only for a specific record.
-
-**Query Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `user_id` | string | Optional user ID for presence tracking |
-| `query` | string | Optional filter (e.g., `status=published`) |
+FastCMS provides a scalable real-time system using WebSockets with a Pub/Sub backend. It supports:
+- Redis for multi-server horizontal scaling
+- In-memory mode for single-server deployments
+- Filtered subscriptions (live queries)
+- Server heartbeats and automatic stale connection cleanup
 
 ### WebSocket Endpoint
 
 ```
+ws://localhost:8000/api/v1/ws/realtime
 ws://localhost:8000/api/v1/ws/realtime?token=YOUR_JWT
 ```
 
-**Client Messages:**
+### Quick Start
 
-```json
-// Subscribe to collection
-{"action": "subscribe", "collection": "posts", "filter": {"published": true}}
+```javascript
+const ws = new WebSocket('ws://localhost:8000/api/v1/ws/realtime?token=YOUR_JWT');
 
-// Unsubscribe
-{"action": "unsubscribe", "collection": "posts"}
+ws.onopen = () => {
+  // Subscribe to a collection
+  ws.send(JSON.stringify({ action: 'subscribe', collection: 'posts' }));
+};
 
-// Authentication
-{"action": "auth", "token": "YOUR_JWT"}
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
 
-// Heartbeat
-{"action": "ping"}
+  // Respond to server heartbeats
+  if (message.type === 'ping') {
+    ws.send(JSON.stringify({ action: 'pong' }));
+    return;
+  }
+
+  // Handle events
+  if (message.type === 'event') {
+    console.log('Event:', message.data);
+  }
+};
 ```
 
-**Server Messages:**
+### Client Messages
 
-```json
-// Event notification
-{"type": "event", "data": {...}, "timestamp": "..."}
+| Action | Description | Example |
+|--------|-------------|---------|
+| `subscribe` | Subscribe to collection events | `{"action": "subscribe", "collection": "posts"}` |
+| `subscribe` | Subscribe with filter | `{"action": "subscribe", "collection": "posts", "filter": {"published": true}}` |
+| `subscribe` | Subscribe to all events | `{"action": "subscribe", "collection": "*"}` |
+| `unsubscribe` | Unsubscribe from collection | `{"action": "unsubscribe", "collection": "posts"}` |
+| `auth` | Authenticate connection | `{"action": "auth", "token": "YOUR_JWT"}` |
+| `pong` | Respond to server ping | `{"action": "pong"}` |
 
-// Subscription confirmed
-{"type": "subscribed", "data": {"collection": "posts"}}
+### Server Messages
 
-// Pong response
-{"type": "pong", "data": {}}
-```
+| Type | Description | Payload Example |
+|------|-------------|-----------------|
+| `connected` | Connection established | `{"connection_id": "...", "server_time": "..."}` |
+| `authenticated` | Auth successful | `{"user_id": "...", "email": "..."}` |
+| `subscribed` | Subscription confirmed | `{"collection": "posts", "filter": {...}}` |
+| `unsubscribed` | Unsubscription confirmed | `{"collection": "posts"}` |
+| `event` | Data change event | `{"type": "record.created", "collection": "posts", "data": {...}}` |
+| `ping` | Server heartbeat (respond with pong) | `{"timestamp": "..."}` |
+| `error` | Error occurred | `{"message": "Description"}` |
 
 ### Event Types
 
-| Event | Description |
-|-------|-------------|
-| `record.created` | New record created in a collection |
-| `record.updated` | Record updated |
-| `record.deleted` | Record deleted |
+| Event | When Triggered |
+|-------|----------------|
+| `record.created` | New record inserted |
+| `record.updated` | Record modified |
+| `record.deleted` | Record removed |
 | `collection.created` | New collection created |
-| `collection.updated` | Collection schema/rules updated |
-| `collection.deleted` | Collection deleted |
-| `user.joined` | User connected to realtime |
+| `collection.updated` | Collection schema changed |
+| `collection.deleted` | Collection removed |
+| `user.joined` | User authenticated to WebSocket |
 | `user.left` | User disconnected |
-| `presence.update` | User presence changed |
 
-### JavaScript Example
-
-```javascript
-// Subscribe to all events (records + collections)
-const eventSource = new EventSource('/api/v1/realtime');
-
-// Record events
-eventSource.addEventListener('record.created', (e) => {
-    console.log('New record:', JSON.parse(e.data));
-});
-
-eventSource.addEventListener('record.updated', (e) => {
-    console.log('Record updated:', JSON.parse(e.data));
-});
-
-// Collection events
-eventSource.addEventListener('collection.created', (e) => {
-    console.log('New collection:', JSON.parse(e.data));
-});
-
-eventSource.addEventListener('collection.updated', (e) => {
-    console.log('Collection updated:', JSON.parse(e.data));
-});
-
-eventSource.addEventListener('collection.deleted', (e) => {
-    console.log('Collection deleted:', JSON.parse(e.data));
-});
-
-// Subscribe to specific collection
-const postsEvents = new EventSource('/api/v1/realtime/posts');
-
-// Subscribe to specific record
-const recordEvents = new EventSource('/api/v1/realtime/posts/abc123');
-```
+For complete examples with React, Vue, and vanilla JavaScript, see [Real-time Documentation](realtime.md).
 
 ---
 
-## Presence API
+## Realtime Stats
 
-Track online users and who is viewing what.
-
-### Get All Online Users
-
-```http
-GET /api/v1/presence
-```
-
-**Response:**
-```json
-{
-  "users": [
-    {
-      "user_id": "user123",
-      "user_name": "John Doe",
-      "last_seen": "2025-12-05T10:30:00Z",
-      "connections": 2
-    }
-  ],
-  "total": 1
-}
-```
-
-### Get User Presence
-
-```http
-GET /api/v1/presence/{user_id}
-```
-
-**Response (online):**
-```json
-{
-  "online": true,
-  "user_id": "user123",
-  "user_name": "John Doe",
-  "last_seen": "2025-12-05T10:30:00Z",
-  "connections": 2
-}
-```
-
-**Response (offline):**
-```json
-{
-  "online": false,
-  "user_id": "user123"
-}
-```
-
-### Get Collection Viewers
-
-```http
-GET /api/v1/presence/collection/{collection_name}
-```
-
-**Response:**
-```json
-{
-  "collection": "posts",
-  "subscriber_count": 5,
-  "users": [
-    {"user_id": "user123", "user_name": "John", "last_seen": "..."}
-  ]
-}
-```
-
-### Realtime Stats
+Get real-time connection statistics for the current server instance.
 
 ```http
 GET /api/v1/stats
 ```
+
+**Note:** In multi-server deployments, this returns stats only for the instance handling the request.
 
 **Response:**
 ```json
 {
   "total_connections": 10,
   "authenticated_connections": 8,
-  "collection_subscribers": {
-    "posts": 5,
-    "users": 3
-  },
-  "global_subscribers": 2,
-  "unique_users": 6
+  "unique_users": 6,
+  "pubsub_backend": "redis",
+  "subscriptions": {
+    "connection-id-1": ["posts", "comments"],
+    "connection-id-2": ["*"]
+  }
 }
 ```
+
 
 ---
 

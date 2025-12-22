@@ -42,10 +42,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from app.services.backup_service import BackupService
     restore_performed = BackupService.perform_restore_on_startup()
     if restore_performed:
-        logger.info("✅ Database restored from backup successfully")
+        logger.info("Database restored from backup successfully")
 
     # Initialize database
     await init_db()
+
+    # Initialize Pub/Sub system
+    from app.core.pubsub import pubsub_manager
+    await pubsub_manager.initialize()
+    logger.info(f"Pub/Sub initialized (backend: {pubsub_manager.backend_type})")
+
+    # Start WebSocket connection manager
+    from app.core.websocket_manager import connection_manager
+    await connection_manager.start()
 
     logger.info(f"{settings.APP_NAME} started successfully")
 
@@ -53,6 +62,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Shutdown
     logger.info(f"Shutting down {settings.APP_NAME}")
+
+    # Stop WebSocket connection manager
+    await connection_manager.stop()
+
+    # Shutdown Pub/Sub
+    await pubsub_manager.shutdown()
 
     await close_db()
     logger.info("Shutdown complete")

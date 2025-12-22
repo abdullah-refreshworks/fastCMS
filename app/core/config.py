@@ -131,9 +131,9 @@ class Settings(BaseSettings):
     QDRANT_URL: str = ""
     QDRANT_API_KEY: str = ""
 
-    # Redis (optional)
+    # Redis for Caching, Rate Limiting, and Real-time Pub/Sub
     REDIS_URL: str = "redis://localhost:6379/0"
-    REDIS_ENABLED: bool = False
+    REDIS_ENABLED: bool = True
 
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True
